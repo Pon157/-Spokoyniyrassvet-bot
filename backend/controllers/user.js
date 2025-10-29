@@ -2,7 +2,6 @@ const express = require('express');
 const User = require('../models/User');
 const Chat = require('../models/Chat');
 const Review = require('../models/Review');
-const { requireRole } = require('../middleware');
 
 const router = express.Router();
 
