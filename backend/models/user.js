@@ -62,11 +62,6 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  blockedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  blockReason: String,
   lastSeen: {
     type: Date,
     default: Date.now
