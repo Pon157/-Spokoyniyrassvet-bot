@@ -31,8 +31,15 @@ class AuthManager {
         });
 
         // Выбор темы
-        document.getElementById('themeSelect').addEventListener('change', (e) => {
-            this.changeTheme(e.target.value);
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                this.changeTheme(e.target.dataset.theme);
+            });
+        });
+
+        // Кнопка переключения темы
+        document.getElementById('themeToggle').addEventListener('click', (e) => {
+            e.stopPropagation();
         });
     }
 
@@ -49,16 +56,20 @@ class AuthManager {
     }
 
     async login() {
-        const email = document.getElementById('loginEmail').value;
+        const username = document.getElementById('loginUsername').value.trim();
         const password = document.getElementById('loginPassword').value;
+
+        if (!username || !password) {
+            this.showMessage('Заполните все поля', 'error');
+            return;
+        }
 
         try {
             const response = await fetch('/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ username, password }),
             });
 
             const data = await response.json();
@@ -66,7 +77,7 @@ class AuthManager {
             if (response.ok) {
                 this.handleAuthSuccess(data);
             } else {
-                this.showMessage(data.error, 'error');
+                this.showMessage(data.error || 'Ошибка входа', 'error');
             }
         } catch (error) {
             this.showMessage('Ошибка соединения с сервером', 'error');
@@ -74,10 +85,25 @@ class AuthManager {
     }
 
     async register() {
-        const username = document.getElementById('regUsername').value;
-        const email = document.getElementById('regEmail').value;
+        const username = document.getElementById('regUsername').value.trim();
         const password = document.getElementById('regPassword').value;
         const role = document.getElementById('regRole').value;
+        const bio = document.getElementById('regBio').value.trim();
+
+        if (!username || !password) {
+            this.showMessage('Заполните обязательные поля', 'error');
+            return;
+        }
+
+        if (username.length < 3 || username.length > 20) {
+            this.showMessage('Имя пользователя должно быть от 3 до 20 символов', 'error');
+            return;
+        }
+
+        if (password.length < 6) {
+            this.showMessage('Пароль должен быть не менее 6 символов', 'error');
+            return;
+        }
 
         try {
             const response = await fetch('/auth/register', {
@@ -85,7 +111,7 @@ class AuthManager {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username, email, password, role }),
+                body: JSON.stringify({ username, password, role, bio }),
             });
 
             const data = await response.json();
@@ -93,7 +119,7 @@ class AuthManager {
             if (response.ok) {
                 this.handleAuthSuccess(data);
             } else {
-                this.showMessage(data.error, 'error');
+                this.showMessage(data.error || 'Ошибка регистрации', 'error');
             }
         } catch (error) {
             this.showMessage('Ошибка соединения с сервером', 'error');
@@ -142,7 +168,6 @@ class AuthManager {
 
     loadTheme() {
         const savedTheme = localStorage.getItem('theme') || 'light';
-        document.getElementById('themeSelect').value = savedTheme;
         this.changeTheme(savedTheme);
     }
 
@@ -161,4 +186,12 @@ class AuthManager {
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     new AuthManager();
+});
+
+// Закрытие dropdown при клике вне его
+document.addEventListener('click', () => {
+    const dropdown = document.getElementById('themeDropdown');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
 });
