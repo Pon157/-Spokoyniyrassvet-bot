@@ -1,5 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 
@@ -8,31 +7,44 @@ const router = express.Router();
 // Регистрация
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role = 'user' } = req.body;
+    const { username, password, role = 'user', bio = '' } = req.body;
     
-    // Проверка существующего пользователя
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
-    });
-    
-    if (existingUser) {
+    // Валидация
+    if (!username || !password) {
       return res.status(400).json({ 
-        error: 'Пользователь с таким email или именем уже существует' 
+        error: 'Имя пользователя и пароль обязательны' 
       });
     }
 
-    // Хеширование пароля
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (username.length < 3 || username.length > 20) {
+      return res.status(400).json({ 
+        error: 'Имя пользователя должно быть от 3 до 20 символов' 
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        error: 'Пароль должен быть не менее 6 символов' 
+      });
+    }
+
+    // Проверка существующего пользователя
+    const existingUser = await User.findOne({ username });
+    
+    if (existingUser) {
+      return res.status(400).json({ 
+        error: 'Пользователь с таким именем уже существует' 
+      });
+    }
 
     // Создание пользователя
     const user = new User({
       username,
-      email,
-      password: hashedPassword,
-      role: ['user', 'listener'].includes(role) ? role : 'user', // Только user и listener могут регистрироваться
-      avatar: '',
-      theme: 'light',
-      isActive: true
+      password,
+      role: ['user', 'listener'].includes(role) ? role : 'user',
+      bio,
+      isOnline: true,
+      lastSeen: new Date()
     });
 
     await user.save();
@@ -41,7 +53,7 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, role: user.role },
       process.env.JWT_SECRET || 'fallback-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.status(201).json({
@@ -49,10 +61,12 @@ router.post('/register', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email,
         role: user.role,
         avatar: user.avatar,
-        theme: user.theme
+        theme: user.theme,
+        bio: user.bio,
+        rating: user.rating,
+        isOnline: user.isOnline
       }
     });
   } catch (error) {
@@ -61,15 +75,19 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Вход
+// Вход по имени пользователя
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Имя пользователя и пароль обязательны' });
+    }
 
     // Поиск пользователя
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ username });
     if (!user) {
-      return res.status(400).json({ error: 'Неверный email или пароль' });
+      return res.status(400).json({ error: 'Неверное имя пользователя или пароль' });
     }
 
     if (user.isBlocked) {
@@ -77,12 +95,13 @@ router.post('/login', async (req, res) => {
     }
 
     // Проверка пароля
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.correctPassword(password, user.password);
     if (!isPasswordValid) {
-      return res.status(400).json({ error: 'Неверный email или пароль' });
+      return res.status(400).json({ error: 'Неверное имя пользователя или пароль' });
     }
 
-    // Обновление lastSeen
+    // Обновление статуса
+    user.isOnline = true;
     user.lastSeen = new Date();
     await user.save();
 
@@ -90,7 +109,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, role: user.role },
       process.env.JWT_SECRET || 'fallback-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.json({
@@ -98,10 +117,12 @@ router.post('/login', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email,
         role: user.role,
         avatar: user.avatar,
-        theme: user.theme
+        theme: user.theme,
+        bio: user.bio,
+        rating: user.rating,
+        isOnline: user.isOnline
       }
     });
   } catch (error) {
