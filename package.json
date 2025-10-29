@@ -20,7 +20,12 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1"
   },
-  "keywords": ["chat", "socket.io", "express"],
+  "keywords": [
+    "chat",
+    "socket.io",
+    "express",
+    "mongodb"
+  ],
   "author": "Developer",
   "license": "MIT"
 }
