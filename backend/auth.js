@@ -5,16 +5,29 @@ const User = require('./models/User');
 
 const router = express.Router();
 
-// Регистрация
+// Регистрация - только пользователь
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password } = req.body;
     
-    console.log('Registration attempt:', { username, email, role });
+    console.log('Registration attempt:', { username, email });
+
+    // Валидация
+    if (!username || !email || !password) {
+      return res.status(400).json({ 
+        error: 'Все поля обязательны для заполнения' 
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        error: 'Пароль должен быть не менее 6 символов' 
+      });
+    }
 
     // Проверка существующего пользователя
     const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
+      $or: [{ email: email.toLowerCase() }, { username: username.toLowerCase() }] 
     });
     
     if (existingUser) {
@@ -24,27 +37,28 @@ router.post('/register', async (req, res) => {
     }
 
     // Хеширование пароля
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Создание пользователя
+    // Создание пользователя - ТОЛЬКО с ролью user
     const user = new User({
-      username,
-      email,
+      username: username.toLowerCase(),
+      email: email.toLowerCase(),
       password: hashedPassword,
-      role: role || 'user',
-      avatar: '',
+      role: 'user', // Все новые пользователи только как user
+      avatar: '/images/default-avatar.png',
       theme: 'light',
       isActive: true,
-      isBlocked: false
+      isOnline: true,
+      lastSeen: new Date()
     });
 
     await user.save();
 
-    // Создание JWT токена
+    // JWT токен
     const token = jwt.sign(
       { userId: user._id, role: user.role },
       process.env.JWT_SECRET || 'fallback-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.status(201).json({
@@ -55,12 +69,13 @@ router.post('/register', async (req, res) => {
         email: user.email,
         role: user.role,
         avatar: user.avatar,
-        theme: user.theme
+        theme: user.theme,
+        isOnline: user.isOnline
       }
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Ошибка сервера при регистрации' });
+    res.status(500).json({ error: 'Ошибка при создании аккаунта' });
   }
 });
 
@@ -69,10 +84,14 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log('Login attempt for email:', email);
+    console.log('Login attempt:', email);
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email и пароль обязательны' });
+    }
 
     // Поиск пользователя
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(400).json({ error: 'Неверный email или пароль' });
     }
@@ -87,15 +106,16 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Неверный email или пароль' });
     }
 
-    // Обновление lastSeen
+    // Обновление статуса
+    user.isOnline = true;
     user.lastSeen = new Date();
     await user.save();
 
-    // Создание JWT токена
+    // JWT токен
     const token = jwt.sign(
       { userId: user._id, role: user.role },
       process.env.JWT_SECRET || 'fallback-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.json({
@@ -106,12 +126,13 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role,
         avatar: user.avatar,
-        theme: user.theme
+        theme: user.theme,
+        isOnline: user.isOnline
       }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Ошибка сервера при входе' });
+    res.status(500).json({ error: 'Ошибка при входе в систему' });
   }
 });
 
