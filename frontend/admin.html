@@ -3,138 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель администратора</title>
+    <title>Панель администратора - Чат Система</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
 </head>
 <body>
-    <div class="admin-container">
-        <div class="admin-header">
-            <h1>Панель администратора</h1>
-            <div class="admin-actions">
-                <button id="backToChat" class="btn btn-secondary">← К чату</button>
-                <button id="refreshData" class="btn btn-primary">Обновить</button>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="container">
+                <h1 class="logo">🛠️ Панель администратора</h1>
+                <div class="header-actions">
+                    <div class="theme-selector">
+                        <button class="btn btn-icon" id="themeToggle">🎨</button>
+                        <div class="theme-dropdown" id="themeDropdown">
+                            <div class="theme-option" data-theme="light">🌞 Светлая</div>
+                            <div class="theme-option" data-theme="dark">🌙 Темная</div>
+                            <div class="theme-option" data-theme="blue">🔵 Синяя</div>
+                            <div class="theme-option" data-theme="green">🟢 Зеленая</div>
+                            <div class="theme-option" data-theme="purple">🟣 Фиолетовая</div>
+                            <div class="theme-option" data-theme="orange">🟠 Оранжевая</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="window.location.href='/chat'">💬 К чату</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='/settings'">⚙️ Настройки</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="admin-main">
+            <div class="container">
+                <!-- Статистика -->
+                <section class="stats-section">
+                    <h2>📊 Статистика системы</h2>
+                    <div class="stats-grid" id="statsGrid">
+                        <div class="stat-card">
+                            <div class="stat-icon">👥</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="totalUsers">0</div>
+                                <div class="stat-label">Всего пользователей</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">👂</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="totalListeners">0</div>
+                                <div class="stat-label">Слушателей</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">💬</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="totalChats">0</div>
+                                <div class="stat-label">Активных чатов</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📨</div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="totalMessages">0</div>
+                                <div class="stat-label">Сообщений</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Управление пользователями -->
+                <section class="management-section">
+                    <div class="section-header">
+                        <h2>👥 Управление пользователями</h2>
+                        <button class="btn btn-primary" id="refreshUsers">🔄 Обновить</button>
+                    </div>
+                    
+                    <div class="search-box">
+                        <input type="text" id="userSearch" placeholder="Поиск пользователей...">
+                    </div>
+                    
+                    <div class="table-container">
+                        <table class="users-table">
+                            <thead>
+                                <tr>
+                                    <th>Пользователь</th>
+                                    <th>Роль</th>
+                                    <th>Статус</th>
+                                    <th>Активность</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Просмотр чатов -->
+                <section class="chats-section">
+                    <div class="section-header">
+                        <h2>💬 Все чаты системы</h2>
+                        <button class="btn btn-primary" id="refreshChats">🔄 Обновить</button>
+                    </div>
+                    
+                    <div class="chats-grid" id="allChatsGrid"></div>
+                </section>
+
+                <!-- Быстрые действия -->
+                <section class="actions-section">
+                    <h2>⚡ Быстрые действия</h2>
+                    <div class="actions-grid">
+                        <button class="action-btn" data-action="join-chat">
+                            <span class="action-icon">💬</span>
+                            <span>Войти в чат помощи</span>
+                        </button>
+                        <button class="action-btn" data-action="send-notification">
+                            <span class="action-icon">📢</span>
+                            <span>Отправить уведомление</span>
+                        </button>
+                        <button class="action-btn" data-action="view-logs">
+                            <span class="action-icon">📋</span>
+                            <span>Просмотр логов</span>
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальные окна -->
+    <div id="userActionsModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Действия с пользователем</h3>
+            <div class="user-info-card" id="modalUserInfo"></div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-warning" data-action="warn">⚠️ Предупреждение</button>
+                <button class="btn btn-secondary" data-action="mute">🔇 Мут</button>
+                <button class="btn btn-danger" data-action="block">🚫 Блокировка</button>
+                <button class="btn btn-info" data-action="view-chats">👁️ Просмотр чатов</button>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="closeModal">Закрыть</button>
             </div>
         </div>
+    </div>
 
-        <div class="admin-content">
-            <!-- Статистика -->
-            <div class="stats-section">
-                <h3>Статистика системы</h3>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <h4>Всего пользователей</h4>
-                        <span id="totalUsers">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h4>Слушателей</h4>
-                        <span id="totalListeners">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h4>Администраторов</h4>
-                        <span id="totalAdmins">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h4>Всего чатов</h4>
-                        <span id="totalChats">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h4>Сообщений</h4>
-                        <span id="totalMessages">0</span>
-                    </div>
-                    <div class="stat-card">
-                        <h4>Активных чатов</h4>
-                        <span id="activeChats">0</span>
-                    </div>
+    <div id="actionReasonModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="actionTitle"></h3>
+            <form id="actionForm">
+                <div class="form-group">
+                    <label for="actionReason">Причина:</label>
+                    <textarea id="actionReason" rows="3" required placeholder="Укажите причину действия..."></textarea>
                 </div>
-            </div>
+                <div id="muteDurationGroup" class="form-group hidden">
+                    <label for="muteDuration">Длительность (минуты):</label>
+                    <input type="number" id="muteDuration" value="60" min="1" max="10080">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelAction">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Применить</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-            <!-- Пользователи -->
-            <div class="section">
-                <h3>Управление пользователями</h3>
-                <div class="table-container">
-                    <table class="users-table">
-                        <thead>
-                            <tr>
-                                <th>Имя</th>
-                                <th>Email</th>
-                                <th>Роль</th>
-                                <th>Статус</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody id="usersTableBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Чаты -->
-            <div class="section">
-                <h3>Все чаты</h3>
-                <div class="table-container">
-                    <table class="chats-table">
-                        <thead>
-                            <tr>
-                                <th>Участники</th>
-                                <th>Статус</th>
-                                <th>Обновлен</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody id="chatsTableBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Модальные окна -->
-            <div id="userActionsModal" class="modal hidden">
-                <div class="modal-content">
-                    <h3>Действия с пользователем</h3>
-                    <div class="user-info" id="modalUserInfo"></div>
-                    
-                    <div class="action-buttons">
-                        <button class="btn btn-warning" data-action="warn">Предупреждение</button>
-                        <button class="btn btn-secondary" data-action="mute">Мут</button>
-                        <button class="btn btn-danger" data-action="block">Блокировка</button>
-                        <button class="btn btn-primary" data-action="viewChats">Просмотр чатов</button>
-                    </div>
-                    
-                    <div class="modal-actions">
-                        <button class="btn btn-secondary" id="closeModal">Закрыть</button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="actionReasonModal" class="modal hidden">
-                <div class="modal-content">
-                    <h3 id="actionTitle"></h3>
-                    <form id="actionForm">
-                        <div class="form-group">
-                            <label for="actionReason">Причина:</label>
-                            <textarea id="actionReason" rows="3" required></textarea>
-                        </div>
-                        <div id="muteDurationGroup" class="form-group hidden">
-                            <label for="muteDuration">Длительность (минуты):</label>
-                            <input type="number" id="muteDuration" value="60" min="1">
-                        </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-secondary" id="cancelAction">Отмена</button>
-                            <button type="submit" class="btn btn-primary">Применить</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div id="chatMessagesModal" class="modal hidden">
-                <div class="modal-content large">
-                    <h3>Сообщения чата</h3>
-                    <div class="messages-list" id="modalMessagesList"></div>
-                    <div class="modal-actions">
-                        <button class="btn btn-secondary" id="closeMessagesModal">Закрыть</button>
-                    </div>
-                </div>
+    <div id="chatMessagesModal" class="modal hidden">
+        <div class="modal-content large">
+            <h3>Сообщения чата</h3>
+            <div class="messages-list-admin" id="modalMessagesList"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="closeMessagesModal">Закрыть</button>
             </div>
         </div>
     </div>
