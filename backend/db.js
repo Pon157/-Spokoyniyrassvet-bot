@@ -1,16 +1,16 @@
 const mongoose = require('mongoose');
 
-mongoose.connect(process.env.DB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.DB_URI || 'mongodb://localhost:27017/chat-system', {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error('Database connection error:', error);
+    process.exit(1);
+  }
+};
 
-const db = mongoose.connection;
-
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
-db.once('open', () => {
-  console.log('Connected to MongoDB');
-});
-
-module.exports = db;
-
+module.exports = connectDB;
