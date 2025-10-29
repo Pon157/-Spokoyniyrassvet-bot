@@ -1,83 +1,58 @@
 const express = require('express');
 const User = require('../models/User');
 const Chat = require('../models/Chat');
-const Message = require('../models/Message');
-const authMiddleware = require('../middleware');
+const Review = require('../models/Review');
+const { requireRole } = require('../middleware');
 
 const router = express.Router();
 
-// Получить список диалогов пользователя
-router.get('/chats', authMiddleware(['user', 'listener', 'admin', 'coowner', 'owner']), async (req, res) => {
+// Получение слушателей
+router.get('/listeners', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const listeners = await User.find({ 
+      role: 'listener', 
+      isActive: true,
+      isBlocked: false 
+    }).select('username avatar lastSeen');
     
-    // Найти все чаты, где пользователь — участник
-    const chats = await Chat.aggregate([
-      { $match: { users: userId } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'users',
-          foreignField: '_id',
-          as: 'participants'
-        }
-      },
-      {
-        $addFields: {
-          participant: {
-            $arrayElemAt: [
-              { $filter: { input: '$participants', as: 'p', cond: { $ne: ['$$p._id', userId] } } },
-              0
-            ]
-          }
-        }
-      },
-      {
-        $lookup: {
-          from: 'messages',
-          let: { chatUsers: '$users' },
-          pipeline: [
-            { $match: { $expr: { $and: [
-              { $in: ['$from', '$$chatUsers'] },
-              { $in: ['$to', '$$chatUsers'] }
-            ] } } },
-            { $sort: { sentAt: -1 } },
-            { $limit: 1 }
-          ],
-          as: 'lastMessage'
-        }
-      },
-      {
-        $addFields: {
-          lastMessage: { $arrayElemAt: ['$lastMessage', 0] }
-        }
-      }
-    ]);
-
-    res.json(chats);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json(listeners);
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка получения слушателей' });
   }
 });
 
-// Получить сообщения чата
-router.get('/chats/:userId/messages', authMiddleware(['user', 'listener', 'admin', 'coowner', 'owner']), async (req, res) => {
+// Создание отзыва
+router.post('/review', async (req, res) => {
   try {
-    const currentUserId = req.user.id;
-    const targetUserId = req.params.userId;
+    const { listenerId, chatId, rating, comment } = req.body;
+    
+    const review = new Review({
+      listenerId,
+      userId: req.user._id,
+      chatId,
+      rating,
+      comment
+    });
+    
+    await review.save();
+    res.json({ message: 'Отзыв успешно оставлен' });
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка создания отзыва' });
+  }
+});
 
-    const messages = await Message.find({
-      $or: [
-        { from: currentUserId, to: targetUserId },
-        { from: targetUserId, to: currentUserId }
-      ]
-    }).sort({ sentAt: 1 });
-
-    res.json(messages);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+// Получение чатов пользователя
+router.get('/chats', async (req, res) => {
+  try {
+    const chats = await Chat.find({
+      participants: req.user._id,
+      status: 'active'
+    }).populate('participants', 'username avatar role');
+    
+    res.json(chats);
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка получения чатов' });
   }
 });
 
 module.exports = router;
-
