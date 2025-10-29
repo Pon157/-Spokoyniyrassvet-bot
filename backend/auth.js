@@ -8,7 +8,7 @@ const router = express.Router();
 // Регистрация
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password, role = 'user' } = req.body;
     
     // Проверка существующего пользователя
     const existingUser = await User.findOne({ 
@@ -29,13 +29,10 @@ router.post('/register', async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      role: role || 'user',
+      role: ['user', 'listener'].includes(role) ? role : 'user', // Только user и listener могут регистрироваться
       avatar: '',
       theme: 'light',
-      isActive: true,
-      warnings: [],
-      mutes: [],
-      isBlocked: false
+      isActive: true
     });
 
     await user.save();
@@ -43,7 +40,7 @@ router.post('/register', async (req, res) => {
     // Создание JWT токена
     const token = jwt.sign(
       { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET || 'fallback-secret-key',
       { expiresIn: '24h' }
     );
 
@@ -59,6 +56,7 @@ router.post('/register', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ error: 'Ошибка сервера при регистрации' });
   }
 });
@@ -84,10 +82,14 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Неверный email или пароль' });
     }
 
+    // Обновление lastSeen
+    user.lastSeen = new Date();
+    await user.save();
+
     // Создание JWT токена
     const token = jwt.sign(
       { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET || 'fallback-secret-key',
       { expiresIn: '24h' }
     );
 
@@ -103,6 +105,7 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Ошибка сервера при входе' });
   }
 });
