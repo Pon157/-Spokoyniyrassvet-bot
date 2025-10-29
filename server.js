@@ -7,6 +7,8 @@ require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Настройка CORS
 const io = socketIo(server, {
   cors: {
     origin: "*",
@@ -14,12 +16,32 @@ const io = socketIo(server, {
   }
 });
 
+// Подключение к БД с обработкой ошибок
+const connectDB = require('./backend/db');
+connectDB();
+
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Статические файлы
 app.use(express.static(path.join(__dirname, 'frontend')));
 
-// Простые маршруты для тестирования
+// Маршруты
+app.use('/auth', require('./backend/auth'));
+
+// API маршруты с обработкой ошибок
+app.use('/api/user', require('./backend/middleware').authenticateToken, require('./backend/controllers/user'));
+app.use('/api/listener', require('./backend/middleware').authenticateToken, require('./backend/controllers/listener'));
+app.use('/api/admin', require('./backend/middleware').authenticateToken, require('./backend/controllers/admin'));
+app.use('/api/coowner', require('./backend/middleware').authenticateToken, require('./backend/controllers/coowner'));
+app.use('/api/owner', require('./backend/middleware').authenticateToken, require('./backend/controllers/owner'));
+
+// WebSocket
+require('./backend/sockets')(io);
+
+// Статические маршруты
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/index.html'));
 });
@@ -36,7 +58,15 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/admin.html'));
 });
 
-// Health check endpoint (ОБЯЗАТЕЛЬНО для Render)
+app.get('/coowner', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/coowner.html'));
+});
+
+app.get('/owner', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/owner.html'));
+});
+
+// Health check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -45,85 +75,18 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Простой WebSocket для тестирования
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-  
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
-  
-  socket.on('chat-message', (data) => {
-    io.emit('chat-message', data);
-  });
+// Обработка 404
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Маршрут не найден' });
+});
+
+// Обработка ошибок
+app.use((error, req, res, next) => {
+  console.error('Server error:', error);
+  res.status(500).json({ error: 'Внутренняя ошибка сервера' });
 });
 
 const PORT = process.env.PORT || 3000;
-
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-});
-
-// ВРЕМЕННЫЙ МАРШРУТ - УДАЛИТЬ ПОСЛЕ СОЗДАНИЯ ПОЛЬЗОВАТЕЛЕЙ
-app.post('/setup-test-users', async (req, res) => {
-  try {
-    const bcrypt = require('bcryptjs');
-    const User = require('./backend/models/User');
-    
-    // Очистка старых тестовых пользователей
-    await User.deleteMany({ 
-      username: { $in: ['user1', 'listener1', 'admin1', 'coowner1', 'owner1'] } 
-    });
-    
-    const testUsers = [
-      {
-        username: 'user1',
-        password: await bcrypt.hash('password123', 12),
-        role: 'user',
-        bio: 'Обычный пользователь системы'
-      },
-      {
-        username: 'listener1', 
-        password: await bcrypt.hash('password123', 12),
-        role: 'listener',
-        bio: 'Профессиональный слушатель с опытом'
-      },
-      {
-        username: 'listener2',
-        password: await bcrypt.hash('password123', 12), 
-        role: 'listener',
-        bio: 'Готов выслушать и помочь'
-      },
-      {
-        username: 'admin1',
-        password: await bcrypt.hash('password123', 12),
-        role: 'admin',
-        bio: 'Администратор системы'
-      },
-      {
-        username: 'coowner1',
-        password: await bcrypt.hash('password123', 12),
-        role: 'coowner', 
-        bio: 'Совладелец платформы'
-      },
-      {
-        username: 'owner1',
-        password: await bcrypt.hash('password123', 12),
-        role: 'owner',
-        bio: 'Владелец системы'
-      }
-    ];
-    
-    await User.insertMany(testUsers);
-    
-    res.json({ 
-      success: true, 
-      message: 'Тестовые пользователи созданы',
-      users: testUsers.map(u => ({ username: u.username, password: 'password123', role: u.role }))
-    });
-    
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  console.log(`✅ Server running on port ${PORT}`);
 });
