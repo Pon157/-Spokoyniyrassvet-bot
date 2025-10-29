@@ -1,1 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Вход в чат</title>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/light-theme.css" id="theme-link">
+</head>
+<body>
+  <div class="auth-container">
+    <h1>Чат-система</h1>
+    
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('login')">Вход</button>
+      <button class="tab-btn" onclick="showTab('register')">Регистрация</button>
+    </div>
+
+    <div id="login-tab" class="tab-content">
+      <form id="login-form">
+        <input type="text" name="username" placeholder="Логин" required>
+        <input type="password" name="password" placeholder="Пароль" required>
+        <button type="submit">Войти</button>
+      </form>
+    </div>
+
+    <div id="register-tab" class="tab-content" style="display:none">
+      <form id="register-form">
+        <input type="text" name="username" placeholder="Логин" required>
+        <input type="password" name="password" placeholder="Пароль" required>
+        <select name="role">
+          <option value="user">Пользователь</option>
+          <option value="listener">Слушатель</option>
+        </select>
+        <button type="submit">Зарегистрироваться</button>
+      </form>
+    </div>
+
+    <div id="theme-switch">
+      <label>
+        <input type="checkbox" id="theme-toggle"> Тёмная тема
+      </label>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
 
