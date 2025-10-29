@@ -48,7 +48,7 @@ app.use('/api/owner', authenticateToken, require('./backend/controllers/owner'))
 // WebSocket
 require('./backend/sockets')(io);
 
-// Статические маршруты
+// Статические маршруты 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/index.html'));
 });
