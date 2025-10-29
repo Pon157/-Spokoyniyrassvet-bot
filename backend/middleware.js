@@ -1,21 +1,41 @@
 const jwt = require('jsonwebtoken');
+const User = require('./models/User');
 
-function authMiddleware(allowedRoles) {
+// Проверка JWT токена
+const authenticateToken = async (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Токен доступа отсутствует' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const user = await User.findById(decoded.userId);
+    
+    if (!user || user.isBlocked) {
+      return res.status(403).json({ error: 'Пользователь не найден или заблокирован' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: 'Недействительный токен' });
+  }
+};
+
+// Проверка ролей
+const requireRole = (roles) => {
   return (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-
-
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if (err) return res.status(401).json({ error: 'Invalid token' });
-      if (!allowedRoles.includes(decoded.role)) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
-      }
-      req.user = decoded;
-      next();
-    });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Недостаточно прав' });
+    }
+    next();
   };
-}
+};
 
-module.exports = authMiddleware;
-
+module.exports = {
+  authenticateToken,
+  requireRole
+};
