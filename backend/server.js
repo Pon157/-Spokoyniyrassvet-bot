@@ -1,45 +1,76 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const mongoose = require('mongoose');
 const cors = require('cors');
-const dotenv = require('dotenv');
+const path = require('path');
+require('dotenv').config();
 
-dotenv.config();
+const connectDB = require('./db');
+const authRoutes = require('./auth');
+const userController = require('./controllers/user');
+const listenerController = require('./controllers/listener');
+const adminController = require('./controllers/admin');
+const coownerController = require('./controllers/coowner');
+const ownerController = require('./controllers/owner');
+const setupSockets = require('./sockets');
+const { authenticateToken } = require('./middleware');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 
+// Подключение к БД
+connectDB();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../frontend')));
 
-mongoose.connect(process.env.DB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
+// Маршруты аутентификации
+app.use('/auth', authRoutes);
+
+// API маршруты
+app.use('/api/user', authenticateToken, userController);
+app.use('/api/listener', authenticateToken, listenerController);
+app.use('/api/admin', authenticateToken, adminController);
+app.use('/api/coowner', authenticateToken, coownerController);
+app.use('/api/owner', authenticateToken, ownerController);
+
+// Статические файлы
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Маршрутизация
-const authRoutes = require('./auth');
-const userRoutes = require('./controllers/user');
-const listenerRoutes = require('./controllers/listener');
-const adminRoutes = require('./controllers/admin');
-const coownerRoutes = require('./controllers/coowner');
-const ownerRoutes = require('./controllers/owner');
+app.get('/chat', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/chat.html'));
+});
 
-app.use('/api/auth', authRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/listener', listenerRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/coowner', coownerRoutes);
-app.use('/api/owner', ownerRoutes);
+app.get('/settings', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/settings.html'));
+});
 
-require('./sockets')(io);
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/admin.html'));
+});
+
+app.get('/coowner', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/coowner.html'));
+});
+
+app.get('/owner', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/owner.html'));
+});
+
+// Настройка WebSocket
+setupSockets(io);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
