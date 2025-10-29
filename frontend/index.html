@@ -14,7 +14,7 @@
                 <h1 class="logo">💬 ЧатСистема</h1>
                 <div class="theme-selector">
                     <button class="btn btn-icon" id="themeToggle">🎨</button>
-                    <div class="theme-dropdown" id="themeDropdown">
+                    <div class="theme-dropdown" id="themeDropdown" style="display: none;">
                         <div class="theme-option" data-theme="light">🌞 Светлая</div>
                         <div class="theme-option" data-theme="dark">🌙 Темная</div>
                         <div class="theme-option" data-theme="blue">🔵 Синяя</div>
@@ -29,7 +29,6 @@
         <main class="auth-page">
             <div class="container">
                 <div class="auth-grid">
-                    <!-- Левая часть - приветствие -->
                     <div class="auth-welcome">
                         <h2>Добро пожаловать в Чат Систему</h2>
                         <p>Общайтесь, находите поддержку и помогайте другим в нашей безопасной среде</p>
@@ -53,9 +52,7 @@
                         </div>
                     </div>
 
-                    <!-- Правая часть - формы -->
                     <div class="auth-card">
-                        <!-- Табы -->
                         <div class="auth-tabs">
                             <button class="tab-btn active" data-tab="login">Вход</button>
                             <button class="tab-btn" data-tab="register">Регистрация</button>
@@ -64,8 +61,8 @@
                         <!-- Форма входа -->
                         <form id="loginForm" class="auth-form active">
                             <div class="form-group">
-                                <label for="loginUsername">Имя пользователя</label>
-                                <input type="text" id="loginUsername" required placeholder="Введите ваше имя пользователя">
+                                <label for="loginEmail">Email</label>
+                                <input type="email" id="loginEmail" required placeholder="Введите ваш email">
                             </div>
                             <div class="form-group">
                                 <label for="loginPassword">Пароль</label>
@@ -79,35 +76,33 @@
                             <div class="form-group">
                                 <label for="regUsername">Имя пользователя</label>
                                 <input type="text" id="regUsername" required placeholder="Придумайте имя пользователя">
-                                <small class="form-hint">От 3 до 20 символов</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="regEmail">Email</label>
+                                <input type="email" id="regEmail" required placeholder="Введите ваш email">
                             </div>
                             <div class="form-group">
                                 <label for="regPassword">Пароль</label>
-                                <input type="password" id="regPassword" required placeholder="Не менее 6 символов">
+                                <input type="password" id="regPassword" required placeholder="Придумайте пароль">
                             </div>
                             <div class="form-group">
                                 <label for="regRole">Роль</label>
                                 <select id="regRole">
-                                    <option value="user">👤 Пользователь</option>
-                                    <option value="listener">👂 Слушатель</option>
+                                    <option value="user">Пользователь</option>
+                                    <option value="listener">Слушатель</option>
                                 </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="regBio">О себе (необязательно)</label>
-                                <textarea id="regBio" placeholder="Расскажите немного о себе..." rows="3"></textarea>
                             </div>
                             <button type="submit" class="btn btn-primary btn-full">Создать аккаунт</button>
                         </form>
 
                         <div class="auth-footer">
-                            <p class="auth-note">Вход осуществляется по имени пользователя</p>
+                            <p class="auth-note">Для входа используйте email и пароль</p>
                         </div>
                     </div>
                 </div>
             </div>
         </main>
 
-        <!-- Сообщения об ошибках/успехе -->
         <div id="message" class="message"></div>
     </div>
 
