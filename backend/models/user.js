@@ -56,14 +56,12 @@ const userSchema = new mongoose.Schema({
     }
 });
 
-// Хеширование пароля перед сохранением
 userSchema.pre('save', async function(next) {
     if (!this.isModified('password')) return next();
     this.password = await bcrypt.hash(this.password, 12);
     next();
 });
 
-// Метод проверки пароля
 userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
     return await bcrypt.compare(candidatePassword, userPassword);
 };
