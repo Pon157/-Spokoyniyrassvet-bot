@@ -21,7 +21,7 @@ router.post('/register', async (req, res) => {
 
     if (password.length < 6) {
       return res.status(400).json({ 
-        error: 'Пароль должен быть не менее 6 символов' 
+        error: 'Пароль должен  быть не менее 6 символов' 
       });
     }
 
