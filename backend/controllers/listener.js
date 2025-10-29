@@ -1,5 +1,4 @@
 const express = require('express');
-const Chat = require('../models/Chat');
 const Review = require('../models/Review');
 const { requireRole } = require('../middleware');
 
@@ -18,20 +17,6 @@ router.get('/reviews', async (req, res) => {
     res.json(reviews);
   } catch (error) {
     res.status(500).json({ error: 'Ошибка получения отзывов' });
-  }
-});
-
-// Получение активных чатов слушателя
-router.get('/active-chats', async (req, res) => {
-  try {
-    const chats = await Chat.find({
-      participants: req.user._id,
-      status: 'active'
-    }).populate('participants', 'username avatar role');
-    
-    res.json(chats);
-  } catch (error) {
-    res.status(500).json({ error: 'Ошибка получения чатов' });
   }
 });
 
