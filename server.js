@@ -21,7 +21,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'frontend')));
 
-// Health check - ДОЛЖЕН БЫТЬ ПЕРВЫМ
+// Health check - дОЛЖЕН БЫТЬ ПЕРВЫМ
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
