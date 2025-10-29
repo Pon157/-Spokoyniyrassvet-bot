@@ -9,7 +9,6 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Настройки темы в шапке -->
         <header class="app-header">
             <div class="container">
                 <h1 class="logo">💬 ЧатСистема</h1>
@@ -62,11 +61,11 @@
                         <form id="loginForm" class="auth-form active">
                             <div class="form-group">
                                 <label for="loginUsername">Имя пользователя</label>
-                                <input type="text" id="loginUsername" required placeholder="Введите ваше имя">
+                                <input type="text" id="loginUsername" required placeholder="Введите ваше имя пользователя">
                             </div>
                             <div class="form-group">
                                 <label for="loginPassword">Пароль</label>
-                                <input type="password" id="loginPassword" required placeholder="Введите пароль">
+                                <input type="password" id="loginPassword" required placeholder="Введите ваш пароль">
                             </div>
                             <button type="submit" class="btn btn-primary btn-full">Войти в систему</button>
                         </form>
@@ -74,8 +73,8 @@
                         <form id="registerForm" class="auth-form">
                             <div class="form-group">
                                 <label for="regUsername">Имя пользователя</label>
-                                <input type="text" id="regUsername" required placeholder="Придумайте имя">
-                                <small>От 3 до 20 символов</small>
+                                <input type="text" id="regUsername" required placeholder="Придумайте имя пользователя">
+                                <small class="form-hint">От 3 до 20 символов</small>
                             </div>
                             <div class="form-group">
                                 <label for="regPassword">Пароль</label>
@@ -90,13 +89,13 @@
                             </div>
                             <div class="form-group">
                                 <label for="regBio">О себе (необязательно)</label>
-                                <textarea id="regBio" placeholder="Расскажите немного о себе..."></textarea>
+                                <textarea id="regBio" placeholder="Расскажите немного о себе..." rows="3"></textarea>
                             </div>
                             <button type="submit" class="btn btn-primary btn-full">Создать аккаунт</button>
                         </form>
 
                         <div class="auth-footer">
-                            <p>Вход осуществляется только по имени пользователя</p>
+                            <p class="auth-note">Вход осуществляется по имени пользователя</p>
                         </div>
                     </div>
                 </div>
