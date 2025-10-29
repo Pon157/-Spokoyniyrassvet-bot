@@ -90,3 +90,49 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
+// ВРЕМЕННО - создание тестовых пользователей
+app.post('/setup-demo', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const User = require('./backend/models/User');
+    
+    const users = [
+      {
+        username: 'user',
+        email: 'user@test.com',
+        password: await bcrypt.hash('password123', 12),
+        role: 'user'
+      },
+      {
+        username: 'listener',
+        email: 'listener@test.com', 
+        password: await bcrypt.hash('password123', 12),
+        role: 'listener'
+      },
+      {
+        username: 'admin',
+        email: 'admin@test.com',
+        password: await bcrypt.hash('password123', 12),
+        role: 'admin'
+      },
+      {
+        username: 'owner',
+        email: 'owner@test.com',
+        password: await bcrypt.hash('password123', 12),
+        role: 'owner'
+      }
+    ];
+
+    await User.deleteMany({});
+    await User.insertMany(users);
+
+    res.json({ 
+      success: true, 
+      message: 'Демо пользователи созданы',
+      users: users.map(u => ({ email: u.email, password: 'password123', role: u.role }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
