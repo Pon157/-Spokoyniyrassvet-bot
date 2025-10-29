@@ -124,7 +124,7 @@ app.post('/setup-demo', async (req, res) => {
 
 // Обработка 404
 app.use('*', (req, res) => {
-    res.status(404).json({ error: 'Маршрут не найден' });
+    res.status(404).json({ error: 'Маршрут не  найден' });
 });
 
 // Обработка ошибок
