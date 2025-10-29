@@ -1,12 +1,29 @@
 const mongoose = require('mongoose');
 
-const ChatSchema = new mongoose.Schema({
-  users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }],
-  createdAt: { type: Date, default: Date.now }
+const chatSchema = new mongoose.Schema({
+  participants: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }],
+  status: {
+    type: String,
+    enum: ['active', 'closed', 'archived'],
+    default: 'active'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-// Индексы для оптимизации запросов
-ChatSchema.index({ users: 1 });
+chatSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
 
-module.exports = mongoose.model('Chat', ChatSchema);
-
+module.exports = mongoose.model('Chat', chatSchema);
