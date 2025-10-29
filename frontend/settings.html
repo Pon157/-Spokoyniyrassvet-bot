@@ -1,1 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки - Чат Система</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
+</head>
+<body>
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1>Настройки профиля</h1>
+            <button id="backToChat" class="btn btn-secondary">← Назад к чату</button>
+        </div>
 
+        <div class="settings-content">
+            <div class="settings-section">
+                <h3>Профиль</h3>
+                <form id="profileForm">
+                    <div class="avatar-upload">
+                        <img id="currentAvatar" src="" alt="Avatar" class="avatar-large">
+                        <input type="file" id="avatarInput" accept="image/*">
+                        <button type="button" id="uploadAvatarBtn" class="btn btn-secondary">Изменить аватар</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="usernameInput">Имя пользователя</label>
+                        <input type="text" id="usernameInput" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="emailInput">Email</label>
+                        <input type="email" id="emailInput" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                </form>
+            </div>
+
+            <div class="settings-section">
+                <h3>Безопасность</h3>
+                <form id="passwordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Текущий пароль</label>
+                        <input type="password" id="currentPassword" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newPassword">Новый пароль</label>
+                        <input type="password" id="newPassword" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirmPassword">Подтвердите новый пароль</label>
+                        <input type="password" id="confirmPassword" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Изменить пароль</button>
+                </form>
+            </div>
+
+            <div class="settings-section">
+                <h3>Внешний вид</h3>
+                <div class="form-group">
+                    <label for="themeSelectSettings">Тема</label>
+                    <select id="themeSelectSettings">
+                        <option value="light">Светлая</option>
+                        <option value="dark">Темная</option>
+                        <option value="blue">Синяя</option>
+                        <option value="green">Зеленая</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-section" id="adminSettings" style="display: none;">
+                <h3>Административные настройки</h3>
+                <div class="admin-links">
+                    <button id="goToAdminPanel" class="btn btn-primary">Панель администратора</button>
+                    <button id="goToCoownerPanel" class="btn btn-primary" style="display: none;">Панель совладельца</button>
+                    <button id="goToOwnerPanel" class="btn btn-primary" style="display: none;">Панель владельца</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <script src="js/settings.js"></script>
+</body>
+</html>
