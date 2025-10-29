@@ -2,30 +2,23 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.DB_URI, {
+    // Для Render используем MongoDB Atlas или предоставленную строку подключения
+    const dbUri = process.env.DB_URI || 'mongodb://localhost:27017/chat-system';
+    
+    const conn = await mongoose.connect(dbUri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
     
     console.log(`MongoDB Connected: ${conn.connection.host}`);
-    console.log(`Database: ${conn.connection.name}`);
   } catch (error) {
     console.error('Database connection error:', error.message);
     
-    // Для Render - выходим с ошибкой чтобы перезапустился
+    // В production выходим с ошибкой
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
   }
 };
-
-// Обработка событий подключения
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('MongoDB connection error:', err);
-});
 
 module.exports = connectDB;
