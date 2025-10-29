@@ -29,6 +29,7 @@
         <main class="auth-page">
             <div class="container">
                 <div class="auth-grid">
+                    <!-- Левая часть - приветствие -->
                     <div class="auth-welcome">
                         <h2>Добро пожаловать в Чат Систему</h2>
                         <p>Общайтесь, находите поддержку и помогайте другим в нашей безопасной среде</p>
@@ -52,12 +53,15 @@
                         </div>
                     </div>
 
+                    <!-- Правая часть - формы -->
                     <div class="auth-card">
+                        <!-- Табы -->
                         <div class="auth-tabs">
                             <button class="tab-btn active" data-tab="login">Вход</button>
                             <button class="tab-btn" data-tab="register">Регистрация</button>
                         </div>
 
+                        <!-- Форма входа -->
                         <form id="loginForm" class="auth-form active">
                             <div class="form-group">
                                 <label for="loginUsername">Имя пользователя</label>
@@ -70,6 +74,7 @@
                             <button type="submit" class="btn btn-primary btn-full">Войти в систему</button>
                         </form>
 
+                        <!-- Форма регистрации -->
                         <form id="registerForm" class="auth-form">
                             <div class="form-group">
                                 <label for="regUsername">Имя пользователя</label>
@@ -102,6 +107,7 @@
             </div>
         </main>
 
+        <!-- Сообщения об ошибках/успехе -->
         <div id="message" class="message"></div>
     </div>
 
