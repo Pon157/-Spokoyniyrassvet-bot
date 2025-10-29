@@ -64,3 +64,66 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 });
+
+// ВРЕМЕННЫЙ МАРШРУТ - УДАЛИТЬ ПОСЛЕ СОЗДАНИЯ ПОЛЬЗОВАТЕЛЕЙ
+app.post('/setup-test-users', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const User = require('./backend/models/User');
+    
+    // Очистка старых тестовых пользователей
+    await User.deleteMany({ 
+      username: { $in: ['user1', 'listener1', 'admin1', 'coowner1', 'owner1'] } 
+    });
+    
+    const testUsers = [
+      {
+        username: 'user1',
+        password: await bcrypt.hash('password123', 12),
+        role: 'user',
+        bio: 'Обычный пользователь системы'
+      },
+      {
+        username: 'listener1', 
+        password: await bcrypt.hash('password123', 12),
+        role: 'listener',
+        bio: 'Профессиональный слушатель с опытом'
+      },
+      {
+        username: 'listener2',
+        password: await bcrypt.hash('password123', 12), 
+        role: 'listener',
+        bio: 'Готов выслушать и помочь'
+      },
+      {
+        username: 'admin1',
+        password: await bcrypt.hash('password123', 12),
+        role: 'admin',
+        bio: 'Администратор системы'
+      },
+      {
+        username: 'coowner1',
+        password: await bcrypt.hash('password123', 12),
+        role: 'coowner', 
+        bio: 'Совладелец платформы'
+      },
+      {
+        username: 'owner1',
+        password: await bcrypt.hash('password123', 12),
+        role: 'owner',
+        bio: 'Владелец системы'
+      }
+    ];
+    
+    await User.insertMany(testUsers);
+    
+    res.json({ 
+      success: true, 
+      message: 'Тестовые пользователи созданы',
+      users: testUsers.map(u => ({ username: u.username, password: 'password123', role: u.role }))
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
