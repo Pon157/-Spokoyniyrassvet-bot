@@ -1,48 +1,110 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const User = require('./models/User');
 
 const router = express.Router();
 
+// Регистрация
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, email, password, role } = req.body;
+    
+    // Проверка существующего пользователя
+    const existingUser = await User.findOne({ 
+      $or: [{ email }, { username }] 
+    });
+    
+    if (existingUser) {
+      return res.status(400).json({ 
+        error: 'Пользователь с таким email или именем уже существует' 
+      });
+    }
+
+    // Хеширование пароля
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, password: hashedPassword, role });
+
+    // Создание пользователя
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role: role || 'user',
+      avatar: '',
+      theme: 'light',
+      isActive: true,
+      warnings: [],
+      mutes: [],
+      isBlocked: false
+    });
+
     await user.save();
-    res.status(201).json({ message: 'User created' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    // Создание JWT токена
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        theme: user.theme
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера при регистрации' });
   }
 });
 
+// Вход
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const user = await User.findOne({ username });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { email, password } = req.body;
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ error: 'Invalid password' });
+    // Поиск пользователя
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ error: 'Неверный email или пароль' });
+    }
 
+    if (user.isBlocked) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован' });
+    }
+
+    // Проверка пароля
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ error: 'Неверный email или пароль' });
+    }
+
+    // Создание JWT токена
     const token = jwt.sign(
-      { id: user._id, role: user.role }, 
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
     );
 
-    res.json({ token, user: {
-      id: user._id,
-      username: user.username,
-      role: user.role,
-      avatar: user.avatar,
-      theme: user.theme
-    }});
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        theme: user.theme
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера при входе' });
   }
 });
 
 module.exports = router;
-
