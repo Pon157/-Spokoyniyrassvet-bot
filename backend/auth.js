@@ -29,7 +29,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Проверка существующего пользователя
-    const existingUser = await User.findOne({ username });
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
     
     if (existingUser) {
       return res.status(400).json({ 
@@ -39,10 +39,10 @@ router.post('/register', async (req, res) => {
 
     // Создание пользователя
     const user = new User({
-      username,
-      password,
+      username: username.toLowerCase(),
+      password: password,
       role: ['user', 'listener'].includes(role) ? role : 'user',
-      bio,
+      bio: bio,
       isOnline: true,
       lastSeen: new Date()
     });
@@ -85,7 +85,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Поиск пользователя
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username: username.toLowerCase() });
     if (!user) {
       return res.status(400).json({ error: 'Неверное имя пользователя или пароль' });
     }
