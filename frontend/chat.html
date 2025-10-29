@@ -1,50 +1,116 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Чат</title>
-  <link rel="stylesheet" href="css/common.css">
-  <link rel="stylesheet" href="css/light-theme.css" id="theme-link">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат Система</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
 </head>
 <body>
-  <div class="chat-container">
-    <aside class="sidebar">
-      <div class="user-profile">
-        <img id="avatar" src="/images/default-avatar.png" alt="Аватар">
-        <span id="username"></span>
-      </div>
-      
-      <div class="chats-list" id="chats-list">
-        <!-- Динамически заполняемый список диалогов -->
-      </div>
-    </aside>
+    <div class="chat-container">
+        <!-- Сайдбар -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Чат Система</h2>
+                <div class="user-info">
+                    <img id="userAvatar" src="" alt="Avatar" class="avatar">
+                    <span id="userName"></span>
+                    <div class="user-role" id="userRole"></div>
+                </div>
+            </div>
 
-    <main class="chat-area">
-      <div class="messages" id="messages">
-        <!-- Динамически заполняемые сообщения -->
-      </div>
-      
-      <div class="input-area">
-        <input type="file" id="media-input" accept="image/*,video/*,audio/*" style="display:none">
-        <button onclick="document.getElementById('media-input').click()">🖼️</button>
-        <input type="text" id="message-input" placeholder="Введите сообщение...">
-        <button id="send-btn">Отправить</button>
-      </div>
-    </main>
+            <div class="sidebar-content">
+                <!-- Для пользователей -->
+                <div id="userSection" class="section hidden">
+                    <h3>Слушатели</h3>
+                    <div id="listenersList" class="list"></div>
+                </div>
 
-    <aside class="sticker-panel">
-      <h3>Стикеры</h3>
-      <div id="stickers">
-        <img src="/images/sticker1.png" onclick="sendSticker('/images/sticker1.png')">
-        <img src="/images/sticker2.png" onclick="sendSticker('/images/sticker2.png')">
-      </div>
-      <input type="text" placeholder="Добавить стикер по ссылке" id="sticker-url">
-      <button onclick="addSticker()">Добавить</button>
-    </aside>
-  </div>
+                <!-- Для слушателей -->
+                <div id="listenerSection" class="section hidden">
+                    <h3>Активные чаты</h3>
+                    <div id="activeChats" class="list"></div>
+                    
+                    <h3>Мои отзывы</h3>
+                    <div id="reviewsList" class="list"></div>
+                </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="js/app.js"></script>
+                <!-- Общие элементы -->
+                <div class="section">
+                    <h3>Мои чаты</h3>
+                    <div id="chatsList" class="list"></div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button id="settingsBtn" class="btn btn-secondary">Настройки</button>
+                <button id="logoutBtn" class="btn btn-danger">Выйти</button>
+            </div>
+        </div>
+
+        <!-- Основная область чата -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <h3 id="chatWith"></h3>
+                <div class="chat-actions">
+                    <button id="leaveChatBtn" class="btn btn-secondary hidden">Покинуть чат</button>
+                    <button id="addReviewBtn" class="btn btn-primary hidden">Оставить отзыв</button>
+                </div>
+            </div>
+
+            <div class="messages-container">
+                <div id="messagesList" class="messages-list"></div>
+            </div>
+
+            <div class="message-input-container">
+                <div class="input-actions">
+                    <button id="mediaBtn" class="btn btn-icon" title="Медиа">
+                        📎
+                    </button>
+                    <button id="stickerBtn" class="btn btn-icon" title="Стикеры">
+                        😊
+                    </button>
+                </div>
+                <input type="text" id="messageInput" placeholder="Введите сообщение..." disabled>
+                <button id="sendBtn" class="btn btn-primary" disabled>Отправить</button>
+                
+                <input type="file" id="mediaInput" accept="image/*,video/*,audio/*" style="display: none;">
+                <input type="file" id="stickerInput" accept="image/*" style="display: none;">
+            </div>
+        </div>
+
+        <!-- Модальные окна -->
+        <div id="reviewModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Оставить отзыв</h3>
+                <form id="reviewForm">
+                    <div class="form-group">
+                        <label>Оценка:</label>
+                        <div class="rating-stars">
+                            <span class="star" data-rating="1">★</span>
+                            <span class="star" data-rating="2">★</span>
+                            <span class="star" data-rating="3">★</span>
+                            <span class="star" data-rating="4">★</span>
+                            <span class="star" data-rating="5">★</span>
+                        </div>
+                        <input type="hidden" id="reviewRating" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="reviewComment">Комментарий:</label>
+                        <textarea id="reviewComment" rows="4"></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelReview">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Отправить отзыв</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/socket-client.js"></script>
 </body>
 </html>
-
