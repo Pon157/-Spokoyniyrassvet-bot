@@ -1,1 +1,12 @@
+:root {
+  --bg-color: #121212;
+  --card-bg: #1e1e1e;
+  --text-color: #e0e0e0;
+  --border-color: #444444;
+  --primary-color: #43a047;
+  --btn-bg: #333333;
+  --btn-text: #e0e0e0;
+  --message-sent-bg: #43a047;
+  --message-received-bg: #333333;
+}
 
