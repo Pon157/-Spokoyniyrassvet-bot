@@ -3,104 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat System - Вход</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: Arial, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .auth-container {
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            width: 100%;
-            max-width: 400px;
-        }
-        h1 { text-align: center; margin-bottom: 30px; color: #333; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input, select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        button:hover { background: #0056b3; }
-        .message {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 5px;
-            text-align: center;
-        }
-        .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
-    </style>
+    <title>Чат Система - Вход</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
 </head>
 <body>
-    <div class="auth-container">
-        <h1>Чат Система</h1>
-        <form id="loginForm">
-            <div class="form-group">
-                <label>Email:</label>
-                <input type="email" id="email" required>
+    <div class="app-container">
+        <!-- Настройки темы в шапке -->
+        <header class="app-header">
+            <div class="container">
+                <h1 class="logo">💬 ЧатСистема</h1>
+                <div class="theme-selector">
+                    <button class="btn btn-icon" id="themeToggle">🎨</button>
+                    <div class="theme-dropdown" id="themeDropdown">
+                        <div class="theme-option" data-theme="light">🌞 Светлая</div>
+                        <div class="theme-option" data-theme="dark">🌙 Темная</div>
+                        <div class="theme-option" data-theme="blue">🔵 Синяя</div>
+                        <div class="theme-option" data-theme="green">🟢 Зеленая</div>
+                        <div class="theme-option" data-theme="purple">🟣 Фиолетовая</div>
+                        <div class="theme-option" data-theme="orange">🟠 Оранжевая</div>
+                    </div>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Пароль:</label>
-                <input type="password" id="password" required>
+        </header>
+
+        <main class="auth-page">
+            <div class="container">
+                <div class="auth-grid">
+                    <div class="auth-welcome">
+                        <h2>Добро пожаловать в Чат Систему</h2>
+                        <p>Общайтесь, находите поддержку и помогайте другим в нашей безопасной среде</p>
+                        <div class="features-list">
+                            <div class="feature">
+                                <span class="feature-icon">👥</span>
+                                <span>Пять уровней доступа</span>
+                            </div>
+                            <div class="feature">
+                                <span class="feature-icon">🎨</span>
+                                <span>Персонализируемые темы</span>
+                            </div>
+                            <div class="feature">
+                                <span class="feature-icon">⭐</span>
+                                <span>Система отзывов</span>
+                            </div>
+                            <div class="feature">
+                                <span class="feature-icon">🔒</span>
+                                <span>Безопасное общение</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="auth-card">
+                        <div class="auth-tabs">
+                            <button class="tab-btn active" data-tab="login">Вход</button>
+                            <button class="tab-btn" data-tab="register">Регистрация</button>
+                        </div>
+
+                        <form id="loginForm" class="auth-form active">
+                            <div class="form-group">
+                                <label for="loginUsername">Имя пользователя</label>
+                                <input type="text" id="loginUsername" required placeholder="Введите ваше имя">
+                            </div>
+                            <div class="form-group">
+                                <label for="loginPassword">Пароль</label>
+                                <input type="password" id="loginPassword" required placeholder="Введите пароль">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Войти в систему</button>
+                        </form>
+
+                        <form id="registerForm" class="auth-form">
+                            <div class="form-group">
+                                <label for="regUsername">Имя пользователя</label>
+                                <input type="text" id="regUsername" required placeholder="Придумайте имя">
+                                <small>От 3 до 20 символов</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="regPassword">Пароль</label>
+                                <input type="password" id="regPassword" required placeholder="Не менее 6 символов">
+                            </div>
+                            <div class="form-group">
+                                <label for="regRole">Роль</label>
+                                <select id="regRole">
+                                    <option value="user">👤 Пользователь</option>
+                                    <option value="listener">👂 Слушатель</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="regBio">О себе (необязательно)</label>
+                                <textarea id="regBio" placeholder="Расскажите немного о себе..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">Создать аккаунт</button>
+                        </form>
+
+                        <div class="auth-footer">
+                            <p>Вход осуществляется только по имени пользователя</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <button type="submit">Войти</button>
-        </form>
+        </main>
+
         <div id="message" class="message"></div>
     </div>
 
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            try {
-                // Простая имитация входа для тестирования
-                localStorage.setItem('user', JSON.stringify({
-                    username: email.split('@')[0],
-                    email: email,
-                    role: 'user'
-                }));
-                
-                showMessage('Успешный вход! Перенаправление...', 'success');
-                
-                setTimeout(() => {
-                    window.location.href = '/chat';
-                }, 1000);
-                
-            } catch (error) {
-                showMessage('Ошибка входа', 'error');
-            }
-        });
-
-        function showMessage(text, type) {
-            const messageEl = document.getElementById('message');
-            messageEl.textContent = text;
-            messageEl.className = `message ${type}`;
-        }
-    </script>
+    <script src="js/auth.js"></script>
 </body>
 </html>
