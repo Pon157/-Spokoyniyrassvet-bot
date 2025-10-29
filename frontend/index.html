@@ -12,15 +12,15 @@
         <header class="app-header">
             <div class="container">
                 <h1 class="logo">💬 ЧатСистема</h1>
-                <div class="theme-selector">
-                    <button class="btn btn-icon" id="themeToggle">🎨</button>
-                    <div class="theme-dropdown" id="themeDropdown" style="display: none;">
-                        <div class="theme-option" data-theme="light">🌞 Светлая</div>
-                        <div class="theme-option" data-theme="dark">🌙 Темная</div>
-                        <div class="theme-option" data-theme="blue">🔵 Синяя</div>
-                        <div class="theme-option" data-theme="green">🟢 Зеленая</div>
-                        <div class="theme-option" data-theme="purple">🟣 Фиолетовая</div>
-                        <div class="theme-option" data-theme="orange">🟠 Оранжевая</div>
+                <div class="header-actions">
+                    <div class="theme-selector">
+                        <button class="btn btn-icon" id="themeToggle">🎨</button>
+                        <div class="theme-dropdown" id="themeDropdown">
+                            <div class="theme-option" data-theme="light">🌞 Светлая</div>
+                            <div class="theme-option" data-theme="dark">🌙 Тёмная</div>
+                            <div class="theme-option" data-theme="blue">🔵 Синяя</div>
+                            <div class="theme-option" data-theme="green">🟢 Зелёная</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -28,75 +28,87 @@
 
         <main class="auth-page">
             <div class="container">
-                <div class="auth-grid">
-                    <div class="auth-welcome">
-                        <h2>Добро пожаловать в Чат Систему</h2>
-                        <p>Общайтесь, находите поддержку и помогайте другим в нашей безопасной среде</p>
-                        <div class="features-list">
-                            <div class="feature">
-                                <span class="feature-icon">👥</span>
-                                <span>Пять уровней доступа</span>
+                <div class="auth-layout">
+                    <div class="auth-main">
+                        <div class="auth-card">
+                            <div class="auth-header">
+                                <h2>Добро пожаловать</h2>
+                                <p>Войдите в свою учётную запись</p>
                             </div>
-                            <div class="feature">
-                                <span class="feature-icon">🎨</span>
-                                <span>Персонализируемые темы</span>
+
+                            <div class="auth-tabs">
+                                <button class="tab-btn active" data-tab="login">Вход</button>
+                                <button class="tab-btn" data-tab="register">Регистрация</button>
                             </div>
-                            <div class="feature">
-                                <span class="feature-icon">⭐</span>
-                                <span>Система отзывов</span>
-                            </div>
-                            <div class="feature">
-                                <span class="feature-icon">🔒</span>
-                                <span>Безопасное общение</span>
+
+                            <form id="loginForm" class="auth-form active">
+                                <div class="form-group">
+                                    <label for="loginEmail">Email</label>
+                                    <input type="email" id="loginEmail" required placeholder="your@email.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="loginPassword">Пароль</label>
+                                    <input type="password" id="loginPassword" required placeholder="Ваш пароль">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-full">Войти в систему</button>
+                            </form>
+
+                            <form id="registerForm" class="auth-form">
+                                <div class="form-group">
+                                    <label for="regUsername">Имя пользователя</label>
+                                    <input type="text" id="regUsername" required placeholder="Придумайте имя">
+                                    <small class="form-hint">Будет видно другим пользователям</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="regEmail">Email</label>
+                                    <input type="email" id="regEmail" required placeholder="your@email.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="regPassword">Пароль</label>
+                                    <input type="password" id="regPassword" required placeholder="Не менее 6 символов">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-full">Создать аккаунт</button>
+                            </form>
+
+                            <div class="auth-info">
+                                <p>Все новые пользователи регистрируются с ролью "Пользователь"</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="auth-card">
-                        <div class="auth-tabs">
-                            <button class="tab-btn active" data-tab="login">Вход</button>
-                            <button class="tab-btn" data-tab="register">Регистрация</button>
-                        </div>
-
-                        <!-- Форма входа -->
-                        <form id="loginForm" class="auth-form active">
-                            <div class="form-group">
-                                <label for="loginEmail">Email</label>
-                                <input type="email" id="loginEmail" required placeholder="Введите ваш email">
+                    <div class="auth-sidebar">
+                        <div class="system-info">
+                            <h3>Система уровней доступа</h3>
+                            <div class="levels-list">
+                                <div class="level-item">
+                                    <span class="level-icon">👤</span>
+                                    <div class="level-info">
+                                        <strong>Пользователь</strong>
+                                        <span>Общение, отзывы</span>
+                                    </div>
+                                </div>
+                                <div class="level-item">
+                                    <span class="level-icon">👂</span>
+                                    <div class="level-info">
+                                        <strong>Слушатель</strong>
+                                        <span>Помощь пользователям</span>
+                                    </div>
+                                </div>
+                                <div class="level-item">
+                                    <span class="level-icon">🛠️</span>
+                                    <div class="level-info">
+                                        <strong>Администратор</strong>
+                                        <span>Управление системой</span>
+                                    </div>
+                                </div>
+                                <div class="level-item">
+                                    <span class="level-icon">👑</span>
+                                    <div class="level-info">
+                                        <strong>Владелец</strong>
+                                        <span>Полный контроль</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="loginPassword">Пароль</label>
-                                <input type="password" id="loginPassword" required placeholder="Введите ваш пароль">
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-full">Войти в систему</button>
-                        </form>
-
-                        <!-- Форма регистрации -->
-                        <form id="registerForm" class="auth-form">
-                            <div class="form-group">
-                                <label for="regUsername">Имя пользователя</label>
-                                <input type="text" id="regUsername" required placeholder="Придумайте имя пользователя">
-                            </div>
-                            <div class="form-group">
-                                <label for="regEmail">Email</label>
-                                <input type="email" id="regEmail" required placeholder="Введите ваш email">
-                            </div>
-                            <div class="form-group">
-                                <label for="regPassword">Пароль</label>
-                                <input type="password" id="regPassword" required placeholder="Придумайте пароль">
-                            </div>
-                            <div class="form-group">
-                                <label for="regRole">Роль</label>
-                                <select id="regRole">
-                                    <option value="user">Пользователь</option>
-                                    <option value="listener">Слушатель</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-full">Создать аккаунт</button>
-                        </form>
-
-                        <div class="auth-footer">
-                            <p class="auth-note">Для входа используйте email и пароль</p>
                         </div>
                     </div>
                 </div>
