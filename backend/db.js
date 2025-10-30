@@ -1,3 +1,8 @@
+console.log('🔧 Environment variables:', {
+  hasMONGODB_URI: !!process.env.MONGODB_URI,
+  hasDB_URI: !!process.env.DB_URI
+});
+
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
