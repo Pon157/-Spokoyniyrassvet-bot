@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
     try {
-        const conn = await mongoose.connect(process.env.DB_URI || 'mongodb://localhost:27017/chat-system', {
+        const conn = await mongoose.connect(process.env.MONGODB_URI || process.env.DB_URI || 'mongodb://localhost:27017/chat-system', {
             useNewUrlParser: true,
             useUnifiedTopology: true,
         });
