@@ -21,7 +21,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'frontend')));
 
-// Health check (ДОЛЖЕН БЫТЬ ПЕРВЫМ)
+// Health check
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
@@ -118,10 +118,7 @@ app.post('/setup-demo', async (req, res) => {
             }
         ];
 
-        // Удаляем старых пользователей
-        await supabase.from('users').delete().neq('id', '');
-
-        // Добавляем новых пользователей
+        // Добавляем пользователей
         const { data, error } = await supabase.from('users').insert(users);
 
         if (error) throw error;
@@ -146,16 +143,6 @@ app.use('*', (req, res) => {
         status: 'ERROR',
         message: 'Route not found',
         path: req.originalUrl
-    });
-});
-
-// Обработка ошибок
-app.use((error, req, res, next) => {
-    console.error('Server error:', error);
-    res.status(500).json({
-        status: 'ERROR',
-        message: 'Internal server error',
-        error: process.env.NODE_ENV === 'production' ? {} : error.message
     });
 });
 
