@@ -46,6 +46,41 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    bio: {
+        type: String,
+        default: ''
+    },
+    rating: {
+        type: Number,
+        default: 0
+    },
+    totalReviews: {
+        type: Number,
+        default: 0
+    },
+    warnings: [{
+        reason: String,
+        issuedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        issuedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+    mutes: [{
+        reason: String,
+        issuedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        issuedAt: {
+            type: Date,
+            default: Date.now
+        },
+        expiresAt: Date
+    }],
     isBlocked: {
         type: Boolean,
         default: false
@@ -56,14 +91,16 @@ const userSchema = new mongoose.Schema({
     }
 });
 
+// Хеширование пароля перед сохранением
 userSchema.pre('save', async function(next) {
     if (!this.isModified('password')) return next();
     this.password = await bcrypt.hash(this.password, 12);
     next();
 });
 
-userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
-    return await bcrypt.compare(candidatePassword, userPassword);
+// Метод проверки пароля
+userSchema.methods.correctPassword = async function(candidatePassword) {
+    return await bcrypt.compare(candidatePassword, this.password);
 };
 
 module.exports = mongoose.model('User', userSchema);
