@@ -11,7 +11,7 @@ const setupSockets = (io) => {
                 return next(new Error('Authentication error'));
             }
 
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
             const user = await User.findById(decoded.userId);
             
             if (!user || user.isBlocked) {
@@ -30,8 +30,13 @@ const setupSockets = (io) => {
     io.on('connection', (socket) => {
         console.log(`User ${socket.username} connected`);
 
+        // Присоединение к комнатам
         socket.join(socket.userId.toString());
+        if (socket.userRole === 'admin' || socket.userRole === 'coowner' || socket.userRole === 'owner') {
+            socket.join('admin-room');
+        }
 
+        // Создание нового чата
         socket.on('create-chat', async (data) => {
             try {
                 const chat = new Chat({
@@ -48,8 +53,21 @@ const setupSockets = (io) => {
             }
         });
 
+        // Отправка сообщения
         socket.on('send-message', async (data) => {
             try {
+                const user = await User.findById(socket.userId);
+                
+                // Проверка мута
+                const now = new Date();
+                const activeMute = user.mutes.find(mute => mute.expiresAt > now);
+                if (activeMute) {
+                    socket.emit('error', { 
+                        message: `Вы в муте до ${activeMute.expiresAt}. Причина: ${activeMute.reason}` 
+                    });
+                    return;
+                }
+
                 const message = new Message({
                     chatId: data.chatId,
                     senderId: socket.userId,
@@ -61,20 +79,38 @@ const setupSockets = (io) => {
                 await message.save();
                 await message.populate('senderId', 'username avatar');
 
+                // Логирование
+                const Log = require('./models/Log');
+                const log = new Log({
+                    action: 'message_sent',
+                    userId: socket.userId,
+                    targetId: data.chatId,
+                    details: {
+                        messageId: message._id,
+                        content: data.content,
+                        type: data.type
+                    },
+                    timestamp: new Date()
+                });
+                await log.save();
+
                 io.to(data.chatId).emit('new-message', message);
             } catch (error) {
                 socket.emit('error', { message: 'Ошибка отправки сообщения' });
             }
         });
 
+        // Присоединение к чату
         socket.on('join-chat', (chatId) => {
             socket.join(chatId);
         });
 
+        // Покидание чата
         socket.on('leave-chat', (chatId) => {
             socket.leave(chatId);
         });
 
+        // Запрос истории сообщений
         socket.on('get-messages', async (chatId) => {
             try {
                 const messages = await Message.find({ chatId })
@@ -87,6 +123,7 @@ const setupSockets = (io) => {
             }
         });
 
+        // Отключение
         socket.on('disconnect', () => {
             console.log(`User ${socket.username} disconnected`);
         });
