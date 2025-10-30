@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чат Система</title>
+    <title>Чат - Чат Система</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
 </head>
 <body>
     <div class="app-container">
-        <!-- Шапка с настройками -->
         <header class="app-header">
             <div class="container">
                 <h1 class="logo">💬 ЧатСистема</h1>
@@ -21,111 +20,85 @@
                             <div class="theme-option" data-theme="dark">🌙 Темная</div>
                             <div class="theme-option" data-theme="blue">🔵 Синяя</div>
                             <div class="theme-option" data-theme="green">🟢 Зеленая</div>
-                            <div class="theme-option" data-theme="purple">🟣 Фиолетовая</div>
-                            <div class="theme-option" data-theme="orange">🟠 Оранжевая</div>
                         </div>
                     </div>
-                    <button class="btn btn-secondary" id="settingsBtn">⚙️ Настройки</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='/settings'">⚙️ Настройки</button>
+                    <button class="btn btn-danger" id="logoutBtn">🚪 Выйти</button>
                 </div>
             </div>
         </header>
 
-        <main class="chat-layout">
-            <!-- Сайдбар -->
-            <aside class="sidebar">
-                <div class="user-profile">
-                    <img id="userAvatar" src="/images/default-avatar.png" alt="Avatar" class="avatar">
-                    <div class="user-info">
-                        <div class="username" id="userName"></div>
-                        <div class="user-role" id="userRole"></div>
-                        <div class="user-status" id="userStatus"></div>
-                    </div>
-                </div>
-
-                <nav class="sidebar-nav">
-                    <!-- Для пользователей -->
-                    <div id="userSection" class="nav-section hidden">
-                        <h3>👂 Доступные слушатели</h3>
-                        <div class="search-box">
-                            <input type="text" id="listenerSearch" placeholder="Поиск слушателей...">
-                        </div>
-                        <div id="listenersList" class="nav-list"></div>
-                        
-                        <h3>💬 Мои чаты</h3>
-                        <button class="btn btn-outline btn-full" id="showAllChatsUser">📋 Все мои чаты</button>
-                        <div id="userChatsList" class="nav-list"></div>
-                    </div>
-
-                    <!-- Для слушателей -->
-                    <div id="listenerSection" class="nav-section hidden">
-                        <h3>💬 Активные чаты</h3>
-                        <button class="btn btn-outline btn-full" id="showAllChatsListener">📋 Все чаты</button>
-                        <div id="listenerChatsList" class="nav-list"></div>
-                        
-                        <h3>⭐ Мои отзывы</h3>
-                        <div id="reviewsSummary" class="reviews-summary"></div>
-                        <div id="reviewsList" class="nav-list"></div>
-                    </div>
-
-                    <!-- Для администраторов -->
-                    <div id="adminSection" class="nav-section hidden">
-                        <h3>🛠️ Администрирование</h3>
-                        <button class="btn btn-outline btn-full" onclick="window.location.href='/admin'">
-                            📊 Панель управления
-                        </button>
-                        <button class="btn btn-outline btn-full" id="viewAllChatsAdmin">
-                            👁️ Просмотр всех чатов
-                        </button>
-                    </div>
-                </nav>
-
-                <div class="sidebar-footer">
-                    <button id="logoutBtn" class="btn btn-danger btn-full">🚪 Выйти</button>
-                </div>
-            </aside>
-
-            <!-- Основная область чата -->
-            <section class="chat-main">
-                <div class="chat-header" id="chatHeader">
-                    <div class="chat-info">
-                        <h3 id="chatTitle">Выберите чат для общения</h3>
-                        <div id="chatPartnerInfo" class="partner-info hidden"></div>
-                    </div>
-                    <div class="chat-actions" id="chatActions">
-                        <button id="leaveChatBtn" class="btn btn-secondary hidden">Покинуть чат</button>
-                        <button id="addReviewBtn" class="btn btn-primary hidden">⭐ Оставить отзыв</button>
-                    </div>
-                </div>
-
-                <div class="messages-container">
-                    <div id="messagesList" class="messages-list">
-                        <div class="welcome-message">
-                            <div class="welcome-icon">💬</div>
-                            <h3>Добро пожаловать в чат!</h3>
-                            <p>Выберите слушателя для начала общения или продолжите существующий диалог</p>
+        <main class="chat-main">
+            <div class="chat-container">
+                <!-- Сайдбар -->
+                <aside class="chat-sidebar">
+                    <div class="user-profile">
+                        <img id="userAvatar" src="/images/default-avatar.png" alt="Avatar" class="avatar">
+                        <div class="user-info">
+                            <div class="username" id="userName"></div>
+                            <div class="user-role" id="userRole"></div>
                         </div>
                     </div>
-                </div>
 
-                <div class="message-input-container hidden" id="messageInputContainer">
-                    <div class="input-actions">
-                        <button id="mediaBtn" class="btn btn-icon" title="Прикрепить файл">
-                            📎
-                        </button>
-                        <button id="stickerBtn" class="btn btn-icon" title="Добавить стикер">
-                            😊
-                        </button>
-                        <button id="emojiBtn" class="btn btn-icon" title="Смайлики">
-                            😀
-                        </button>
+                    <nav class="sidebar-nav">
+                        <!-- Для пользователей -->
+                        <div id="userSection" class="nav-section">
+                            <h3>👂 Доступные слушатели</h3>
+                            <div class="search-box">
+                                <input type="text" id="listenerSearch" placeholder="Поиск слушателей...">
+                            </div>
+                            <div id="listenersList" class="nav-list"></div>
+                            
+                            <h3>💬 Мои чаты</h3>
+                            <div id="userChatsList" class="nav-list"></div>
+                        </div>
+
+                        <!-- Для слушателей -->
+                        <div id="listenerSection" class="nav-section hidden">
+                            <h3>💬 Активные чаты</h3>
+                            <div id="listenerChatsList" class="nav-list"></div>
+                            
+                            <h3>⭐ Мои отзывы</h3>
+                            <div id="reviewsList" class="nav-list"></div>
+                        </div>
+                    </nav>
+                </aside>
+
+                <!-- Основная область чата -->
+                <section class="chat-area">
+                    <div class="chat-header" id="chatHeader">
+                        <div class="chat-info">
+                            <h3 id="chatTitle">Выберите чат для общения</h3>
+                            <div id="chatPartnerInfo" class="partner-info hidden"></div>
+                        </div>
+                        <div class="chat-actions" id="chatActions">
+                            <button id="leaveChatBtn" class="btn btn-secondary hidden">Покинуть чат</button>
+                            <button id="addReviewBtn" class="btn btn-primary hidden">⭐ Оставить отзыв</button>
+                        </div>
                     </div>
-                    <input type="text" id="messageInput" placeholder="Введите сообщение...">
-                    <button id="sendBtn" class="btn btn-primary">Отправить</button>
-                    
-                    <input type="file" id="mediaInput" accept="image/*,video/*,audio/*" style="display: none;">
-                    <input type="file" id="stickerInput" accept="image/*" style="display: none;">
-                </div>
-            </section>
+
+                    <div class="messages-container">
+                        <div id="messagesList" class="messages-list">
+                            <div class="welcome-message">
+                                <div class="welcome-icon">💬</div>
+                                <h3>Добро пожаловать в чат!</h3>
+                                <p>Выберите слушателя для начала общения или продолжите существующий диалог</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="message-input-container hidden" id="messageInputContainer">
+                        <div class="input-actions">
+                            <button id="mediaBtn" class="btn btn-icon" title="Прикрепить файл">📎</button>
+                            <button id="stickerBtn" class="btn btn-icon" title="Добавить стикер">😊</button>
+                        </div>
+                        <input type="text" id="messageInput" placeholder="Введите сообщение...">
+                        <button id="sendBtn" class="btn btn-primary">Отправить</button>
+                        
+                        <input type="file" id="mediaInput" accept="image/*,video/*,audio/*" style="display: none;">
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
 
@@ -155,16 +128,6 @@
                     <button type="submit" class="btn btn-primary">Отправить отзыв</button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <div id="allChatsModal" class="modal hidden">
-        <div class="modal-content large">
-            <h3 id="allChatsTitle">Все чаты</h3>
-            <div class="chats-grid" id="allChatsList"></div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="closeAllChats">Закрыть</button>
-            </div>
         </div>
     </div>
 
