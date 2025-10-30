@@ -50,10 +50,6 @@ app.get('/', (req, res) => {
     });
 });
 
-// Подключение к БД
-const connectDB = require('./backend/db');
-connectDB();
-
 // Маршруты аутентификации
 app.use('/auth', require('./backend/auth'));
 
