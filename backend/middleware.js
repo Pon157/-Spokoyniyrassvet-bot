@@ -10,7 +10,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.userId);
         
         if (!user || user.isBlocked) {
