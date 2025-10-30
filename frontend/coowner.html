@@ -1,1 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель совладельца - Чат Система</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="container">
+                <h1 class="logo">👑 Панель совладельца</h1>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="window.location.href='/admin'">🛠️ К админке</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='/chat'">💬 К чату</button>
+                    <button class="btn btn-danger" onclick="logout()">🚪 Выйти</button>
+                </div>
+            </div>
+        </header>
 
+        <main class="admin-main">
+            <div class="container">
+                <div class="coming-soon">
+                    <h2>🚧 Раздел в разработке</h2>
+                    <p>Панель совладельца будет доступна в ближайшее время</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
