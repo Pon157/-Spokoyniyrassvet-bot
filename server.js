@@ -34,6 +34,10 @@ app.get('/health', (req, res) => {
 const connectDB = require('./backend/db');
 connectDB();
 
+// Создаем таблицы если нужно
+const { createTables } = require('./backend/supabase-tables');
+createTables();
+
 // Маршруты аутентификации
 app.use('/auth', require('./backend/auth'));
 
@@ -77,7 +81,7 @@ app.get('/owner', (req, res) => {
 app.post('/setup-demo', async (req, res) => {
     try {
         const bcrypt = require('bcryptjs');
-        const User = require('./backend/models/User');
+        const { supabase } = require('./backend/db');
         
         const users = [
             {
@@ -106,8 +110,13 @@ app.post('/setup-demo', async (req, res) => {
             }
         ];
 
-        await User.deleteMany({});
-        await User.insertMany(users);
+        // Удаляем старых пользователей
+        await supabase.from('users').delete().neq('id', '');
+
+        // Добавляем новых пользователей
+        const { data, error } = await supabase.from('users').insert(users);
+
+        if (error) throw error;
 
         res.json({ 
             success: true, 
