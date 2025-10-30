@@ -7,10 +7,15 @@ const router = express.Router();
 
 router.use(requireRole(['coowner', 'owner']));
 
+// Технические уведомления
 router.post('/notifications', async (req, res) => {
     try {
         const { title, message, type } = req.body;
         
+        // Здесь можно реализовать отправку уведомлений всем пользователям
+        // через WebSocket или сохранить в БД для показа при входе
+        
+        // Логирование
         const log = new Log({
             action: 'technical_notification_sent',
             userId: req.user._id,
@@ -25,6 +30,7 @@ router.post('/notifications', async (req, res) => {
     }
 });
 
+// Назначение слушателей и администраторов
 router.post('/users/:userId/assign-role', async (req, res) => {
     try {
         const { role } = req.body;
@@ -40,6 +46,7 @@ router.post('/users/:userId/assign-role', async (req, res) => {
             { new: true }
         ).select('-password');
 
+        // Логирование
         const log = new Log({
             action: 'role_assigned',
             userId: req.user._id,
@@ -55,6 +62,7 @@ router.post('/users/:userId/assign-role', async (req, res) => {
     }
 });
 
+// Просмотр логов
 router.get('/logs', async (req, res) => {
     try {
         const { page = 1, limit = 50, action } = req.query;
@@ -80,6 +88,7 @@ router.get('/logs', async (req, res) => {
     }
 });
 
+// Увольнение слушателя/администратора
 router.post('/users/:userId/dismiss', async (req, res) => {
     try {
         const user = await User.findByIdAndUpdate(
@@ -91,6 +100,7 @@ router.post('/users/:userId/dismiss', async (req, res) => {
             { new: true }
         ).select('-password');
 
+        // Логирование
         const log = new Log({
             action: 'user_dismissed',
             userId: req.user._id,
