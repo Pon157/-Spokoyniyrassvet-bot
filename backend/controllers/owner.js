@@ -7,6 +7,7 @@ const router = express.Router();
 
 router.use(requireRole(['owner']));
 
+// Добавление совладельца
 router.post('/coowners', async (req, res) => {
     try {
         const { userId } = req.body;
@@ -17,6 +18,7 @@ router.post('/coowners', async (req, res) => {
             { new: true }
         ).select('-password');
 
+        // Логирование
         const log = new Log({
             action: 'coowner_added',
             userId: req.user._id,
@@ -32,6 +34,7 @@ router.post('/coowners', async (req, res) => {
     }
 });
 
+// Удаление совладельца
 router.delete('/coowners/:userId', async (req, res) => {
     try {
         const user = await User.findByIdAndUpdate(
@@ -40,6 +43,7 @@ router.delete('/coowners/:userId', async (req, res) => {
             { new: true }
         ).select('-password');
 
+        // Логирование
         const log = new Log({
             action: 'coowner_removed',
             userId: req.user._id,
@@ -52,6 +56,24 @@ router.delete('/coowners/:userId', async (req, res) => {
         res.json({ message: 'Совладелец удален', user });
     } catch (error) {
         res.status(500).json({ error: 'Ошибка удаления совладельца' });
+    }
+});
+
+// Полная статистика системы
+router.get('/full-stats', async (req, res) => {
+    try {
+        const stats = await Log.aggregate([
+            {
+                $group: {
+                    _id: '$action',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: 'Ошибка получения статистики' });
     }
 });
 
