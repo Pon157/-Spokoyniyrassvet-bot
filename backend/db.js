@@ -1,42 +1,44 @@
 const { createClient } = require('@supabase/supabase-js');
 
-console.log('🔧 Initializing Supabase connection...');
-
-// Supabase клиент
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Missing Supabase environment variables');
-  console.error('SUPABASE_URL:', supabaseUrl ? '✅ Set' : '❌ Missing');
-  console.error('SUPABASE_ANON_KEY:', supabaseKey ? '✅ Set' : '❌ Missing');
-  process.exit(1);
-}
-
-console.log('📊 Connecting to Supabase...');
-const supabase = createClient(supabaseUrl, supabaseKey);
+let supabase;
 
 const connectDB = async () => {
-  try {
-    console.log('🔄 Testing Supabase connection...');
-    
-    // Тестируем подключение
-    const { data, error } = await supabase.from('users').select('*').limit(1);
-    
-    if (error && error.code !== '42P01') {
-      console.error('Supabase error:', error);
-      throw error;
+    try {
+        console.log('🔧 Checking environment variables...');
+        
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+            console.error('❌ Missing Supabase environment variables');
+            console.log('💡 Please add SUPABASE_URL and SUPABASE_ANON_KEY to environment variables');
+            // Не выходим из процесса, продолжаем работу
+            return;
+        }
+
+        console.log('📊 Connecting to Supabase...');
+        supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Тестируем подключение
+        const { data, error } = await supabase.from('users').select('*').limit(1);
+        
+        if (error && error.code !== '42P01') {
+            console.error('Supabase connection error:', error);
+            return;
+        }
+
+        console.log('✅ Supabase Connected successfully!');
+        return supabase;
+        
+    } catch (error) {
+        console.error('❌ Database connection error:', error);
+        console.log('💡 Make sure you created tables in Supabase SQL Editor');
     }
-    
-    console.log('✅ Supabase Connected successfully!');
-    console.log('📊 Project:', supabaseUrl.replace('https://', ''));
-    
-    return supabase;
-  } catch (error) {
-    console.error('❌ Supabase connection error:', error);
-    console.log('💡 Make sure you created tables in Supabase SQL Editor');
-    process.exit(1);
-  }
 };
 
-module.exports = { connectDB, supabase };
+// Геттер для supabase
+const getSupabase = () => {
+    return supabase;
+};
+
+module.exports = { connectDB, getSupabase };
