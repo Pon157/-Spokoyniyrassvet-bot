@@ -26,11 +26,10 @@ class SettingsManager {
     loadUserData() {
         document.getElementById('usernameInput').value = this.currentUser.username;
         document.getElementById('emailInput').value = this.currentUser.email;
+        document.getElementById('bioInput').value = this.currentUser.bio || '';
         
         if (this.currentUser.avatar) {
             document.getElementById('currentAvatar').src = this.currentUser.avatar;
-        } else {
-            document.getElementById('currentAvatar').src = '/images/default-avatar.png';
         }
 
         // Показать административные настройки для соответствующих ролей
@@ -48,24 +47,10 @@ class SettingsManager {
     }
 
     setupEventListeners() {
-        // Навигация
-        document.getElementById('backToChat').addEventListener('click', () => {
-            window.location.href = '/chat';
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            this.logout();
         });
 
-        document.getElementById('goToAdminPanel').addEventListener('click', () => {
-            window.location.href = '/admin';
-        });
-
-        document.getElementById('goToCoownerPanel').addEventListener('click', () => {
-            window.location.href = '/coowner';
-        });
-
-        document.getElementById('goToOwnerPanel').addEventListener('click', () => {
-            window.location.href = '/owner';
-        });
-
-        // Формы
         document.getElementById('profileForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.updateProfile();
@@ -76,7 +61,6 @@ class SettingsManager {
             this.changePassword();
         });
 
-        // Загрузка аватара
         document.getElementById('uploadAvatarBtn').addEventListener('click', () => {
             document.getElementById('avatarInput').click();
         });
@@ -85,15 +69,31 @@ class SettingsManager {
             this.handleAvatarUpload(e.target.files[0]);
         });
 
-        // Тема
         document.getElementById('themeSelectSettings').addEventListener('change', (e) => {
             this.changeTheme(e.target.value);
+        });
+
+        document.getElementById('themeToggle').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dropdown = document.getElementById('themeDropdown');
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                this.changeTheme(e.target.dataset.theme);
+            });
+        });
+
+        document.addEventListener('click', () => {
+            document.getElementById('themeDropdown').style.display = 'none';
         });
     }
 
     async updateProfile() {
-        const username = document.getElementById('usernameInput').value;
-        const email = document.getElementById('emailInput').value;
+        const username = document.getElementById('usernameInput').value.trim();
+        const email = document.getElementById('emailInput').value.trim();
+        const bio = document.getElementById('bioInput').value.trim();
 
         try {
             const response = await fetch('/api/user/profile', {
@@ -102,7 +102,7 @@ class SettingsManager {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
-                body: JSON.stringify({ username, email })
+                body: JSON.stringify({ username, email, bio })
             });
 
             if (response.ok) {
@@ -125,6 +125,11 @@ class SettingsManager {
 
         if (newPassword !== confirmPassword) {
             this.showMessage('Пароли не совпадают', 'error');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            this.showMessage('Пароль должен быть не менее 6 символов', 'error');
             return;
         }
 
@@ -156,7 +161,7 @@ class SettingsManager {
             return;
         }
 
-        // Здесь должна быть реализация загрузки файла на сервер
+        // В реальном приложении здесь была бы загрузка на сервер
         // Для демонстрации используем временный URL
         const avatarUrl = URL.createObjectURL(file);
         document.getElementById('currentAvatar').src = avatarUrl;
@@ -181,26 +186,13 @@ class SettingsManager {
     }
 
     changeTheme(theme) {
-        const themeStyle = document.getElementById('theme-style');
-        themeStyle.href = `css/${theme}-theme.css`;
+        document.getElementById('theme-style').href = `css/${theme}-theme.css`;
+        document.getElementById('themeSelectSettings').value = theme;
         localStorage.setItem('theme', theme);
-
-        // Обновление темы в профиле пользователя
-        this.updateUserTheme(theme);
-    }
-
-    async updateUserTheme(theme) {
-        try {
-            await fetch('/api/user/theme', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ theme })
-            });
-        } catch (error) {
-            console.error('Error updating theme:', error);
+        
+        const dropdown = document.getElementById('themeDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
         }
     }
 
@@ -225,9 +217,14 @@ class SettingsManager {
             messageEl.className = 'message';
         }, 5000);
     }
+
+    logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+    }
 }
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     new SettingsManager();
 });
