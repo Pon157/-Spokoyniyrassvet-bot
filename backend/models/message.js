@@ -24,7 +24,17 @@ const messageSchema = new mongoose.Schema({
     timestamp: {
         type: Date,
         default: Date.now
-    }
+    },
+    readBy: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        readAt: {
+            type: Date,
+            default: Date.now
+        }
+    }]
 });
 
 module.exports = mongoose.model('Message', messageSchema);
