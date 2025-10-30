@@ -1,12 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
 
 console.log('🔧 Initializing Supabase connection...');
-console.log('🔧 Environment variables:', {
-  hasSUPABASE_URL: !!process.env.SUPABASE_URL,
-  hasSUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
-});
 
-// Supabase клиент  
+// Supabase клиент
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
@@ -17,24 +13,28 @@ if (!supabaseUrl || !supabaseKey) {
   process.exit(1);
 }
 
+console.log('📊 Connecting to Supabase...');
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const connectDB = async () => {
   try {
     console.log('🔄 Testing Supabase connection...');
     
-    // Тестируем подключение простым запросом
+    // Тестируем подключение
     const { data, error } = await supabase.from('users').select('*').limit(1);
     
-    if (error && error.code !== '42P01') { // Игнорируем ошибку "таблица не существует"
+    if (error && error.code !== '42P01') {
+      console.error('Supabase error:', error);
       throw error;
     }
     
     console.log('✅ Supabase Connected successfully!');
     console.log('📊 Project:', supabaseUrl.replace('https://', ''));
     
+    return supabase;
   } catch (error) {
     console.error('❌ Supabase connection error:', error);
+    console.log('💡 Make sure you created tables in Supabase SQL Editor');
     process.exit(1);
   }
 };
