@@ -6,7 +6,7 @@ console.log('🔧 Environment variables:', {
   hasSUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY
 });
 
-// Supabase клиент
+// Supabase клиент  
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
