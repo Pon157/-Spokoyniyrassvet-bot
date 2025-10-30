@@ -31,3 +31,9 @@
   "author": "Developer",
   "license": "MIT"
 }
+{
+  "scripts": {
+    "start": "./render-build.sh",
+    "build": "npm install"
+  }
+}
