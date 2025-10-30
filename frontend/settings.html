@@ -8,80 +8,107 @@
     <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
 </head>
 <body>
-    <div class="settings-container">
-        <div class="settings-header">
-            <h1>Настройки профиля</h1>
-            <button id="backToChat" class="btn btn-secondary">← Назад к чату</button>
-        </div>
-
-        <div class="settings-content">
-            <div class="settings-section">
-                <h3>Профиль</h3>
-                <form id="profileForm">
-                    <div class="avatar-upload">
-                        <img id="currentAvatar" src="" alt="Avatar" class="avatar-large">
-                        <input type="file" id="avatarInput" accept="image/*">
-                        <button type="button" id="uploadAvatarBtn" class="btn btn-secondary">Изменить аватар</button>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="container">
+                <h1 class="logo">⚙️ Настройки</h1>
+                <div class="header-actions">
+                    <div class="theme-selector">
+                        <button class="btn btn-icon" id="themeToggle">🎨</button>
+                        <div class="theme-dropdown" id="themeDropdown">
+                            <div class="theme-option" data-theme="light">🌞 Светлая</div>
+                            <div class="theme-option" data-theme="dark">🌙 Темная</div>
+                            <div class="theme-option" data-theme="blue">🔵 Синяя</div>
+                            <div class="theme-option" data-theme="green">🟢 Зеленая</div>
+                        </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="usernameInput">Имя пользователя</label>
-                        <input type="text" id="usernameInput" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="emailInput">Email</label>
-                        <input type="email" id="emailInput" required>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
-                </form>
-            </div>
-
-            <div class="settings-section">
-                <h3>Безопасность</h3>
-                <form id="passwordForm">
-                    <div class="form-group">
-                        <label for="currentPassword">Текущий пароль</label>
-                        <input type="password" id="currentPassword" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="newPassword">Новый пароль</label>
-                        <input type="password" id="newPassword" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="confirmPassword">Подтвердите новый пароль</label>
-                        <input type="password" id="confirmPassword" required>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">Изменить пароль</button>
-                </form>
-            </div>
-
-            <div class="settings-section">
-                <h3>Внешний вид</h3>
-                <div class="form-group">
-                    <label for="themeSelectSettings">Тема</label>
-                    <select id="themeSelectSettings">
-                        <option value="light">Светлая</option>
-                        <option value="dark">Темная</option>
-                        <option value="blue">Синяя</option>
-                        <option value="green">Зеленая</option>
-                    </select>
+                    <button class="btn btn-secondary" onclick="window.location.href='/chat'">💬 К чату</button>
+                    <button class="btn btn-danger" id="logoutBtn">🚪 Выйти</button>
                 </div>
             </div>
+        </header>
 
-            <div class="settings-section" id="adminSettings" style="display: none;">
-                <h3>Административные настройки</h3>
-                <div class="admin-links">
-                    <button id="goToAdminPanel" class="btn btn-primary">Панель администратора</button>
-                    <button id="goToCoownerPanel" class="btn btn-primary" style="display: none;">Панель совладельца</button>
-                    <button id="goToOwnerPanel" class="btn btn-primary" style="display: none;">Панель владельца</button>
+        <main class="settings-page">
+            <div class="container">
+                <div class="settings-grid">
+                    <!-- Профиль -->
+                    <div class="settings-section">
+                        <h2>👤 Профиль</h2>
+                        <form id="profileForm">
+                            <div class="avatar-upload">
+                                <img id="currentAvatar" src="/images/default-avatar.png" alt="Avatar" class="avatar-large">
+                                <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                                <button type="button" id="uploadAvatarBtn" class="btn btn-secondary">Изменить аватар</button>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="usernameInput">Имя пользователя</label>
+                                <input type="text" id="usernameInput" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="emailInput">Email</label>
+                                <input type="email" id="emailInput" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="bioInput">О себе</label>
+                                <textarea id="bioInput" rows="3" placeholder="Расскажите о себе..."></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                        </form>
+                    </div>
+
+                    <!-- Безопасность -->
+                    <div class="settings-section">
+                        <h2>🔒 Безопасность</h2>
+                        <form id="passwordForm">
+                            <div class="form-group">
+                                <label for="currentPassword">Текущий пароль</label>
+                                <input type="password" id="currentPassword" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="newPassword">Новый пароль</label>
+                                <input type="password" id="newPassword" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="confirmPassword">Подтвердите новый пароль</label>
+                                <input type="password" id="confirmPassword" required>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">Изменить пароль</button>
+                        </form>
+                    </div>
+
+                    <!-- Внешний вид -->
+                    <div class="settings-section">
+                        <h2>🎨 Внешний вид</h2>
+                        <div class="form-group">
+                            <label for="themeSelectSettings">Тема интерфейса</label>
+                            <select id="themeSelectSettings">
+                                <option value="light">🌞 Светлая</option>
+                                <option value="dark">🌙 Темная</option>
+                                <option value="blue">🔵 Синяя</option>
+                                <option value="green">🟢 Зеленая</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Административные настройки -->
+                    <div class="settings-section" id="adminSettings" style="display: none;">
+                        <h2>🛠️ Администрирование</h2>
+                        <div class="admin-links">
+                            <button class="btn btn-primary" onclick="window.location.href='/admin'">📊 Панель администратора</button>
+                            <button class="btn btn-primary" id="goToCoownerPanel" style="display: none;">👑 Панель совладельца</button>
+                            <button class="btn btn-primary" id="goToOwnerPanel" style="display: none;">👑 Панель владельца</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </main>
 
         <div id="message" class="message"></div>
     </div>
