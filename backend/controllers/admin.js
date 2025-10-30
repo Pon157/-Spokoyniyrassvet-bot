@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.use(requireRole(['admin', 'coowner', 'owner']));
 
+// Статистика системы
 router.get('/stats', async (req, res) => {
     try {
         const totalUsers = await User.countDocuments();
@@ -31,6 +32,7 @@ router.get('/stats', async (req, res) => {
     }
 });
 
+// Все пользователи
 router.get('/users', async (req, res) => {
     try {
         const users = await User.find().select('-password');
@@ -40,6 +42,7 @@ router.get('/users', async (req, res) => {
     }
 });
 
+// Все чаты
 router.get('/chats', async (req, res) => {
     try {
         const chats = await Chat.find()
@@ -52,6 +55,7 @@ router.get('/chats', async (req, res) => {
     }
 });
 
+// Сообщения чата
 router.get('/chats/:chatId/messages', async (req, res) => {
     try {
         const messages = await Message.find({ chatId: req.params.chatId })
@@ -64,6 +68,7 @@ router.get('/chats/:chatId/messages', async (req, res) => {
     }
 });
 
+// Блокировка пользователя
 router.post('/users/:userId/block', async (req, res) => {
     try {
         const { reason } = req.body;
@@ -76,6 +81,7 @@ router.post('/users/:userId/block', async (req, res) => {
             { new: true }
         ).select('-password');
 
+        // Логирование
         const log = new Log({
             action: 'user_blocked',
             userId: req.user._id,
@@ -91,6 +97,34 @@ router.post('/users/:userId/block', async (req, res) => {
     }
 });
 
+// Разблокировка пользователя
+router.post('/users/:userId/unblock', async (req, res) => {
+    try {
+        const user = await User.findByIdAndUpdate(
+            req.params.userId,
+            { 
+                isBlocked: false,
+                blockedBy: null
+            },
+            { new: true }
+        ).select('-password');
+
+        // Логирование
+        const log = new Log({
+            action: 'user_unblocked',
+            userId: req.user._id,
+            targetId: req.params.userId,
+            timestamp: new Date()
+        });
+        await log.save();
+
+        res.json({ message: 'Пользователь разблокирован', user });
+    } catch (error) {
+        res.status(500).json({ error: 'Ошибка разблокировки пользователя' });
+    }
+});
+
+// Мут пользователя
 router.post('/users/:userId/mute', async (req, res) => {
     try {
         const { reason, duration } = req.body;
@@ -106,6 +140,7 @@ router.post('/users/:userId/mute', async (req, res) => {
             }
         });
 
+        // Логирование
         const log = new Log({
             action: 'user_muted',
             userId: req.user._id,
@@ -121,6 +156,7 @@ router.post('/users/:userId/mute', async (req, res) => {
     }
 });
 
+// Предупреждение пользователю
 router.post('/users/:userId/warn', async (req, res) => {
     try {
         const { reason } = req.body;
@@ -134,6 +170,7 @@ router.post('/users/:userId/warn', async (req, res) => {
             }
         });
 
+        // Логирование
         const log = new Log({
             action: 'user_warned',
             userId: req.user._id,
