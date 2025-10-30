@@ -21,6 +21,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'frontend')));
 
+// Подключение к БД - БЕЗ ВЫЗОВА connectDB()
+const { supabase } = require('./backend/db');
+console.log('✅ Database module loaded');
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({ 
