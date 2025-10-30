@@ -1,18 +1,15 @@
 class AdminPanel {
     constructor() {
         this.currentUser = null;
-        this.selectedUser = null;
-        this.currentAction = null;
         this.init();
     }
 
     async init() {
         await this.checkAuth();
         this.checkAdminAccess();
+        this.setupEventListeners();
         this.loadStats();
         this.loadUsers();
-        this.loadChats();
-        this.setupEventListeners();
     }
 
     async checkAuth() {
@@ -33,6 +30,32 @@ class AdminPanel {
             window.location.href = '/chat';
             return;
         }
+    }
+
+    setupEventListeners() {
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            this.logout();
+        });
+
+        document.getElementById('refreshUsers').addEventListener('click', () => {
+            this.loadUsers();
+        });
+
+        document.getElementById('themeToggle').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dropdown = document.getElementById('themeDropdown');
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                this.changeTheme(e.target.dataset.theme);
+            });
+        });
+
+        document.addEventListener('click', () => {
+            document.getElementById('themeDropdown').style.display = 'none';
+        });
     }
 
     async loadStats() {
@@ -80,6 +103,11 @@ class AdminPanel {
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '';
 
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4">Пользователи не найдены</td></tr>';
+            return;
+        }
+
         users.forEach(user => {
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -88,7 +116,7 @@ class AdminPanel {
                         <img src="${user.avatar || '/images/default-avatar.png'}" alt="Avatar" class="avatar-small">
                         <div>
                             <div class="username">${user.username}</div>
-                            ${user.bio ? `<div class="user-bio">${user.bio}</div>` : ''}
+                            <div class="user-email">${user.email}</div>
                         </div>
                     </div>
                 </td>
@@ -98,21 +126,17 @@ class AdminPanel {
                 <td>
                     <div class="status-cell">
                         <span class="status-indicator ${user.isOnline ? 'online' : 'offline'}"></span>
-                        ${user.isOnline ? 'Онлайн' : this.formatLastSeen(user.lastSeen)}
+                        ${user.isOnline ? 'Онлайн' : 'Не в сети'}
                         ${user.isBlocked ? '<div class="blocked-badge">🚫 Заблокирован</div>' : ''}
                     </div>
                 </td>
                 <td>
-                    <div class="activity-cell">
-                        <div>Создан: ${this.formatDate(user.createdAt)}</div>
-                        <div>Последняя активность: ${this.formatLastSeen(user.lastSeen)}</div>
-                    </div>
-                </td>
-                <td>
                     <div class="action-buttons">
-                        <button class="btn btn-sm btn-secondary" onclick="adminPanel.showUserActions('${user._id}')">
-                            Действия
-                        </button>
+                        ${!user.isBlocked ? 
+                            `<button class="btn btn-sm btn-danger" onclick="adminPanel.blockUser('${user._id}')">Блокировать</button>` :
+                            `<button class="btn btn-sm btn-success" onclick="adminPanel.unblockUser('${user._id}')">Разблокировать</button>`
+                        }
+                        <button class="btn btn-sm btn-warning" onclick="adminPanel.warnUser('${user._id}')">Предупредить</button>
                     </div>
                 </td>
             `;
@@ -120,201 +144,6 @@ class AdminPanel {
         });
     }
 
-    async loadChats() {
-        try {
-            const response = await fetch('/api/admin/chats', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            
-            if (response.ok) {
-                const chats = await response.json();
-                this.displayChats(chats);
-            }
-        } catch (error) {
-            console.error('Error loading chats:', error);
-        }
-    }
-
-    displayChats(chats) {
-        const container = document.getElementById('allChatsGrid');
-        container.innerHTML = '';
-
-        chats.forEach(chat => {
-            const participants = chat.participants.map(p => p.username).join(', ');
-            const chatCard = document.createElement('div');
-            chatCard.className = 'chat-card-admin';
-            chatCard.innerHTML = `
-                <div class="chat-header">
-                    <h4>Чат ${chat._id}</h4>
-                    <span class="chat-status">${chat.status}</span>
-                </div>
-                <div class="chat-participants">
-                    <strong>Участники:</strong> ${participants}
-                </div>
-                <div class="chat-meta">
-                    <div>Создан: ${this.formatDate(chat.createdAt)}</div>
-                    <div>Обновлен: ${this.formatDate(chat.updatedAt)}</div>
-                </div>
-                <div class="chat-actions">
-                    <button class="btn btn-sm btn-primary" onclick="adminPanel.viewChatMessages('${chat._id}')">
-                        Просмотр сообщений
-                    </button>
-                    <button class="btn btn-sm btn-secondary" onclick="adminPanel.joinChat('${chat._id}')">
-                        Присоединиться
-                    </button>
-                </div>
-            `;
-            container.appendChild(chatCard);
-        });
-    }
-
-    showUserActions(userId) {
-        // Находим пользователя и показываем модальное окно действий
-        this.selectedUser = userId;
-        document.getElementById('userActionsModal').classList.remove('hidden');
-    }
-
-    async viewChatMessages(chatId) {
-        try {
-            const response = await fetch(`/api/admin/chats/${chatId}/messages`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            
-            if (response.ok) {
-                const messages = await response.json();
-                this.displayChatMessages(messages);
-            }
-        } catch (error) {
-            console.error('Error loading chat messages:', error);
-        }
-    }
-
-    displayChatMessages(messages) {
-        const container = document.getElementById('modalMessagesList');
-        container.innerHTML = '';
-
-        messages.forEach(message => {
-            const messageEl = document.createElement('div');
-            messageEl.className = `message-item-admin ${message.senderId._id === this.currentUser.id ? 'own' : 'other'}`;
-            messageEl.innerHTML = `
-                <div class="message-sender">${message.senderId.username}</div>
-                <div class="message-content">${message.content}</div>
-                <div class="message-time">${this.formatTime(message.timestamp)}</div>
-            `;
-            container.appendChild(messageEl);
-        });
-
-        document.getElementById('chatMessagesModal').classList.remove('hidden');
-    }
-
-    setupEventListeners() {
-        // Обновление данных
-        document.getElementById('refreshUsers').addEventListener('click', () => this.loadUsers());
-        document.getElementById('refreshChats').addEventListener('click', () => this.loadChats());
-
-        // Закрытие модальных окон
-        document.getElementById('closeModal').addEventListener('click', () => {
-            document.getElementById('userActionsModal').classList.add('hidden');
-        });
-
-        document.getElementById('closeMessagesModal').addEventListener('click', () => {
-            document.getElementById('chatMessagesModal').classList.add('hidden');
-        });
-
-        // Действия с пользователями
-        document.querySelectorAll('[data-action]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const action = e.target.closest('[data-action]').dataset.action;
-                this.handleUserAction(action);
-            });
-        });
-
-        // Поиск пользователей
-        document.getElementById('userSearch').addEventListener('input', (e) => {
-            this.filterUsers(e.target.value);
-        });
-
-        // Быстрые действия
-        document.querySelectorAll('.action-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const action = e.target.closest('.action-btn').dataset.action;
-                this.handleQuickAction(action);
-            });
-        });
-    }
-
-    handleUserAction(action) {
-        this.currentAction = action;
-        document.getElementById('userActionsModal').classList.add('hidden');
-        
-        const actionTitles = {
-            'warn': 'Отправка предупреждения',
-            'mute': 'Выдача мута пользователю', 
-            'block': 'Блокировка пользователя'
-        };
-
-        document.getElementById('actionTitle').textContent = actionTitles[action] || 'Действие';
-        
-        // Показываем поле длительности для мута
-        document.getElementById('muteDurationGroup').classList.toggle('hidden', action !== 'mute');
-        
-        document.getElementById('actionReasonModal').classList.remove('hidden');
-    }
-
-    async handleQuickAction(action) {
-        switch (action) {
-            case 'join-chat':
-                this.joinHelpChat();
-                break;
-            case 'send-notification':
-                this.sendNotification();
-                break;
-            case 'view-logs':
-                this.viewLogs();
-                break;
-        }
-    }
-
-    async joinHelpChat() {
-        // Реализация входа в чат помощи
-        alert('Функция входа в чат помощи будет реализована');
-    }
-
-    async sendNotification() {
-        const message = prompt('Введите текст уведомления:');
-        if (message) {
-            try {
-                const response = await fetch('/api/admin/notifications', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({ message })
-                });
-
-                if (response.ok) {
-                    alert('Уведомление отправлено!');
-                }
-            } catch (error) {
-                alert('Ошибка отправки уведомления');
-            }
-        }
-    }
-
-    async viewLogs() {
-        if (['coowner', 'owner'].includes(this.currentUser.role)) {
-            window.location.href = '/coowner?tab=logs';
-        } else {
-            alert('Недостаточно прав для просмотра логов');
-        }
-    }
-
-    // Вспомогательные методы
     getRoleDisplayName(role) {
         const roles = {
             'user': '👤 Пользователь',
@@ -326,32 +155,135 @@ class AdminPanel {
         return roles[role] || role;
     }
 
-    formatDate(date) {
-        return new Date(date).toLocaleDateString('ru-RU');
+    async blockUser(userId) {
+        const reason = prompt('Укажите причину блокировки:');
+        if (!reason) return;
+
+        try {
+            const response = await fetch(`/api/admin/users/${userId}/block`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ reason })
+            });
+
+            if (response.ok) {
+                this.showMessage('Пользователь заблокирован', 'success');
+                this.loadUsers();
+            } else {
+                this.showMessage('Ошибка блокировки пользователя', 'error');
+            }
+        } catch (error) {
+            this.showMessage('Ошибка соединения', 'error');
+        }
     }
 
-    formatTime(date) {
-        return new Date(date).toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    async unblockUser(userId) {
+        try {
+            const response = await fetch(`/api/admin/users/${userId}/unblock`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (response.ok) {
+                this.showMessage('Пользователь разблокирован', 'success');
+                this.loadUsers();
+            } else {
+                this.showMessage('Ошибка разблокировки', 'error');
+            }
+        } catch (error) {
+            this.showMessage('Ошибка соединения', 'error');
+        }
     }
 
-    formatLastSeen(date) {
-        const now = new Date();
-        const lastSeen = new Date(date);
-        const diffMs = now - lastSeen;
-        const diffMins = Math.floor(diffMs / (1000 * 60));
+    async warnUser(userId) {
+        const reason = prompt('Укажите причину предупреждения:');
+        if (!reason) return;
+
+        try {
+            const response = await fetch(`/api/admin/users/${userId}/warn`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ reason })
+            });
+
+            if (response.ok) {
+                this.showMessage('Предупреждение отправлено', 'success');
+            } else {
+                this.showMessage('Ошибка отправки предупреждения', 'error');
+            }
+        } catch (error) {
+            this.showMessage('Ошибка соединения', 'error');
+        }
+    }
+
+    async sendNotification() {
+        const message = prompt('Введите текст уведомления для всех пользователей:');
+        if (message) {
+            try {
+                const response = await fetch('/api/coowner/notifications', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ 
+                        title: 'Системное уведомление',
+                        message: message,
+                        type: 'info'
+                    })
+                });
+
+                if (response.ok) {
+                    this.showMessage('Уведомление отправлено!', 'success');
+                } else {
+                    this.showMessage('Недостаточно прав для отправки уведомлений', 'error');
+                }
+            } catch (error) {
+                this.showMessage('Ошибка отправки уведомления', 'error');
+            }
+        }
+    }
+
+    async viewLogs() {
+        if (['coowner', 'owner'].includes(this.currentUser.role)) {
+            window.location.href = '/coowner';
+        } else {
+            this.showMessage('Недостаточно прав для просмотра логов', 'error');
+        }
+    }
+
+    changeTheme(theme) {
+        document.getElementById('theme-style').href = `css/${theme}-theme.css`;
+        localStorage.setItem('theme', theme);
+        document.getElementById('themeDropdown').style.display = 'none';
+    }
+
+    showMessage(text, type) {
+        const messageEl = document.getElementById('message');
+        messageEl.textContent = text;
+        messageEl.className = `message ${type}`;
         
-        if (diffMins < 1) return 'только что';
-        if (diffMins < 60) return `${diffMins} мин назад`;
-        if (diffMins < 1440) return `${Math.floor(diffMins / 60)} ч назад`;
-        return `${Math.floor(diffMins / 1440)} дн назад`;
+        setTimeout(() => {
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+        }, 5000);
+    }
+
+    logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
     }
 }
 
 // Инициализация админ-панели
 const adminPanel = new AdminPanel();
-
-// Глобальные функции для обработки событий в HTML
 window.adminPanel = adminPanel;
