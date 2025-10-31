@@ -13,9 +13,20 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 console.log('✅ Supabase client created');
 
-// Простая функция для тестирования
+// Добавляем функцию getSupabase для совместимости
+const getSupabase = () => supabase;
+
+// Функция для тестирования подключения
 const connectDB = async () => {
-    console.log('✅ Database connection established');
+    try {
+        const { data, error } = await supabase.from('users').select('count').limit(1);
+        if (error) throw error;
+        console.log('✅ Database connection established');
+        return true;
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+        return false;
+    }
 };
 
-module.exports = { connectDB, supabase };
+module.exports = { connectDB, supabase, getSupabase };
