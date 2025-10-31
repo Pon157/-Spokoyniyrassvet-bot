@@ -28,7 +28,7 @@ const setupSockets = (io) => {
     io.on('connection', (socket) => {
         console.log(`User ${socket.username} connected`);
 
-        // Присоединение к комнатам
+        // Присоединение к комнатам  
         socket.join(socket.userId.toString());
         if (socket.userRole === 'admin' || socket.userRole === 'coowner' || socket.userRole === 'owner') {
             socket.join('admin-room');
