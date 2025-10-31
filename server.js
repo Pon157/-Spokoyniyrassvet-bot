@@ -50,19 +50,56 @@ app.get('/', (req, res) => {
     });
 });
 
-// Маршруты аутентификации
-app.use('/auth', require('./backend/auth'));
+// Маршруты аутентификации С ОБРАБОТКОЙ ОШИБОК
+try {
+    const authRoutes = require('./backend/auth');
+    app.use('/auth', authRoutes);
+    console.log('✅ Auth routes loaded');
+} catch (error) {
+    console.error('❌ Failed to load auth routes:', error);
+    // Создаем временные auth routes
+    app.post('/auth/login', (req, res) => {
+        res.status(500).json({ error: 'Auth module not loaded' });
+    });
+    app.post('/auth/register', (req, res) => {
+        res.status(500).json({ error: 'Auth module not loaded' });
+    });
+}
 
-// API маршруты
-const { authenticateToken } = require('./backend/middleware');
-app.use('/api/user', authenticateToken, require('./backend/controllers/user'));
-app.use('/api/listener', authenticateToken, require('./backend/controllers/listener'));
-app.use('/api/admin', authenticateToken, require('./backend/controllers/admin'));
-app.use('/api/coowner', authenticateToken, require('./backend/controllers/coowner'));
-app.use('/api/owner', authenticateToken, require('./backend/controllers/owner'));
+// API маршруты С ОБРАБОТКОЙ ОШИБОК
+try {
+    const { authenticateToken } = require('./backend/middleware');
+    
+    // Загружаем контроллеры с проверкой
+    const loadController = (path) => {
+        try {
+            return require(path);
+        } catch (error) {
+            console.error(`❌ Failed to load controller: ${path}`, error);
+            const router = express.Router();
+            router.get('/test', (req, res) => res.json({ message: 'Controller not loaded' }));
+            return router;
+        }
+    };
 
-// WebSocket
-require('./backend/sockets')(io);
+    app.use('/api/user', authenticateToken, loadController('./backend/controllers/user'));
+    app.use('/api/listener', authenticateToken, loadController('./backend/controllers/listener'));
+    app.use('/api/admin', authenticateToken, loadController('./backend/controllers/admin'));
+    app.use('/api/coowner', authenticateToken, loadController('./backend/controllers/coowner'));
+    app.use('/api/owner', authenticateToken, loadController('./backend/controllers/owner'));
+    
+    console.log('✅ API routes loaded');
+} catch (error) {
+    console.error('❌ Failed to load middleware:', error);
+}
+
+// WebSocket С ОБРАБОТКОЙ ОШИБОК
+try {
+    require('./backend/sockets')(io);
+    console.log('✅ WebSocket loaded');
+} catch (error) {
+    console.error('❌ Failed to load WebSocket:', error);
+}
 
 // Статические маршруты
 app.get('/chat', (req, res) => {
@@ -85,11 +122,10 @@ app.get('/owner', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/owner.html'));
 });
 
-// Создание тестовых пользователей
+// Создание тестовых пользователей (ОБНОВЛЕНО)
 app.post('/setup-demo', async (req, res) => {
     try {
         const bcrypt = require('bcryptjs');
-        const { supabase } = require('./backend/db');
         
         const users = [
             {
@@ -121,7 +157,17 @@ app.post('/setup-demo', async (req, res) => {
         // Добавляем пользователей
         const { data, error } = await supabase.from('users').insert(users);
 
-        if (error) throw error;
+        if (error) {
+            // Если пользователи уже существуют, просто возвращаем успех
+            if (error.code === '23505') {
+                return res.json({ 
+                    success: true, 
+                    message: 'Демо пользователи уже существуют',
+                    users: users.map(u => ({ username: u.username, password: 'password123', role: u.role }))
+                });
+            }
+            throw error;
+        }
 
         res.json({ 
             success: true, 
