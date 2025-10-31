@@ -56,7 +56,7 @@ const setupSockets = (io) => {
             try {
                 const user = await User.findById(socket.userId);
                 
-                // Проверка мута
+                // Проверка мута  
                 const now = new Date();
                 const activeMute = user.mutes.find(mute => mute.expiresAt > now);
                 if (activeMute) {
