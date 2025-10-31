@@ -1,7 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('./models/User');
-const Chat = require('./models/Chat');
-const Message = require('./models/Message');
+const { supabase } = require('./db');
 
 const setupSockets = (io) => {
     io.use(async (socket, next) => {
