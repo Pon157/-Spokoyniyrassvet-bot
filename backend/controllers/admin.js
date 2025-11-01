@@ -1,332 +1,478 @@
-const { supabase } = require('../db');
-const { authenticateToken, requireAdmin, requireCoOwner, requireOwner } = require('../middleware');
+const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
+const { logAction } = require('../middleware');
 
-class AdminController {
-  // Получение статистики системы
-  async getStats(req, res) {
-    try {
-      const [
-        usersCount,
-        listenersCount,
-        chatsCount,
-        messagesCount,
+const router = express.Router();
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+// Получение статистики
+router.get('/stats', async (req, res) => {
+  try {
+    // Общее количество пользователей
+    const { count: totalUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    // Количество слушателей
+    const { count: totalListeners } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', 'listener')
+      .eq('is_blocked', false);
+
+    // Общее количество чатов
+    const { count: totalChats } = await supabase
+      .from('chats')
+      .select('*', { count: 'exact', head: true });
+
+    // Общее количество сообщений
+    const { count: totalMessages } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true });
+
+    // Активные чаты
+    const { count: activeChats } = await supabase
+      .from('chats')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active');
+
+    res.json({
+      stats: {
+        totalUsers,
+        totalListeners,
+        totalChats,
+        totalMessages,
         activeChats
-      ] = await Promise.all([
-        // Общее количество пользователей
-        supabase.from('users').select('id', { count: 'exact' }),
-        // Количество слушателей
-        supabase.from('users').select('id', { count: 'exact' }).eq('role', 'listener'),
-        // Общее количество чатов
-        supabase.from('chats').select('id', { count: 'exact' }),
-        // Общее количество сообщений
-        supabase.from('messages').select('id', { count: 'exact' }),
-        // Активные чаты
-        supabase.from('chats').select('id', { count: 'exact' }).eq('status', 'active')
-      ]);
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка получения статистики:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
 
-      // Статистика по дням (последние 7 дней)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+// Получение списка пользователей
+router.get('/users', async (req, res) => {
+  try {
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      const { data: dailyStats } = await supabase
-        .from('messages')
-        .select('created_at')
-        .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: true });
+    if (error) throw error;
 
-      res.json({
-        stats: {
-          totalUsers: usersCount.count,
-          totalListeners: listenersCount.count,
-          totalChats: chatsCount.count,
-          totalMessages: messagesCount.count,
-          activeChats: activeChats.count
-        },
-        dailyStats: dailyStats
+    res.json({ users });
+  } catch (error) {
+    console.error('Ошибка получения пользователей:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Получение списка чатов
+router.get('/chats', async (req, res) => {
+  try {
+    const { data: chats, error } = await supabase
+      .from('chats')
+      .select(`
+        *,
+        user:users!chats_user_id_fkey(username),
+        listener:users!chats_listener_id_fkey(username),
+        messages:messages(count)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const formattedChats = chats.map(chat => ({
+      id: chat.id,
+      user_name: chat.user?.username || 'Неизвестный',
+      listener_name: chat.listener?.username,
+      status: chat.status,
+      message_count: chat.messages[0]?.count || 0,
+      created_at: chat.created_at
+    }));
+
+    res.json({ chats: formattedChats });
+  } catch (error) {
+    console.error('Ошибка получения чатов:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Просмотр конкретного чата
+router.get('/chat/:chatId', async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    const { data: chat, error: chatError } = await supabase
+      .from('chats')
+      .select(`
+        *,
+        user:users!chats_user_id_fkey(*),
+        listener:users!chats_listener_id_fkey(*)
+      `)
+      .eq('id', chatId)
+      .single();
+
+    if (chatError) throw chatError;
+
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:users(id, username, avatar_url)
+      `)
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+
+    if (messagesError) throw messagesError;
+
+    res.json({
+      chat: {
+        ...chat,
+        messages
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка получения чата:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Блокировка пользователя
+router.post('/block-user', async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { user_id, reason } = req.body;
+
+    if (!user_id || !reason) {
+      return res.status(400).json({ error: 'ID пользователя и причина обязательны' });
+    }
+
+    // Блокируем пользователя
+    const { error: blockError } = await supabase
+      .from('users')
+      .update({ 
+        is_blocked: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user_id);
+
+    if (blockError) throw blockError;
+
+    // Записываем действие модерации
+    const { error: actionError } = await supabase
+      .from('moderation_actions')
+      .insert({
+        moderator_id: adminId,
+        target_user_id: user_id,
+        action_type: 'block',
+        reason: reason
       });
 
-    } catch (error) {
-      console.error('Get stats error:', error);
-      res.status(500).json({ error: 'Ошибка получения статистики' });
-    }
+    if (actionError) throw actionError;
+
+    await logAction(adminId, 'USER_BLOCK', { target_user_id: user_id, reason });
+
+    res.json({ message: 'Пользователь заблокирован' });
+  } catch (error) {
+    console.error('Ошибка блокировки пользователя:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
+});
 
-  // Получение всех пользователей
-  async getUsers(req, res) {
-    try {
-      const { role, page = 1, limit = 50 } = req.query;
-      
-      let query = supabase
-        .from('users')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
+// Мут пользователя
+router.post('/mute-user', async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { user_id, duration, reason } = req.body;
 
-      if (role) {
-        query = query.eq('role', role);
-      }
-
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-
-      const { data: users, error, count } = await query.range(from, to);
-
-      if (error) throw error;
-
-      res.json({
-        users,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: count
-        }
-      });
-
-    } catch (error) {
-      console.error('Get users error:', error);
-      res.status(500).json({ error: 'Ошибка получения пользователей' });
+    if (!user_id || !duration || !reason) {
+      return res.status(400).json({ error: 'Все поля обязательны' });
     }
-  }
 
-  // Модерационные действия
-  async moderateUser(req, res) {
-    try {
-      const moderatorId = req.user.id;
-      const { userId, action, reason, durationMinutes } = req.body;
+    const muteExpires = new Date(Date.now() + duration * 60000);
 
-      const validActions = ['warning', 'mute', 'ban', 'unban'];
-      if (!validActions.includes(action)) {
-        return res.status(400).json({ error: 'Неверное действие' });
-      }
+    // Мутим пользователя
+    const { error: muteError } = await supabase
+      .from('users')
+      .update({ 
+        is_muted: true,
+        mute_reason: reason,
+        mute_expires_at: muteExpires.toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user_id);
 
-      // Получаем информацию о пользователе
-      const { data: targetUser, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+    if (muteError) throw muteError;
 
-      if (userError || !targetUser) {
-        return res.status(404).json({ error: 'Пользователь не найден' });
-      }
-
-      let updateData = {};
-      let moderationData = {
-        moderator_id: moderatorId,
-        target_user_id: userId,
-        action_type: action,
+    // Записываем действие модерации
+    const { error: actionError } = await supabase
+      .from('moderation_actions')
+      .insert({
+        moderator_id: adminId,
+        target_user_id: user_id,
+        action_type: 'mute',
         reason: reason,
-        duration_minutes: durationMinutes
-      };
-
-      switch (action) {
-        case 'warning':
-          updateData.warnings = (targetUser.warnings || 0) + 1;
-          break;
-
-        case 'mute':
-          const muteUntil = new Date();
-          muteUntil.setMinutes(muteUntil.getMinutes() + (durationMinutes || 60));
-          updateData.is_muted = true;
-          updateData.mute_until = muteUntil.toISOString();
-          break;
-
-        case 'ban':
-          const banUntil = durationMinutes ? new Date(Date.now() + durationMinutes * 60000) : null;
-          updateData.is_banned = true;
-          updateData.ban_until = banUntil ? banUntil.toISOString() : null;
-          updateData.ban_reason = reason;
-          break;
-
-        case 'unban':
-          updateData.is_banned = false;
-          updateData.ban_until = null;
-          updateData.ban_reason = null;
-          break;
-      }
-
-      // Обновляем пользователя
-      const { error: updateError } = await supabase
-        .from('users')
-        .update(updateData)
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
-
-      // Логируем действие модерации
-      await supabase
-        .from('moderations')
-        .insert([moderationData]);
-
-      // Создаем уведомление для пользователя
-      if (action !== 'unban') {
-        await supabase
-          .from('notifications')
-          .insert([
-            {
-              user_id: userId,
-              title: 'Модерационное действие',
-              message: `Применено действие: ${action}. Причина: ${reason}`,
-              type: 'warning'
-            }
-          ]);
-      }
-
-      res.json({ 
-        message: `Действие "${action}" применено успешно`,
-        user: targetUser.username
+        duration_minutes: duration,
+        expires_at: muteExpires.toISOString()
       });
 
-    } catch (error) {
-      console.error('Moderate user error:', error);
-      res.status(500).json({ error: 'Ошибка модерации' });
-    }
+    if (actionError) throw actionError;
+
+    await logAction(adminId, 'USER_MUTE', { 
+      target_user_id: user_id, 
+      duration, 
+      reason 
+    });
+
+    res.json({ message: 'Пользователь замучен' });
+  } catch (error) {
+    console.error('Ошибка мута пользователя:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
+});
 
-  // Назначение ролей (только для coowner и owner)
-  async assignRole(req, res) {
-    try {
-      const { userId, newRole } = req.body;
+// Выдача предупреждения
+router.post('/warn-user', async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { user_id, reason } = req.body;
 
-      const validRoles = ['user', 'listener', 'admin'];
-      if (!validRoles.includes(newRole)) {
-        return res.status(400).json({ error: 'Неверная роль' });
-      }
+    if (!user_id || !reason) {
+      return res.status(400).json({ error: 'ID пользователя и причина обязательны' });
+    }
 
-      // Проверяем что текущий пользователь может назначать роли
-      const currentUserRole = req.user.role;
-      if (currentUserRole === 'coowner' && newRole === 'admin') {
-        return res.status(403).json({ error: 'Недостаточно прав для назначения администратора' });
-      }
+    // Увеличиваем счетчик предупреждений
+    const { data: user } = await supabase
+      .from('users')
+      .select('warnings')
+      .eq('id', user_id)
+      .single();
 
-      // Обновляем роль
-      const { data: user, error } = await supabase
-        .from('users')
-        .update({ role: newRole })
-        .eq('id', userId)
-        .select()
-        .single();
+    const newWarnings = (user?.warnings || 0) + 1;
 
-      if (error) throw error;
+    const { error: warnError } = await supabase
+      .from('users')
+      .update({ 
+        warnings: newWarnings,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user_id);
 
-      // Логируем действие
-      await supabase
-        .from('moderations')
-        .insert([
-          {
-            moderator_id: req.user.id,
-            target_user_id: userId,
-            action_type: 'promote',
-            reason: `Назначение роли: ${newRole}`
-          }
-        ]);
+    if (warnError) throw warnError;
 
-      res.json({ 
-        message: `Роль пользователя ${user.username} изменена на ${newRole}`,
-        user 
+    // Записываем действие модерации
+    const { error: actionError } = await supabase
+      .from('moderation_actions')
+      .insert({
+        moderator_id: adminId,
+        target_user_id: user_id,
+        action_type: 'warn',
+        reason: reason
       });
 
-    } catch (error) {
-      console.error('Assign role error:', error);
-      res.status(500).json({ error: 'Ошибка назначения роли' });
-    }
-  }
+    if (actionError) throw actionError;
 
-  // Получение всех чатов системы
-  async getAllChats(req, res) {
-    try {
-      const { page = 1, limit = 50, status } = req.query;
+    // Создаем уведомление для пользователя
+    const { error: notificationError } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: user_id,
+        title: 'Предупреждение',
+        message: `Вам выдано предупреждение. Причина: ${reason}. Всего предупреждений: ${newWarnings}`,
+        notification_type: 'warning'
+      });
+
+    if (notificationError) throw notificationError;
+
+    await logAction(adminId, 'USER_WARN', { 
+      target_user_id: user_id, 
+      reason,
+      warnings_count: newWarnings
+    });
+
+    res.json({ 
+      message: 'Предупреждение выдано',
+      warnings: newWarnings 
+    });
+  } catch (error) {
+    console.error('Ошибка выдачи предупреждения:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Разблокировка пользователя
+router.post('/unblock-user', async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ error: 'ID пользователя обязателен' });
+    }
+
+    const { error: unblockError } = await supabase
+      .from('users')
+      .update({ 
+        is_blocked: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user_id);
+
+    if (unblockError) throw unblockError;
+
+    // Записываем действие модерации
+    const { error: actionError } = await supabase
+      .from('moderation_actions')
+      .insert({
+        moderator_id: adminId,
+        target_user_id: user_id,
+        action_type: 'unblock'
+      });
+
+    if (actionError) throw actionError;
+
+    await logAction(adminId, 'USER_UNBLOCK', { target_user_id: user_id });
+
+    res.json({ message: 'Пользователь разблокирован' });
+  } catch (error) {
+    console.error('Ошибка разблокировки пользователя:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Снятие мута
+router.post('/unmute-user', async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ error: 'ID пользователя обязателен' });
+    }
+
+    const { error: unmuteError } = await supabase
+      .from('users')
+      .update({ 
+        is_muted: false,
+        mute_reason: null,
+        mute_expires_at: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user_id);
+
+    if (unmuteError) throw unmuteError;
+
+    // Записываем действие модерации
+    const { error: actionError } = await supabase
+      .from('moderation_actions')
+      .insert({
+        moderator_id: adminId,
+        target_user_id: user_id,
+        action_type: 'unmute'
+      });
+
+    if (actionError) throw actionError;
+
+    await logAction(adminId, 'USER_UNMUTE', { target_user_id: user_id });
+
+    res.json({ message: 'Мут снят' });
+  } catch (error) {
+    console.error('Ошибка снятия мута:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Получение логов системы
+router.get('/logs', async (req, res) => {
+  try {
+    const { type, date } = req.query;
+
+    let query = supabase
+      .from('system_logs')
+      .select(`
+        *,
+        user:users(username)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (type) {
+      query = query.eq('action', type);
+    }
+
+    if (date) {
+      const startDate = new Date(date);
+      const endDate = new Date(date);
+      endDate.setDate(endDate.getDate() + 1);
       
-      let query = supabase
-        .from('chats')
-        .select(`
-          *,
-          user:users!chats_user_id_fkey(username, avatar_url),
-          listener:users!chats_listener_id_fkey(username, avatar_url)
-        `, { count: 'exact' })
-        .order('created_at', { ascending: false });
+      query = query.gte('created_at', startDate.toISOString())
+                  .lt('created_at', endDate.toISOString());
+    }
 
-      if (status) {
-        query = query.eq('status', status);
-      }
+    const { data: logs, error } = await query;
 
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
+    if (error) throw error;
 
-      const { data: chats, error, count } = await query.range(from, to);
+    const formattedLogs = logs.map(log => ({
+      ...log,
+      user_name: log.user?.username
+    }));
 
-      if (error) throw error;
+    res.json({ logs: formattedLogs });
+  } catch (error) {
+    console.error('Ошибка получения логов:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
 
-      res.json({
-        chats,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: count
-        }
+// Вход в чат как администратор
+router.post('/join-chat', async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { chat_id } = req.body;
+
+    if (!chat_id) {
+      return res.status(400).json({ error: 'ID чата обязателен' });
+    }
+
+    // Проверяем существование чата
+    const { data: chat, error: chatError } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('id', chat_id)
+      .single();
+
+    if (chatError || !chat) {
+      return res.status(404).json({ error: 'Чат не найден' });
+    }
+
+    // Отправляем системное сообщение о входе администратора
+    const { error: messageError } = await supabase
+      .from('messages')
+      .insert({
+        chat_id: chat_id,
+        sender_id: adminId,
+        content: 'Администратор присоединился к чату для оказания помощи',
+        message_type: 'system'
       });
 
-    } catch (error) {
-      console.error('Get chats error:', error);
-      res.status(500).json({ error: 'Ошибка получения чатов' });
-    }
+    if (messageError) throw messageError;
+
+    await logAction(adminId, 'ADMIN_JOIN_CHAT', { chat_id });
+
+    res.json({ 
+      message: 'Вы присоединились к чату',
+      chat_id: chat_id
+    });
+  } catch (error) {
+    console.error('Ошибка входа в чат:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
-
-  // Отправка системного уведомления
-  async sendNotification(req, res) {
-    try {
-      const { title, message, type = 'info', userIds = [] } = req.body;
-
-      let notifications = [];
-
-      if (userIds.length > 0) {
-        // Отправка конкретным пользователям
-        notifications = userIds.map(userId => ({
-          user_id: userId,
-          title,
-          message,
-          type
-        }));
-      } else {
-        // Массовая рассылка всем пользователям
-        const { data: allUsers } = await supabase
-          .from('users')
-          .select('id');
-
-        notifications = allUsers.map(user => ({
-          user_id: user.id,
-          title,
-          message,
-          type
-        }));
-      }
-
-      const { error } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (error) throw error;
-
-      res.json({ 
-        message: `Уведомление отправлено ${notifications.length} пользователям` 
-      });
-
-    } catch (error) {
-      console.error('Send notification error:', error);
-      res.status(500).json({ error: 'Ошибка отправки уведомления' });
-    }
-  }
-}
-
-const adminController = new AdminController();
-
-// Маршруты
-const router = require('express').Router();
-
-router.get('/stats', adminController.getStats);
-router.get('/users', requireAdmin, adminController.getUsers);
-router.get('/chats', requireAdmin, adminController.getAllChats);
-router.post('/moderate', requireAdmin, adminController.moderateUser);
-router.post('/assign-role', requireCoOwner, adminController.assignRole);
-router.post('/notification', requireCoOwner, adminController.sendNotification);
+});
 
 module.exports = router;
