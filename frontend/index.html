@@ -61,10 +61,10 @@
                                 <span class="checkmark"></span>
                                 Запомнить меня
                             </label>
-                            <a href="#" class="forgot-password">Забыли пароль?</a>
+                            <a href="#" class="forgot-password" id="forgotPasswordLink">Забыли пароль?</a>
                         </div>
 
-                        <button type="submit" class="btn-primary auth-submit">
+                        <button type="submit" class="btn-primary auth-submit" id="loginBtn">
                             <span class="btn-text">Войти</span>
                             <div class="btn-loader">
                                 <div class="loader"></div>
@@ -121,12 +121,43 @@
                             </label>
                         </div>
 
-                        <button type="submit" class="btn-primary auth-submit">
+                        <button type="submit" class="btn-primary auth-submit" id="registerBtn">
                             <span class="btn-text">Зарегистрироваться</span>
                             <div class="btn-loader">
                                 <div class="loader"></div>
                             </div>
                         </button>
+                    </form>
+
+                    <!-- Форма восстановления пароля -->
+                    <form id="forgotPasswordForm" class="auth-form">
+                        <div class="form-group animated-input">
+                            <input type="email" id="forgotEmail" required>
+                            <label for="forgotEmail">
+                                <i class="fas fa-envelope"></i>
+                                Email
+                            </label>
+                            <div class="input-line"></div>
+                        </div>
+
+                        <div class="form-options">
+                            <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+                                Введите ваш email для получения инструкций по восстановлению пароля
+                            </p>
+                        </div>
+
+                        <button type="submit" class="btn-primary auth-submit" id="forgotBtn">
+                            <span class="btn-text">Восстановить пароль</span>
+                            <div class="btn-loader">
+                                <div class="loader"></div>
+                            </div>
+                        </button>
+
+                        <div class="auth-switch" style="margin-top: 20px; border: none; padding-top: 0;">
+                            <button type="button" class="switch-btn" id="backToLogin">
+                                ← Назад к входу
+                            </button>
+                        </div>
                     </form>
                 </div>
 
