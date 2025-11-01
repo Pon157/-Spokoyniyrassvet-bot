@@ -1,622 +1,586 @@
 class ChatApp {
     constructor() {
         this.currentUser = null;
-        this.currentChat = null;
         this.socket = null;
+        this.currentChat = null;
+        this.chats = [];
+        this.listeners = [];
+        this.stickers = [];
         this.init();
     }
 
     async init() {
         await this.checkAuth();
+        this.initSocket();
         this.loadUserData();
         this.setupEventListeners();
-        this.initializeSocket();
-        this.loadInterfaceData();
+        this.loadStickers();
+        
+        if (this.currentUser.role === 'listener') {
+            this.showListenerFeatures();
+        }
     }
 
     async checkAuth() {
-        const token = localStorage.getItem('token');
-        const user = localStorage.getItem('user');
-        
-        if (!token || !user) {
+        const token = localStorage.getItem('chat_token');
+        const userData = localStorage.getItem('user_data');
+
+        if (!token || !userData) {
             window.location.href = '/';
             return;
         }
-        
+
         try {
-            this.currentUser = JSON.parse(user);
-            console.log('✅ User loaded:', this.currentUser);
+            const response = await fetch('/auth/verify', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Невалидный токен');
+            }
+
+            const data = await response.json();
+            this.currentUser = data.user;
+            
         } catch (error) {
-            console.error('❌ Error parsing user data:', error);
+            console.error('Ошибка аутентификации:', error);
             this.logout();
         }
     }
 
+    initSocket() {
+        this.socket = io({
+            auth: {
+                token: localStorage.getItem('chat_token')
+            }
+        });
+
+        this.socket.on('connect', () => {
+            console.log('✅ WebSocket подключен');
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('❌ WebSocket отключен');
+        });
+
+        this.socket.on('error', (error) => {
+            this.showNotification(error.message, 'error');
+        });
+
+        // Обработчики событий WebSocket
+        this.socket.on('new_message', (message) => {
+            this.handleNewMessage(message);
+        });
+
+        this.socket.on('user_typing', (data) => {
+            this.showTypingIndicator(data);
+        });
+
+        this.socket.on('user_status_changed', (data) => {
+            this.updateUserStatus(data);
+        });
+    }
+
     loadUserData() {
-        // Безопасное обновление UI
-        try {
-            const userNameEl = document.getElementById('userName');
-            const userRoleEl = document.getElementById('userRole');
-            const userAvatarEl = document.getElementById('userAvatar');
-            
-            if (userNameEl) userNameEl.textContent = this.currentUser?.username || 'Пользователь';
-            if (userRoleEl) userRoleEl.textContent = this.getRoleDisplayName(this.currentUser?.role);
-            
-            if (userAvatarEl && this.currentUser?.avatar_url) {
-                userAvatarEl.src = this.currentUser.avatar_url;
-            }
-
-            this.showRoleSpecificSections();
-        } catch (error) {
-            console.error('❌ Error loading user data:', error);
+        document.getElementById('username').textContent = this.currentUser.username;
+        document.getElementById('userRole').textContent = this.getRoleDisplayName(this.currentUser.role);
+        
+        if (this.currentUser.avatar_url) {
+            document.getElementById('userAvatar').src = this.currentUser.avatar_url;
         }
-    }
 
-    getRoleDisplayName(role) {
-        const roleNames = {
-            'user': '👤 Пользователь',
-            'listener': '👂 Слушатель', 
-            'admin': '🛠️ Администратор',
-            'coowner': '👑 Совладелец',
-            'owner': '👑 Владелец'
-        };
-        return roleNames[role] || role || 'Пользователь';
-    }
-
-    showRoleSpecificSections() {
-        try {
-            const userSection = document.getElementById('userSection');
-            const listenerSection = document.getElementById('listenerSection');
-            
-            if (userSection && this.currentUser?.role === 'user') {
-                userSection.classList.remove('hidden');
-                this.loadListeners();
-            } else if (listenerSection && this.currentUser?.role === 'listener') {
-                listenerSection.classList.remove('hidden');
-                this.loadListenerData();
-            }
-            
-            this.loadUserChats();
-        } catch (error) {
-            console.error('❌ Error showing role sections:', error);
-        }
+        this.loadChats();
+        this.loadListeners();
     }
 
     setupEventListeners() {
-        try {
-            // Безопасное добавление обработчиков
-            const logoutBtn = document.getElementById('logoutBtn');
-            const sendBtn = document.getElementById('sendBtn');
-            const messageInput = document.getElementById('messageInput');
-            const themeToggle = document.getElementById('themeToggle');
-
-            if (logoutBtn) {
-                logoutBtn.addEventListener('click', () => this.logout());
-            }
-
-            if (sendBtn) {
-                sendBtn.addEventListener('click', () => this.sendMessage());
-            }
-
-            if (messageInput) {
-                messageInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        this.sendMessage();
-                    }
-                });
-            }
-
-            if (themeToggle) {
-                themeToggle.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const dropdown = document.getElementById('themeDropdown');
-                    if (dropdown) {
-                        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-                    }
-                });
-            }
-
-            // Обработчики для тем
-            document.querySelectorAll('.theme-option').forEach(option => {
-                option.addEventListener('click', (e) => {
-                    this.changeTheme(e.target.dataset.theme);
-                });
+        // Навигация по табам
+        document.querySelectorAll('.sidebar-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                this.switchSidebarTab(e.target.dataset.tab);
             });
+        });
 
-            document.addEventListener('click', () => {
-                const dropdown = document.getElementById('themeDropdown');
-                if (dropdown) {
-                    dropdown.style.display = 'none';
+        // Кнопка настроек
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            window.location.href = 'settings.html';
+        });
+
+        // Новый чат
+        document.getElementById('newChatBtn').addEventListener('click', () => {
+            this.createNewChat();
+        });
+
+        // Поиск
+        document.getElementById('chatSearch').addEventListener('input', (e) => {
+            this.filterChats(e.target.value);
+        });
+
+        document.getElementById('listenerSearch').addEventListener('input', (e) => {
+            this.filterListeners(e.target.value);
+        });
+
+        // Закрытие чата
+        document.getElementById('closeChatBtn').addEventListener('click', () => {
+            this.closeCurrentChat();
+        });
+    }
+
+    switchSidebarTab(tabName) {
+        document.querySelectorAll('.sidebar-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        document.getElementById(`${tabName}Tab`).classList.add('active');
+    }
+
+    showListenerFeatures() {
+        document.getElementById('listenersTab').style.display = 'flex';
+        document.getElementById('reviewsTab').style.display = 'flex';
+        this.loadReviews();
+    }
+
+    async loadChats() {
+        try {
+            const response = await fetch('/chat/chats', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
                 }
             });
 
+            if (response.ok) {
+                const data = await response.json();
+                this.chats = data.chats;
+                this.renderChats();
+            }
         } catch (error) {
-            console.error('❌ Error setting up event listeners:', error);
-        }
-    }
-
-    initializeSocket() {
-        try {
-            const token = localStorage.getItem('token');
-            const serverUrl = window.location.origin;
-            
-            console.log('🔌 Connecting to:', serverUrl);
-            
-            this.socket = io(serverUrl, {
-                auth: { token },
-                transports: ['websocket', 'polling']
-            });
-
-            this.socket.on('connect', () => {
-                console.log('✅ Connected to server');
-                this.enableChatInput();
-            });
-
-            this.socket.on('disconnect', () => {
-                console.log('❌ Disconnected from server');
-                this.disableChatInput();
-            });
-
-            this.socket.on('new_message', (message) => {
-                console.log('💬 New message:', message);
-                this.displayMessage(message);
-            });
-
-            this.socket.on('chat-created', (data) => {
-                console.log('📝 Chat created:', data);
-                this.joinChat(data.chatId);
-            });
-
-            this.socket.on('error', (data) => {
-                console.error('❌ Socket error:', data);
-                this.showNotification(data.message || 'Ошибка соединения', 'error');
-            });
-
-            this.socket.on('messages-history', (messages) => {
-                console.log('📨 Messages history:', messages);
-                this.displayMessagesHistory(messages);
-            });
-
-            // Новые обработчики для исправленного server.js
-            this.socket.on('authenticated', (user) => {
-                console.log('🔑 Socket authenticated:', user);
-            });
-
-            this.socket.on('new_message', (message) => {
-                this.displayMessage(message);
-            });
-
-        } catch (error) {
-            console.error('❌ Error initializing socket:', error);
+            console.error('Ошибка загрузки чатов:', error);
         }
     }
 
     async loadListeners() {
         try {
-            console.log('👥 Loading listeners...');
-            const response = await fetch('/users/listeners', {
+            const response = await fetch('/chat/listeners', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
                 }
             });
-            
+
             if (response.ok) {
                 const data = await response.json();
-                this.displayListeners(data.listeners || []);
-            } else {
-                console.warn('⚠️ No listeners endpoint, using mock data');
-                this.displayMockListeners();
+                this.listeners = data.listeners;
+                this.renderListeners();
             }
         } catch (error) {
-            console.error('❌ Error loading listeners:', error);
-            this.displayMockListeners();
+            console.error('Ошибка загрузки слушателей:', error);
         }
     }
 
-    displayMockListeners() {
-        const container = document.getElementById('listenersList');
-        if (!container) return;
+    async loadReviews() {
+        try {
+            const response = await fetch('/listener/reviews', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                }
+            });
 
-        const mockListeners = [
-            { id: '1', username: 'Анна Слушатель', avatar_url: null, rating: 4.8, is_online: true },
-            { id: '2', username: 'Максим Помощник', avatar_url: null, rating: 4.9, is_online: false },
-            { id: '3', username: 'Елена Консультант', avatar_url: null, rating: 4.7, is_online: true }
-        ];
-
-        this.displayListeners(mockListeners);
+            if (response.ok) {
+                const data = await response.json();
+                this.renderReviews(data.reviews);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки отзывов:', error);
+        }
     }
 
-    displayListeners(listeners) {
-        const container = document.getElementById('listenersList');
-        if (!container) return;
+    async loadStickers() {
+        try {
+            const response = await fetch('/chat/stickers', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                }
+            });
 
+            if (response.ok) {
+                const data = await response.json();
+                this.stickers = data.stickers;
+                this.renderStickers();
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки стикеров:', error);
+        }
+    }
+
+    renderChats() {
+        const container = document.getElementById('chatsList');
         container.innerHTML = '';
 
-        listeners.forEach(listener => {
-            const item = document.createElement('div');
-            item.className = 'listener-card';
-            item.innerHTML = `
-                <img src="${listener.avatar_url || '/images/default-avatar.png'}" alt="Avatar" class="avatar" onerror="this.src='/images/default-avatar.png'">
-                <div class="listener-info">
-                    <div class="listener-name">${listener.username}</div>
-                    <div class="listener-rating">⭐ ${listener.rating || 'Нет оценок'}</div>
-                    <div class="listener-status">
-                        <span class="status-indicator ${listener.is_online ? 'online' : 'offline'}"></span>
-                        ${listener.is_online ? 'Онлайн' : 'Не в сети'}
-                    </div>
-                </div>
-            `;
-            
-            item.addEventListener('click', () => {
-                this.createChatWithListener(listener.id);
-            });
-            
-            container.appendChild(item);
+        this.chats.forEach(chat => {
+            const chatElement = this.createChatElement(chat);
+            container.appendChild(chatElement);
         });
     }
 
-    async createChatWithListener(listenerId) {
+    createChatElement(chat) {
+        const div = document.createElement('div');
+        div.className = `chat-item ${chat.unread_count > 0 ? 'unread' : ''}`;
+        div.innerHTML = `
+            <img src="${chat.partner_avatar || 'images/default-avatar.png'}" class="avatar">
+            <div class="chat-info">
+                <div class="chat-header">
+                    <span class="chat-name">${chat.partner_name}</span>
+                    <span class="chat-time">${this.formatTime(chat.last_message_time)}</span>
+                </div>
+                <div class="chat-preview">${chat.last_message || 'Нет сообщений'}</div>
+                ${chat.unread_count > 0 ? `<span class="unread-badge">${chat.unread_count}</span>` : ''}
+            </div>
+        `;
+
+        div.addEventListener('click', () => {
+            this.selectChat(chat);
+        });
+
+        return div;
+    }
+
+    renderListeners() {
+        const container = document.getElementById('listenersList');
+        container.innerHTML = '';
+
+        this.listeners.forEach(listener => {
+            const listenerElement = this.createListenerElement(listener);
+            container.appendChild(listenerElement);
+        });
+    }
+
+    createListenerElement(listener) {
+        const div = document.createElement('div');
+        div.className = 'listener-item';
+        div.innerHTML = `
+            <img src="${listener.avatar_url || 'images/default-avatar.png'}" class="avatar">
+            <div class="listener-info">
+                <div class="listener-name">${listener.username}</div>
+                <div class="listener-status ${listener.is_online ? 'online' : 'offline'}">
+                    ${listener.is_online ? 'Online' : 'Offline'}
+                </div>
+                <div class="listener-rating">
+                    ${this.generateStarRating(listener.avg_rating || 0)}
+                </div>
+            </div>
+            <button class="btn btn-sm btn-primary start-chat-btn">
+                <i class="fas fa-comment"></i>
+            </button>
+        `;
+
+        div.querySelector('.start-chat-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.startChatWithListener(listener.id);
+        });
+
+        return div;
+    }
+
+    renderReviews(reviews) {
+        const container = document.getElementById('reviewsContainer');
+        container.innerHTML = '';
+
+        if (reviews.length === 0) {
+            container.innerHTML = '<p class="no-reviews">Пока нет отзывов</p>';
+            return;
+        }
+
+        reviews.forEach(review => {
+            const reviewElement = this.createReviewElement(review);
+            container.appendChild(reviewElement);
+        });
+    }
+
+    createReviewElement(review) {
+        const div = document.createElement('div');
+        div.className = 'review-item';
+        div.innerHTML = `
+            <div class="review-header">
+                <span class="review-user">${review.user_name}</span>
+                <span class="review-rating">${this.generateStarRating(review.rating)}</span>
+            </div>
+            <div class="review-comment">${review.comment || 'Без комментария'}</div>
+            <div class="review-date">${this.formatTime(review.created_at)}</div>
+        `;
+        return div;
+    }
+
+    renderStickers() {
+        const container = document.getElementById('stickersGrid');
+        container.innerHTML = '';
+
+        this.stickers.forEach(sticker => {
+            const stickerElement = document.createElement('div');
+            stickerElement.className = 'sticker-item';
+            stickerElement.innerHTML = `<img src="${sticker.url}" alt="${sticker.name}">`;
+            
+            stickerElement.addEventListener('click', () => {
+                this.sendSticker(sticker.url);
+                this.closeStickerModal();
+            });
+
+            container.appendChild(stickerElement);
+        });
+    }
+
+    async selectChat(chat) {
+        this.currentChat = chat;
+        
+        document.getElementById('chatPlaceholder').style.display = 'none';
+        document.getElementById('chatContainer').style.display = 'flex';
+        
+        document.getElementById('partnerName').textContent = chat.partner_name;
+        document.getElementById('partnerAvatar').src = chat.partner_avatar || 'images/default-avatar.png';
+        document.getElementById('partnerStatus').textContent = chat.partner_online ? 'online' : 'offline';
+        
+        this.socket.emit('join_chat', chat.id);
+        await this.loadMessages(chat.id);
+    }
+
+    async loadMessages(chatId) {
         try {
-            console.log('💬 Creating chat with listener:', listenerId);
+            const response = await fetch(`/chat/messages/${chatId}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.renderMessages(data.messages);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки сообщений:', error);
+        }
+    }
+
+    renderMessages(messages) {
+        const container = document.getElementById('messages');
+        container.innerHTML = '';
+
+        messages.forEach(message => {
+            const messageElement = this.createMessageElement(message);
+            container.appendChild(messageElement);
+        });
+
+        this.scrollToBottom();
+    }
+
+    createMessageElement(message) {
+        const div = document.createElement('div');
+        const isOwn = message.sender_id === this.currentUser.id;
+        
+        div.className = `message ${isOwn ? 'own-message' : 'other-message'}`;
+        
+        let content = '';
+        switch (message.message_type) {
+            case 'text':
+                content = `<div class="message-text">${this.escapeHtml(message.content)}</div>`;
+                break;
+            case 'image':
+                content = `<img src="${message.media_url}" class="message-media" onclick="app.openMedia('${message.media_url}')">`;
+                break;
+            case 'video':
+                content = `<video src="${message.media_url}" controls class="message-media"></video>`;
+                break;
+            case 'audio':
+                content = `<audio src="${message.media_url}" controls class="message-audio"></audio>`;
+                break;
+            case 'sticker':
+                content = `<img src="${message.sticker_url}" class="message-sticker">`;
+                break;
+        }
+
+        div.innerHTML = `
+            <div class="message-content">
+                ${!isOwn ? `<div class="message-sender">${message.sender.username}</div>` : ''}
+                ${content}
+                <div class="message-time">${this.formatTime(message.created_at)}</div>
+            </div>
+        `;
+
+        return div;
+    }
+
+    handleNewMessage(message) {
+        if (this.currentChat && message.chat_id === this.currentChat.id) {
+            const container = document.getElementById('messages');
+            const messageElement = this.createMessageElement(message);
+            container.appendChild(messageElement);
+            this.scrollToBottom();
+        } else {
+            // Обновляем список чатов
+            this.loadChats();
+        }
+    }
+
+    showTypingIndicator(data) {
+        const indicator = document.getElementById('typingIndicator');
+        const typingUser = document.getElementById('typingUser');
+        
+        if (data.is_typing) {
+            typingUser.textContent = data.username;
+            indicator.style.display = 'block';
+        } else {
+            indicator.style.display = 'none';
+        }
+    }
+
+    updateUserStatus(data) {
+        // Обновляем статус в активном чате
+        if (this.currentChat && 
+            (this.currentChat.partner_id === data.user_id || 
+             this.currentChat.user_id === data.user_id)) {
+            document.getElementById('partnerStatus').textContent = 
+                data.is_online ? 'online' : 'offline';
+        }
+        
+        // Обновляем статус в списках
+        this.loadChats();
+        this.loadListeners();
+    }
+
+    async createNewChat() {
+        try {
             const response = await fetch('/chat/create', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ listenerId })
+                body: JSON.stringify({})
             });
 
             if (response.ok) {
                 const data = await response.json();
-                this.joinChat(data.chat.id);
-                this.showNotification('Чат создан успешно!', 'success');
-            } else {
-                throw new Error('Failed to create chat');
+                this.chats.unshift(data.chat);
+                this.renderChats();
+                this.selectChat(data.chat);
             }
         } catch (error) {
-            console.error('❌ Error creating chat:', error);
+            console.error('Ошибка создания чата:', error);
             this.showNotification('Ошибка создания чата', 'error');
-            // Создаем mock чат для тестирования
-            this.joinChat('mock-chat-' + Date.now());
         }
     }
 
-    joinChat(chatId) {
-        if (this.currentChat) {
-            this.socket.emit('leave-chat', this.currentChat);
-        }
-        
-        this.currentChat = chatId;
-        console.log('🔗 Joining chat:', chatId);
-        
-        if (this.socket) {
-            this.socket.emit('join-chat', chatId);
-            this.socket.emit('get-messages', chatId);
-        }
-        
-        this.updateChatInterface();
-        this.showNotification(`Подключен к чату ${chatId}`, 'success');
-    }
-
-    updateChatInterface() {
+    async startChatWithListener(listenerId) {
         try {
-            const messageInputContainer = document.getElementById('messageInputContainer');
-            const leaveChatBtn = document.getElementById('leaveChatBtn');
-            const chatTitle = document.getElementById('chatTitle');
-            const addReviewBtn = document.getElementById('addReviewBtn');
-
-            if (messageInputContainer) messageInputContainer.classList.remove('hidden');
-            if (leaveChatBtn) leaveChatBtn.classList.remove('hidden');
-            if (chatTitle) chatTitle.textContent = 'Активный чат';
-            
-            if (addReviewBtn && this.currentUser?.role === 'user') {
-                addReviewBtn.classList.remove('hidden');
-            }
-        } catch (error) {
-            console.error('❌ Error updating chat interface:', error);
-        }
-    }
-
-    sendMessage() {
-        try {
-            const input = document.getElementById('messageInput');
-            if (!input) return;
-            
-            const content = input.value.trim();
-            
-            if (!content || !this.currentChat) {
-                this.showNotification('Введите сообщение', 'warning');
-                return;
-            }
-
-            console.log('📤 Sending message:', content);
-
-            if (this.socket) {
-                this.socket.emit('send_message', {
-                    chatId: this.currentChat,
-                    content: content,
-                    type: 'text'
-                });
-            } else {
-                // Mock сообщение если сокет не работает
-                this.displayMessage({
-                    id: 'mock-msg-' + Date.now(),
-                    content: content,
-                    sender_id: this.currentUser.id,
-                    sender: { username: this.currentUser.username, avatar_url: null, role: this.currentUser.role },
-                    created_at: new Date().toISOString()
-                });
-            }
-
-            input.value = '';
-        } catch (error) {
-            console.error('❌ Error sending message:', error);
-        }
-    }
-
-    displayMessage(message) {
-        try {
-            const container = document.getElementById('messagesList');
-            if (!container) return;
-
-            const messageEl = document.createElement('div');
-            
-            const isOwn = message.sender_id === this.currentUser.id || 
-                         message.sender?.id === this.currentUser.id;
-            
-            messageEl.className = `message-item ${isOwn ? 'own' : 'other'}`;
-            
-            messageEl.innerHTML = `
-                ${!isOwn ? `<div class="message-sender">${message.sender?.username || 'Неизвестный'}</div>` : ''}
-                <div class="message-content">${message.content}</div>
-                <div class="message-timestamp">${this.formatTime(message.created_at || message.timestamp)}</div>
-            `;
-            
-            container.appendChild(messageEl);
-            container.scrollTop = container.scrollHeight;
-        } catch (error) {
-            console.error('❌ Error displaying message:', error);
-        }
-    }
-
-    displayMessagesHistory(messages) {
-        try {
-            const container = document.getElementById('messagesList');
-            if (!container) return;
-            
-            container.innerHTML = '';
-            
-            if (messages && messages.length > 0) {
-                messages.forEach(message => this.displayMessage(message));
-            } else {
-                container.innerHTML = '<div class="no-messages">Нет сообщений</div>';
-            }
-        } catch (error) {
-            console.error('❌ Error displaying messages history:', error);
-        }
-    }
-
-    enableChatInput() {
-        try {
-            const messageInput = document.getElementById('messageInput');
-            const sendBtn = document.getElementById('sendBtn');
-            
-            if (messageInput) messageInput.disabled = false;
-            if (sendBtn) sendBtn.disabled = false;
-        } catch (error) {
-            console.error('❌ Error enabling chat input:', error);
-        }
-    }
-
-    disableChatInput() {
-        try {
-            const messageInput = document.getElementById('messageInput');
-            const sendBtn = document.getElementById('sendBtn');
-            
-            if (messageInput) messageInput.disabled = true;
-            if (sendBtn) sendBtn.disabled = true;
-        } catch (error) {
-            console.error('❌ Error disabling chat input:', error);
-        }
-    }
-
-    async loadUserChats() {
-        try {
-            console.log('💾 Loading user chats...');
-            
-            // Временная заглушка - всегда показываем mock чаты
-            this.displayMockChats();
-            
-        } catch (error) {
-            console.error('❌ Error loading chats:', error);
-            this.displayMockChats();
-        }
-    }
-
-    displayMockChats() {
-        const mockChats = [
-            {
-                id: 'chat-1',
-                participants: [
-                    { id: this.currentUser.id, username: this.currentUser.username, role: this.currentUser.role },
-                    { id: 'listener-1', username: 'Анна Слушатель', role: 'listener' }
-                ]
-            },
-            {
-                id: 'chat-2', 
-                participants: [
-                    { id: this.currentUser.id, username: this.currentUser.username, role: this.currentUser.role },
-                    { id: 'listener-2', username: 'Максим Помощник', role: 'listener' }
-                ]
-            }
-        ];
-
-        this.displayChats(mockChats);
-    }
-
-    displayChats(chats) {
-        try {
-            let container;
-            
-            if (this.currentUser?.role === 'listener') {
-                container = document.getElementById('listenerChatsList');
-            } else {
-                container = document.getElementById('userChatsList');
-            }
-            
-            if (!container) return;
-
-            container.innerHTML = '';
-
-            chats.forEach(chat => {
-                const otherUser = chat.participants.find(p => p.id !== this.currentUser.id);
-                if (!otherUser) return;
-                
-                const item = document.createElement('div');
-                item.className = `chat-card ${this.currentChat === chat.id ? 'active' : ''}`;
-                item.innerHTML = `
-                    <img src="${otherUser.avatar_url || '/images/default-avatar.png'}" alt="Avatar" class="avatar" onerror="this.src='/images/default-avatar.png'">
-                    <div class="chat-info">
-                        <div class="chat-partner">${otherUser.username}</div>
-                        <div class="chat-user-role">${this.getRoleDisplayName(otherUser.role)}</div>
-                    </div>
-                `;
-                
-                item.addEventListener('click', () => {
-                    this.joinChat(chat.id);
-                });
-                
-                container.appendChild(item);
-            });
-        } catch (error) {
-            console.error('❌ Error displaying chats:', error);
-        }
-    }
-
-    async loadListenerData() {
-        await this.loadListenerReviews();
-    }
-
-    async loadListenerReviews() {
-        try {
-            // Mock reviews для тестирования
-            const mockReviews = [
-                {
-                    user_id: { username: 'Иван Иванов' },
-                    rating: 5,
-                    comment: 'Отличный слушатель! Очень помог.',
-                    created_at: new Date().toISOString()
+            const response = await fetch('/chat/create', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Content-Type': 'application/json'
                 },
-                {
-                    user_id: { username: 'Мария Петрова' },
-                    rating: 4,
-                    comment: 'Спасибо за поддержку',
-                    created_at: new Date().toISOString()
-                }
-            ];
-            
-            this.displayReviews(mockReviews);
-        } catch (error) {
-            console.error('❌ Error loading reviews:', error);
-        }
-    }
-
-    displayReviews(reviews) {
-        const container = document.getElementById('reviewsList');
-        if (!container) return;
-
-        container.innerHTML = '';
-
-        reviews.forEach(review => {
-            const item = document.createElement('div');
-            item.className = 'review-item';
-            item.innerHTML = `
-                <div class="review-header">
-                    <strong>${review.user_id?.username || 'Аноним'}</strong>
-                    <div class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</div>
-                </div>
-                ${review.comment ? `<div class="review-comment">${review.comment}</div>` : ''}
-                <small class="review-date">${this.formatTime(review.created_at)}</small>
-            `;
-            container.appendChild(item);
-        });
-    }
-
-    changeTheme(theme) {
-        try {
-            const themeStyle = document.getElementById('theme-style');
-            if (themeStyle) {
-                themeStyle.href = `css/${theme}-theme.css`;
-            }
-            localStorage.setItem('theme', theme);
-            
-            const dropdown = document.getElementById('themeDropdown');
-            if (dropdown) {
-                dropdown.style.display = 'none';
-            }
-            
-            this.showNotification(`Тема изменена на ${theme}`, 'success');
-        } catch (error) {
-            console.error('❌ Error changing theme:', error);
-        }
-    }
-
-    formatTime(timestamp) {
-        try {
-            return new Date(timestamp).toLocaleTimeString('ru-RU', {
-                hour: '2-digit',
-                minute: '2-digit'
+                body: JSON.stringify({ listener_id: listenerId })
             });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.chats.unshift(data.chat);
+                this.renderChats();
+                this.selectChat(data.chat);
+            }
         } catch (error) {
-            return '--:--';
+            console.error('Ошибка создания чата:', error);
+            this.showNotification('Ошибка создания чата', 'error');
         }
+    }
+
+    closeCurrentChat() {
+        this.currentChat = null;
+        document.getElementById('chatPlaceholder').style.display = 'flex';
+        document.getElementById('chatContainer').style.display = 'none';
+        
+        if (this.currentChat) {
+            this.socket.emit('leave_chat', this.currentChat.id);
+        }
+    }
+
+    // Вспомогательные методы
+    formatTime(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now - date;
+        
+        if (diff < 60000) return 'только что';
+        if (diff < 3600000) return `${Math.floor(diff / 60000)} мин назад`;
+        if (diff < 86400000) return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        
+        return date.toLocaleDateString('ru-RU');
+    }
+
+    generateStarRating(rating) {
+        const stars = [];
+        for (let i = 1; i <= 5; i++) {
+            stars.push(i <= rating ? '★' : '☆');
+        }
+        return stars.join('');
+    }
+
+    getRoleDisplayName(role) {
+        const roles = {
+            'user': 'Пользователь',
+            'listener': 'Слушатель',
+            'admin': 'Администратор',
+            'coowner': 'Совладелец',
+            'owner': 'Владелец'
+        };
+        return roles[role] || role;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    scrollToBottom() {
+        const container = document.getElementById('messagesContainer');
+        container.scrollTop = container.scrollHeight;
     }
 
     showNotification(message, type = 'info') {
-        try {
-            // Простая реализация через alert
-            const typeEmoji = {
-                'success': '✅',
-                'error': '❌', 
-                'warning': '⚠️',
-                'info': 'ℹ️'
-            };
-            
-            alert(`${typeEmoji[type] || 'ℹ️'} ${message}`);
-        } catch (error) {
-            console.log(`Notification [${type}]: ${message}`);
-        }
+        const container = document.getElementById('notificationsContainer');
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <i class="fas fa-${this.getNotificationIcon(type)}"></i>
+            ${message}
+        `;
+
+        container.appendChild(notification);
+
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            'success': 'check-circle',
+            'error': 'exclamation-circle',
+            'warning': 'exclamation-triangle',
+            'info': 'info-circle'
+        };
+        return icons[type] || 'info-circle';
     }
 
     logout() {
-        try {
-            if (this.socket) {
-                this.socket.disconnect();
-            }
-            
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/';
-        } catch (error) {
-            console.error('❌ Error during logout:', error);
-            window.location.href = '/';
-        }
-    }
-
-    loadInterfaceData() {
-        console.log('🎨 Interface loaded successfully');
-        this.showNotification('Приложение загружено!', 'success');
+        localStorage.removeItem('chat_token');
+        localStorage.removeItem('user_data');
+        window.location.href = '/';
     }
 }
 
-// Безопасная инициализация
-document.addEventListener('DOMContentLoaded', () => {
-    try {
-        console.log('🚀 Starting ChatApp...');
-        new ChatApp();
-    } catch (error) {
-        console.error('❌ Failed to initialize ChatApp:', error);
-        alert('Ошибка загрузки приложения. Проверьте консоль для деталей.');
-    }
-});
+// Глобальный экземпляр приложения
+const app = new ChatApp();
