@@ -1,75 +1,72 @@
 const jwt = require('jsonwebtoken');
 const { supabase } = require('./db');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Проверка JWT токена
 const authenticateToken = async (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) {
-        return res.status(401).json({ error: 'Access token required' });
+  if (!token) {
+    return res.status(401).json({ error: 'Токен доступа отсутствует' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // Проверяем что пользователь все еще существует
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, username, email, role, is_banned')
+      .eq('id', decoded.userId)
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Пользователь не найден' });
     }
 
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-        
-        // Проверяем что пользователь все еще существует и активен
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('id, username, role, is_active, is_blocked')
-            .eq('id', decoded.userId)
-            .single();
-
-        if (error || !user) {
-            return res.status(403).json({ error: 'User not found' });
-        }
-
-        if (user.is_blocked) {
-            return res.status(403).json({ error: 'Account is blocked' });
-        }
-
-        if (!user.is_active) {
-            return res.status(403).json({ error: 'Account is deactivated' });
-        }
-
-        req.user = user;
-        next();
-    } catch (error) {
-        return res.status(403).json({ error: 'Invalid or expired token' });
+    if (user.is_banned) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован' });
     }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: 'Неверный токен' });
+  }
 };
 
-// Middleware для проверки ролей
+// Проверка ролей
 const requireRole = (allowedRoles) => {
-    return (req, res, next) => {
-        if (!req.user) {
-            return res.status(401).json({ error: 'Authentication required' });
-        }
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Не авторизован' });
+    }
 
-        if (!allowedRoles.includes(req.user.role)) {
-            return res.status(403).json({ 
-                error: 'Insufficient permissions',
-                required: allowedRoles,
-                current: req.user.role
-            });
-        }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        error: 'Недостаточно прав',
+        required: allowedRoles,
+        current: req.user.role 
+      });
+    }
 
-        next();
-    };
+    next();
+  };
 };
 
-// Специфичные middleware для ролей
-const requireUser = requireRole(['user']);
-const requireListener = requireRole(['listener']);
+// Специфичные проверки ролей
 const requireAdmin = requireRole(['admin', 'coowner', 'owner']);
 const requireCoOwner = requireRole(['coowner', 'owner']);
 const requireOwner = requireRole(['owner']);
+const requireListener = requireRole(['listener', 'admin', 'coowner', 'owner']);
 
 module.exports = {
-    authenticateToken,
-    requireRole,
-    requireUser,
-    requireListener,
-    requireAdmin,
-    requireCoOwner,
-    requireOwner
+  authenticateToken,
+  requireRole,
+  requireAdmin,
+  requireCoOwner,
+  requireOwner,
+  requireListener
 };
