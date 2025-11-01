@@ -210,3 +210,18 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 DOMAIN: spokoyniyrassvet.webtm.ru`);
     console.log(`🚀 Environment: ${process.env.NODE_ENV}`);
 });
+
+// Webhook для автоматического обновления
+app.post('/webhook', (req, res) => {
+    const { exec } = require('child_process');
+    exec('cd /opt/chat-app/-Spokoyniyrassvet-bot && git pull && pm2 restart chat-app', 
+        (error, stdout, stderr) => {
+            if (error) {
+                console.error('Update error:', error);
+                return res.status(500).send('Error');
+            }
+            console.log('✅ Auto-update successful');
+            res.send('OK');
+        }
+    );
+});
