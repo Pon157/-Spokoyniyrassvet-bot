@@ -3,13 +3,174 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чат Система - Вход</title>
+    <title>SpokoyniyRassvet - Аутентификация</title>
     <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/auth.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/modern.css">
+    <link rel="stylesheet" href="css/light-theme.css" id="theme">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+    <div class="auth-container">
+        <!-- Логотип и заголовок -->
+        <div class="auth-header">
+            <div class="logo">
+                <i class="fas fa-sun"></i>
+                <span>SpokoyniyRassvet</span>
+            </div>
+            <h1>Добро пожаловать</h1>
+            <p>Выберите способ входа в систему</p>
+        </div>
+
+        <!-- Форма входа -->
+        <div class="auth-form active" id="loginForm">
+            <div class="form-header">
+                <h2>Вход в систему</h2>
+                <p>Введите ваши данные для входа</p>
+            </div>
+            
+            <form id="loginFormElement">
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <input type="email" id="loginEmail" placeholder="Ваш email" required>
+                </div>
+                
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <input type="password" id="loginPassword" placeholder="Пароль" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox">
+                        <input type="checkbox" id="rememberMe">
+                        <span class="checkmark"></span>
+                        Запомнить меня
+                    </label>
+                    <a href="#" class="forgot-password" onclick="showForgotPassword()">Забыли пароль?</a>
+                </div>
+
+                <button type="submit" class="btn-primary" id="loginBtn">
+                    <span class="btn-text">Войти</span>
+                    <div class="btn-loader" style="display: none;">
+                        <div class="spinner"></div>
+                    </div>
+                </button>
+            </form>
+
+            <div class="auth-switch">
+                <p>Нет аккаунта? <a href="#" onclick="showRegisterForm()">Зарегистрироваться</a></p>
+            </div>
+        </div>
+
+        <!-- Форма регистрации -->
+        <div class="auth-form" id="registerForm">
+            <div class="form-header">
+                <h2>Регистрация</h2>
+                <p>Создайте новый аккаунт</p>
+            </div>
+            
+            <form id="registerFormElement">
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <input type="text" id="registerName" placeholder="Имя пользователя" required>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <input type="email" id="registerEmail" placeholder="Email" required>
+                </div>
+                
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <input type="password" id="registerPassword" placeholder="Пароль" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword('registerPassword')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <input type="password" id="registerConfirmPassword" placeholder="Подтвердите пароль" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword('registerConfirmPassword')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox">
+                        <input type="checkbox" id="agreeTerms" required>
+                        <span class="checkmark"></span>
+                        Я согласен с <a href="#">условиями использования</a>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-primary" id="registerBtn">
+                    <span class="btn-text">Зарегистрироваться</span>
+                    <div class="btn-loader" style="display: none;">
+                        <div class="spinner"></div>
+                    </div>
+                </button>
+            </form>
+
+            <div class="auth-switch">
+                <p>Уже есть аккаунт? <a href="#" onclick="showLoginForm()">Войти</a></p>
+            </div>
+        </div>
+
+        <!-- Форма восстановления пароля -->
+        <div class="auth-form" id="forgotPasswordForm">
+            <div class="form-header">
+                <h2>Восстановление пароля</h2>
+                <p>Введите email для восстановления</p>
+            </div>
+            
+            <form id="forgotPasswordFormElement">
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <input type="email" id="forgotEmail" placeholder="Ваш email" required>
+                </div>
+
+                <button type="submit" class="btn-primary" id="forgotBtn">
+                    <span class="btn-text">Восстановить пароль</span>
+                    <div class="btn-loader" style="display: none;">
+                        <div class="spinner"></div>
+                    </div>
+                </button>
+            </form>
+
+            <div class="auth-switch">
+                <p>Вспомнили пароль? <a href="#" onclick="showLoginForm()">Войти</a></p>
+            </div>
+        </div>
+
+        <!-- Уведомления -->
+        <div class="notification" id="notification">
+            <div class="notification-content">
+                <i class="fas fa-check-circle notification-icon success"></i>
+                <i class="fas fa-exclamation-circle notification-icon error"></i>
+                <span class="notification-message"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фон с анимацией -->
     <div class="auth-background">
         <div class="floating-shapes">
             <div class="shape shape-1"></div>
@@ -17,155 +178,7 @@
             <div class="shape shape-3"></div>
             <div class="shape shape-4"></div>
         </div>
-        
-        <div class="auth-container">
-            <div class="auth-card">
-                <!-- Логотип и заголовок -->
-                <div class="auth-header">
-                    <div class="logo">
-                        <i class="fas fa-comments"></i>
-                        <span>ChatFlow</span>
-                    </div>
-                    <h1>Добро пожаловать</h1>
-                    <p>Войдите в свою учетную запись чтобы продолжить</p>
-                </div>
-
-                <!-- Формы -->
-                <div class="auth-forms">
-                    <!-- Форма входа -->
-                    <form id="loginForm" class="auth-form active">
-                        <div class="form-group animated-input">
-                            <input type="email" id="loginEmail" required>
-                            <label for="loginEmail">
-                                <i class="fas fa-envelope"></i>
-                                Email
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="password" id="loginPassword" required>
-                            <label for="loginPassword">
-                                <i class="fas fa-lock"></i>
-                                Пароль
-                            </label>
-                            <div class="input-line"></div>
-                            <button type="button" class="toggle-password" id="toggleLoginPassword">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-
-                        <div class="form-options">
-                            <label class="checkbox">
-                                <input type="checkbox" id="rememberMe">
-                                <span class="checkmark"></span>
-                                Запомнить меня
-                            </label>
-                            <a href="#" class="forgot-password">Забыли пароль?</a>
-                        </div>
-
-                        <button type="submit" class="btn-primary auth-submit">
-                            <span class="btn-text">Войти</span>
-                            <div class="btn-loader">
-                                <div class="loader"></div>
-                            </div>
-                        </button>
-                    </form>
-
-                    <!-- Форма регистрации -->
-                    <form id="registerForm" class="auth-form">
-                        <div class="form-group animated-input">
-                            <input type="text" id="registerUsername" required>
-                            <label for="registerUsername">
-                                <i class="fas fa-user"></i>
-                                Имя пользователя
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="email" id="registerEmail" required>
-                            <label for="registerEmail">
-                                <i class="fas fa-envelope"></i>
-                                Email
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="password" id="registerPassword" required>
-                            <label for="registerPassword">
-                                <i class="fas fa-lock"></i>
-                                Пароль
-                            </label>
-                            <div class="input-line"></div>
-                            <button type="button" class="toggle-password" id="toggleRegisterPassword">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="password" id="confirmPassword" required>
-                            <label for="confirmPassword">
-                                <i class="fas fa-lock"></i>
-                                Подтвердите пароль
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-options">
-                            <label class="checkbox">
-                                <input type="checkbox" id="acceptTerms" required>
-                                <span class="checkmark"></span>
-                                Я принимаю <a href="#">условия использования</a>
-                            </label>
-                        </div>
-
-                        <button type="submit" class="btn-primary auth-submit">
-                            <span class="btn-text">Зарегистрироваться</span>
-                            <div class="btn-loader">
-                                <div class="loader"></div>
-                            </div>
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Переключение между формами -->
-                <div class="auth-switch">
-                    <span id="switchText">Нет аккаунта?</span>
-                    <button id="switchBtn" class="switch-btn">Создать аккаунт</button>
-                </div>
-
-                <!-- Настройки темы -->
-                <div class="theme-settings">
-                    <button class="theme-toggle" id="themeToggle">
-                        <i class="fas fa-palette"></i>
-                    </button>
-                    <div class="theme-options" id="themeOptions">
-                        <div class="theme-option" data-theme="light">
-                            <div class="theme-preview light-theme"></div>
-                            <span>Светлая</span>
-                        </div>
-                        <div class="theme-option" data-theme="dark">
-                            <div class="theme-preview dark-theme"></div>
-                            <span>Темная</span>
-                        </div>
-                        <div class="theme-option" data-theme="blue">
-                            <div class="theme-preview blue-theme"></div>
-                            <span>Синяя</span>
-                        </div>
-                        <div class="theme-option" data-theme="purple">
-                            <div class="theme-preview purple-theme"></div>
-                            <span>Фиолетовая</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
-
-    <!-- Уведомления -->
-    <div id="notificationsContainer"></div>
 
     <script src="js/auth.js"></script>
 </body>
