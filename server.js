@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const socketIo = require('socket.io'); // ДОБАВИТЬ ЭТУ СТРОКУ
 const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -9,18 +10,78 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 
-// Middleware
-app.use(cors());
+// Исправленный CORS для Timeweb
+app.use(cors({
+    origin: "https://pon157-git--f288.twc1.net",
+    credentials: true
+}));
+
+// WebSocket с правильным CORS
+const io = socketIo(server, {
+    cors: {
+        origin: "https://pon157-git--f288.twc1.net",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'frontend')));
 
 // Health checks
 app.get('/health', (req, res) => {
-    res.json({ status: 'OK', message: 'Server is running' });
+    res.json({ 
+        status: 'OK', 
+        message: 'Server is running',
+        timestamp: new Date().toISOString()
+    });
 });
 
 app.get('/ping', (req, res) => {
     res.send('pong');
+});
+
+// WebSocket подключение
+io.on('connection', (socket) => {
+    console.log('✅ User connected:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('❌ User disconnected:', socket.id);
+    });
+
+    // Простые WebSocket события для теста
+    socket.on('create-chat', (data) => {
+        console.log('Create chat:', data);
+        socket.emit('chat-created', { chatId: 'chat-' + Date.now() });
+    });
+
+    socket.on('send-message', (data) => {
+        console.log('Send message:', data);
+        const message = {
+            id: 'msg-' + Date.now(),
+            ...data,
+            timestamp: new Date().toISOString()
+        };
+        socket.emit('new-message', message);
+    });
+
+    socket.on('join-chat', (chatId) => {
+        console.log('Join chat:', chatId);
+        socket.join(chatId);
+    });
+
+    socket.on('get-messages', (chatId) => {
+        console.log('Get messages:', chatId);
+        const messages = [
+            {
+                id: 'msg-1',
+                content: 'Тестовое сообщение',
+                chatId: chatId,
+                timestamp: new Date().toISOString()
+            }
+        ];
+        socket.emit('messages-history', messages);
+    });
 });
 
 // ПРОСТАЯ РЕГИСТРАЦИЯ
@@ -35,7 +96,7 @@ app.post('/auth/register', async (req, res) => {
             return res.status(400).json({ error: 'All fields are required' });
         }
 
-        // Создаем простого пользователя без Supabase
+        // Создаем простого пользователя
         const userId = 'user-' + Date.now();
         const token = jwt.sign(
             { userId, role },
@@ -101,6 +162,10 @@ app.get('/api/user/listeners', (req, res) => {
 });
 
 // Статические страницы
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend/index.html'));
+});
+
 app.get('/chat', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/chat.html'));
 });
@@ -125,4 +190,5 @@ const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ SERVER RUNNING ON PORT ${PORT}`);
     console.log(`🌐 DEMO MODE - Basic auth working`);
+    console.log(`🔗 URL: https://pon157-git--f288.twc1.net`);
 });
