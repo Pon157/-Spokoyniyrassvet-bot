@@ -238,17 +238,12 @@ class AuthManager {
         const button = document.getElementById(buttonId);
         if (!button) return;
 
-        const btnText = button.querySelector('.btn-text');
-        const btnLoader = button.querySelector('.btn-loader');
-
         if (isLoading) {
             button.disabled = true;
-            btnText.style.opacity = '0';
-            btnLoader.style.display = 'block';
+            button.classList.add('loading');
         } else {
             button.disabled = false;
-            btnText.style.opacity = '1';
-            btnLoader.style.display = 'none';
+            button.classList.remove('loading');
         }
     }
 
@@ -360,18 +355,3 @@ function togglePassword(inputId) {
 document.addEventListener('DOMContentLoaded', function() {
     window.authManager = new AuthManager();
 });
-
-// Demo functions for testing (remove in production)
-function demoLogin() {
-    document.getElementById('loginEmail').value = 'demo@example.com';
-    document.getElementById('loginPassword').value = 'password123';
-    authManager.handleLogin();
-}
-
-function demoRegister() {
-    document.getElementById('registerName').value = 'Demo User';
-    document.getElementById('registerEmail').value = 'demo@example.com';
-    document.getElementById('registerPassword').value = 'password123';
-    document.getElementById('registerConfirmPassword').value = 'password123';
-    document.getElementById('agreeTerms').checked = true;
-}
