@@ -1,9 +1,12 @@
 const jwt = require('jsonwebtoken');
-const { supabase } = require('./db');
+const { createClient } = require('@supabase/supabase-js');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
-// Проверка JWT токена
+// Аутентификация по JWT токену
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -13,12 +16,12 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Проверяем что пользователь все еще существует
+    // Получаем актуальные данные пользователя из базы
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, username, email, role, is_banned')
+      .select('*')
       .eq('id', decoded.userId)
       .single();
 
@@ -26,7 +29,7 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Пользователь не найден' });
     }
 
-    if (user.is_banned) {
+    if (user.is_blocked) {
       return res.status(403).json({ error: 'Аккаунт заблокирован' });
     }
 
@@ -38,35 +41,37 @@ const authenticateToken = async (req, res, next) => {
 };
 
 // Проверка ролей
-const requireRole = (allowedRoles) => {
+const requireRole = (roles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Не авторизован' });
+      return res.status(401).json({ error: 'Требуется авторизация' });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        error: 'Недостаточно прав',
-        required: allowedRoles,
-        current: req.user.role 
-      });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Недостаточно прав' });
     }
 
     next();
   };
 };
 
-// Специфичные проверки ролей
-const requireAdmin = requireRole(['admin', 'coowner', 'owner']);
-const requireCoOwner = requireRole(['coowner', 'owner']);
-const requireOwner = requireRole(['owner']);
-const requireListener = requireRole(['listener', 'admin', 'coowner', 'owner']);
+// Логирование действий
+const logAction = async (userId, action, details = {}) => {
+  try {
+    await supabase
+      .from('system_logs')
+      .insert({
+        user_id: userId,
+        action: action,
+        details: details
+      });
+  } catch (error) {
+    console.error('Ошибка логирования:', error);
+  }
+};
 
 module.exports = {
   authenticateToken,
   requireRole,
-  requireAdmin,
-  requireCoOwner,
-  requireOwner,
-  requireListener
+  logAction
 };
