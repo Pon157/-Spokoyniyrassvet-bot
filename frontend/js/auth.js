@@ -1,225 +1,280 @@
-class AuthManager {
+class AuthSystem {
     constructor() {
         this.currentUser = null;
-        this.API_BASE = window.location.origin;
+        this.token = localStorage.getItem('chat_token');
         this.init();
     }
 
     init() {
         this.setupEventListeners();
         this.loadTheme();
-        this.checkAuthStatus();
+        this.checkExistingAuth();
     }
 
     setupEventListeners() {
-        // Табы
-        const tabButtons = document.querySelectorAll('.tab-btn');
-        if (tabButtons.length > 0) {
-            tabButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    this.switchTab(e.target.dataset.tab);
-                });
+        // Переключение табов
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.switchTab(e.target.dataset.tab);
             });
-        }
+        });
 
-        // Формы
-        const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
-        
-        if (loginForm) {
-            loginForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.login();
+        // Форма входа
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleLogin();
+        });
+
+        // Форма регистрации
+        document.getElementById('registerForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleRegister();
+        });
+
+        // Переключение видимости пароля
+        document.getElementById('toggleLoginPassword').addEventListener('click', () => {
+            this.togglePasswordVisibility('loginPassword');
+        });
+
+        document.getElementById('toggleRegisterPassword').addEventListener('click', () => {
+            this.togglePasswordVisibility('registerPassword');
+        });
+
+        // Настройки темы
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            this.toggleThemeSelector();
+        });
+
+        document.querySelectorAll('.theme-option').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.changeTheme(e.target.dataset.theme);
             });
-        }
-
-        if (registerForm) {
-            registerForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.register();
-            });
-        }
-
-        // Тема
-        const themeToggle = document.getElementById('themeToggle');
-        if (themeToggle) {
-            themeToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const dropdown = document.getElementById('themeDropdown');
-                if (dropdown) {
-                    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-                }
-            });
-        }
-
-        const themeOptions = document.querySelectorAll('.theme-option');
-        if (themeOptions.length > 0) {
-            themeOptions.forEach(option => {
-                option.addEventListener('click', (e) => {
-                    this.changeTheme(e.target.dataset.theme);
-                });
-            });
-        }
-
-        // Закрытие dropdown
-        document.addEventListener('click', () => {
-            const dropdown = document.getElementById('themeDropdown');
-            if (dropdown) {
-                dropdown.style.display = 'none';
-            }
         });
     }
 
     switchTab(tabName) {
+        // Обновляем активные табы
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tabName);
+            btn.classList.remove('active');
+        });
+        document.querySelectorAll('.auth-form').forEach(form => {
+            form.classList.remove('active');
         });
 
-        document.querySelectorAll('.auth-form').forEach(form => {
-            form.classList.toggle('active', form.id === `${tabName}Form`);
-        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        document.getElementById(`${tabName}Form`).classList.add('active');
     }
 
-    async login() {
-        const email = document.getElementById('loginEmail').value.trim();
+    async handleLogin() {
+        const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
 
         if (!email || !password) {
-            this.showMessage('Заполните все поля', 'error');
+            this.showNotification('Заполните все поля', 'error');
             return;
         }
 
+        this.showLoading(true);
+
         try {
-            const response = await fetch(`${this.API_BASE}/auth/login`, {
+            const response = await fetch('/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ email, password })
             });
 
             const data = await response.json();
 
-            if (response.ok) {
-                this.handleAuthSuccess(data);
-            } else {
-                this.showMessage(data.error || 'Ошибка входа', 'error');
+            if (!response.ok) {
+                throw new Error(data.error || 'Ошибка входа');
             }
+
+            this.token = data.token;
+            this.currentUser = data.user;
+
+            localStorage.setItem('chat_token', this.token);
+            localStorage.setItem('user_data', JSON.stringify(data.user));
+
+            this.showNotification('Успешный вход!', 'success');
+            
+            // Перенаправление по роли
+            setTimeout(() => {
+                this.redirectByRole(data.user.role);
+            }, 1000);
+
         } catch (error) {
-            console.error('Login error:', error);
-            this.showMessage('Ошибка соединения с сервером', 'error');
+            this.showNotification(error.message, 'error');
+        } finally {
+            this.showLoading(false);
         }
     }
 
-    async register() {
-        const username = document.getElementById('regUsername').value.trim();
-        const email = document.getElementById('regEmail').value.trim();
-        const password = document.getElementById('regPassword').value;
+    async handleRegister() {
+        const username = document.getElementById('registerUsername').value;
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
 
-        if (!username || !email || !password) {
-            this.showMessage('Заполните все поля', 'error');
+        if (!username || !email || !password || !confirmPassword) {
+            this.showNotification('Заполните все поля', 'error');
             return;
         }
 
         if (password.length < 6) {
-            this.showMessage('Пароль должен быть не менее 6 символов', 'error');
+            this.showNotification('Пароль должен содержать минимум 6 символов', 'error');
             return;
         }
 
+        if (password !== confirmPassword) {
+            this.showNotification('Пароли не совпадают', 'error');
+            return;
+        }
+
+        this.showLoading(true);
+
         try {
-            const response = await fetch(`${this.API_BASE}/auth/register`, {
+            const response = await fetch('/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username, email, password }),
+                body: JSON.stringify({ username, email, password })
             });
 
             const data = await response.json();
 
+            if (!response.ok) {
+                throw new Error(data.error || 'Ошибка регистрации');
+            }
+
+            this.token = data.token;
+            this.currentUser = data.user;
+
+            localStorage.setItem('chat_token', this.token);
+            localStorage.setItem('user_data', JSON.stringify(data.user));
+
+            this.showNotification('Регистрация успешна!', 'success');
+            
+            setTimeout(() => {
+                this.redirectByRole(data.user.role);
+            }, 1000);
+
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async checkExistingAuth() {
+        if (!this.token) return;
+
+        try {
+            const response = await fetch('/auth/verify', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
             if (response.ok) {
-                this.handleAuthSuccess(data);
+                const data = await response.json();
+                this.currentUser = data.user;
+                this.redirectByRole(data.user.role);
             } else {
-                this.showMessage(data.error || 'Ошибка регистрации', 'error');
+                localStorage.removeItem('chat_token');
+                localStorage.removeItem('user_data');
             }
         } catch (error) {
-            console.error('Register error:', error);
-            this.showMessage('Ошибка соединения с сервером', 'error');
+            console.error('Ошибка проверки токена:', error);
+            localStorage.removeItem('chat_token');
+            localStorage.removeItem('user_data');
         }
     }
 
-    handleAuthSuccess(data) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        this.showMessage('Успешная авторизация!', 'success');
-        
-        setTimeout(() => {
-            this.redirectToApp(data.user.role);
-        }, 1000);
+    redirectByRole(role) {
+        const rolePages = {
+            'user': 'chat.html',
+            'listener': 'chat.html',
+            'admin': 'admin.html',
+            'coowner': 'coowner.html',
+            'owner': 'owner.html'
+        };
+
+        const page = rolePages[role] || 'chat.html';
+        window.location.href = page;
     }
 
-    redirectToApp(role) {
-        if (role === 'owner') {
-            window.location.href = '/owner.html';
-        } else if (role === 'coowner') {
-            window.location.href = '/coowner.html';
-        } else if (role === 'admin') {
-            window.location.href = '/admin.html';
+    togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        const icon = input.nextElementSibling.querySelector('i');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
         } else {
-            window.location.href = '/chat.html';
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
         }
     }
 
-    checkAuthStatus() {
-        const token = localStorage.getItem('token');
-        const user = localStorage.getItem('user');
-        
-        if (token && user) {
-            try {
-                this.currentUser = JSON.parse(user);
-                this.redirectToApp(this.currentUser.role);
-            } catch (e) {
-                console.error('Error parsing user data:', e);
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-            }
-        }
+    toggleThemeSelector() {
+        const selector = document.getElementById('themeSelector');
+        selector.style.display = selector.style.display === 'none' ? 'block' : 'none';
     }
 
-    changeTheme(theme) {
-        const themeStyle = document.getElementById('theme-style');
-        if (themeStyle) {
-            themeStyle.href = `/css/${theme}-theme.css`;
-        }
-        localStorage.setItem('theme', theme);
+    changeTheme(themeName) {
+        const themeLink = document.getElementById('theme');
+        themeLink.href = `css/${themeName}-theme.css`;
         
-        const dropdown = document.getElementById('themeDropdown');
-        if (dropdown) {
-            dropdown.style.display = 'none';
-        }
+        localStorage.setItem('chat_theme', themeName);
+        this.showNotification(`Тема "${themeName}" применена`, 'success');
     }
 
     loadTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
+        const savedTheme = localStorage.getItem('chat_theme') || 'light';
         this.changeTheme(savedTheme);
     }
 
-    showMessage(text, type) {
-        const messageEl = document.getElementById('message');
-        if (messageEl) {
-            messageEl.textContent = text;
-            messageEl.className = `message ${type}`;
-            
-            setTimeout(() => {
-                messageEl.textContent = '';
-                messageEl.className = 'message';
-            }, 5000);
-        }
+    showNotification(message, type = 'info') {
+        // Удаляем существующие уведомления
+        const existingNotifications = document.querySelectorAll('.notification');
+        existingNotifications.forEach(notification => notification.remove());
+
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <i class="fas fa-${this.getNotificationIcon(type)}"></i>
+            ${message}
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            'success': 'check-circle',
+            'error': 'exclamation-circle',
+            'warning': 'exclamation-triangle',
+            'info': 'info-circle'
+        };
+        return icons[type] || 'info-circle';
+    }
+
+    showLoading(show) {
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.style.display = show ? 'flex' : 'none';
     }
 }
 
-// Инициализация когда DOM готов
+// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
-    new AuthManager();
+    new AuthSystem();
 });
