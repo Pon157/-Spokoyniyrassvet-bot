@@ -1,7 +1,7 @@
 class AuthManager {
     constructor() {
         this.currentUser = null;
-        this.API_BASE = 'http://spokoyniyrassvet.webtm.ru'; // ИСПРАВЛЕНО для Timeweb
+        this.API_BASE = window.location.origin;
         this.init();
     }
 
@@ -90,8 +90,6 @@ class AuthManager {
         }
 
         try {
-            console.log('Login attempt:', { email });
-            
             const response = await fetch(`${this.API_BASE}/auth/login`, {
                 method: 'POST',
                 headers: {
@@ -99,8 +97,6 @@ class AuthManager {
                 },
                 body: JSON.stringify({ email, password }),
             });
-
-            console.log('Login response status:', response.status);
 
             const data = await response.json();
 
@@ -131,8 +127,6 @@ class AuthManager {
         }
 
         try {
-            console.log('Register attempt:', { username, email });
-            
             const response = await fetch(`${this.API_BASE}/auth/register`, {
                 method: 'POST',
                 headers: {
@@ -140,8 +134,6 @@ class AuthManager {
                 },
                 body: JSON.stringify({ username, email, password }),
             });
-
-            console.log('Register response status:', response.status);
 
             const data = await response.json();
 
@@ -168,17 +160,14 @@ class AuthManager {
     }
 
     redirectToApp(role) {
-        // ИСПРАВЛЕНО для Timeweb структуры
         if (role === 'owner') {
-            window.location.href = `${this.API_BASE}/owner.html`;
+            window.location.href = '/owner.html';
         } else if (role === 'coowner') {
-            window.location.href = `${this.API_BASE}/coowner.html`;
+            window.location.href = '/coowner.html';
         } else if (role === 'admin') {
-            window.location.href = `${this.API_BASE}/admin.html`;
-        } else if (role === 'listener') {
-            window.location.href = `${this.API_BASE}/chat.html?role=listener`;
+            window.location.href = '/admin.html';
         } else {
-            window.location.href = `${this.API_BASE}/chat.html`;
+            window.location.href = '/chat.html';
         }
     }
 
@@ -201,7 +190,7 @@ class AuthManager {
     changeTheme(theme) {
         const themeStyle = document.getElementById('theme-style');
         if (themeStyle) {
-            themeStyle.href = `css/${theme}-theme.css`;
+            themeStyle.href = `/css/${theme}-theme.css`;
         }
         localStorage.setItem('theme', theme);
         
