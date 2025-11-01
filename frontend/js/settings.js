@@ -8,10 +8,11 @@ class SettingsManager {
     async init() {
         await this.checkAuth();
         this.loadUserData();
-        this.setupEventListeners();
+        this.setupAllEventListeners();
         this.loadSettings();
         this.loadSessions();
         this.loadNotifications();
+        this.loadAccountInfo();
     }
 
     async checkAuth() {
@@ -44,19 +45,22 @@ class SettingsManager {
     }
 
     loadUserData() {
-        document.getElementById('username').value = this.currentUser.username;
-        document.getElementById('email').value = this.currentUser.email;
+        if (!this.currentUser) return;
+
+        document.getElementById('username').value = this.currentUser.username || '';
+        document.getElementById('email').value = this.currentUser.email || '';
+        document.getElementById('bio').value = this.currentUser.bio || '';
         
         if (this.currentUser.avatar_url) {
             document.getElementById('avatarPreview').src = this.currentUser.avatar_url;
         }
     }
 
-    setupEventListeners() {
+    setupAllEventListeners() {
         // Навигация по табам
-        document.querySelectorAll('.tab-btn').forEach(tab => {
+        document.querySelectorAll('.nav-item').forEach(tab => {
             tab.addEventListener('click', (e) => {
-                this.switchTab(e.target.dataset.tab);
+                this.switchTab(e.currentTarget.dataset.tab);
             });
         });
 
@@ -77,6 +81,12 @@ class SettingsManager {
             this.changePassword();
         });
 
+        // Сохранение настроек уведомлений
+        document.getElementById('notificationForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveNotificationSettings();
+        });
+
         // Выбор темы
         document.querySelectorAll('.theme-option').forEach(option => {
             option.addEventListener('click', (e) => {
@@ -88,18 +98,79 @@ class SettingsManager {
         document.getElementById('autoTheme').addEventListener('change', (e) => {
             this.toggleAutoTheme(e.target.checked);
         });
+
+        // Показать/скрыть пароль
+        document.querySelectorAll('.toggle-password').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                this.togglePasswordVisibility(e.target);
+            });
+        });
+
+        // Проверка силы пароля
+        document.getElementById('newPassword').addEventListener('input', () => {
+            this.checkPasswordStrength();
+        });
+
+        // Общие настройки
+        this.setupGeneralSettingsListeners();
+    }
+
+    setupGeneralSettingsListeners() {
+        // Настройки чата
+        ['showTimestamps', 'showAvatars', 'messageBubbles', 'enterToSend'].forEach(setting => {
+            const element = document.getElementById(setting);
+            if (element) {
+                element.addEventListener('change', () => {
+                    this.saveGeneralSettings();
+                });
+            }
+        });
+
+        // Настройки внешнего вида
+        ['compactMode', 'highContrast'].forEach(setting => {
+            const element = document.getElementById(setting);
+            if (element) {
+                element.addEventListener('change', () => {
+                    this.saveGeneralSettings();
+                });
+            }
+        });
+
+        // Настройки приватности
+        ['showOnlineStatus', 'showLastSeen', 'allowFriendRequests', 'profileVisibility'].forEach(setting => {
+            const element = document.getElementById(setting);
+            if (element) {
+                element.addEventListener('change', () => {
+                    this.savePrivacySettings();
+                });
+            }
+        });
+
+        // Двухфакторная аутентификация
+        const twoFactorAuth = document.getElementById('twoFactorAuth');
+        if (twoFactorAuth) {
+            twoFactorAuth.addEventListener('change', (e) => {
+                this.toggleTwoFactorAuth(e.target.checked);
+            });
+        }
     }
 
     switchTab(tabName) {
-        document.querySelectorAll('.tab-btn').forEach(tab => {
+        // Обновляем активную навигацию
+        document.querySelectorAll('.nav-item').forEach(tab => {
             tab.classList.remove('active');
         });
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
         });
 
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-        document.getElementById(`${tabName}Tab`).classList.add('active');
+        const tabButton = document.querySelector(`[data-tab="${tabName}"]`);
+        const tabContent = document.getElementById(`${tabName}Tab`);
+
+        if (tabButton && tabContent) {
+            tabButton.classList.add('active');
+            tabContent.classList.add('active');
+        }
     }
 
     async handleAvatarUpload(file) {
@@ -150,6 +221,10 @@ class SettingsManager {
     }
 
     async removeAvatar() {
+        if (!confirm('Вы уверены, что хотите удалить аватар?')) {
+            return;
+        }
+
         try {
             const response = await fetch('/user/remove-avatar', {
                 method: 'POST',
@@ -161,7 +236,7 @@ class SettingsManager {
 
             if (response.ok) {
                 // Возвращаем аватар по умолчанию
-                document.getElementById('avatarPreview').src = 'images/default-avatar.png';
+                document.getElementById('avatarPreview').src = 'images/default-avatar.svg';
                 
                 // Обновляем данные пользователя
                 this.currentUser.avatar_url = null;
@@ -184,6 +259,11 @@ class SettingsManager {
 
         if (!username || !email) {
             this.showNotification('Имя пользователя и email обязательны', 'error');
+            return;
+        }
+
+        if (username.length < 3 || username.length > 20) {
+            this.showNotification('Имя пользователя должно быть от 3 до 20 символов', 'error');
             return;
         }
 
@@ -255,7 +335,7 @@ class SettingsManager {
             if (response.ok) {
                 this.showNotification('Пароль успешно изменен', 'success');
                 document.getElementById('passwordForm').reset();
-                document.getElementById('passwordStrength').className = 'password-strength-bar';
+                this.resetPasswordStrength();
             } else {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Ошибка смены пароля');
@@ -266,29 +346,62 @@ class SettingsManager {
         }
     }
 
+    togglePasswordVisibility(button) {
+        const passwordInput = button.closest('.password-input').querySelector('input');
+        const icon = button.querySelector('i');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+        } else {
+            passwordInput.type = 'password';
+            icon.className = 'fas fa-eye';
+        }
+    }
+
     checkPasswordStrength() {
         const password = document.getElementById('newPassword').value;
-        const strengthBar = document.getElementById('passwordStrength');
+        const strengthFill = document.getElementById('passwordStrength');
+        const strengthText = document.getElementById('passwordStrengthText');
+        
+        if (!password) {
+            this.resetPasswordStrength();
+            return;
+        }
         
         let strength = 0;
+        let feedback = '';
         
+        // Длина пароля
         if (password.length >= 6) strength++;
         if (password.length >= 8) strength++;
+        
+        // Сложность
         if (/[A-Z]/.test(password)) strength++;
         if (/[0-9]/.test(password)) strength++;
         if (/[^A-Za-z0-9]/.test(password)) strength++;
         
-        strengthBar.className = 'password-strength-bar';
-        
-        if (password.length === 0) {
-            strengthBar.style.width = '0%';
-        } else if (strength <= 2) {
-            strengthBar.classList.add('weak');
+        // Определяем уровень сложности
+        if (strength <= 2) {
+            strengthFill.className = 'strength-fill weak';
+            feedback = 'Слабый';
         } else if (strength <= 4) {
-            strengthBar.classList.add('medium');
+            strengthFill.className = 'strength-fill medium';
+            feedback = 'Средний';
         } else {
-            strengthBar.classList.add('strong');
+            strengthFill.className = 'strength-fill strong';
+            feedback = 'Сильный';
         }
+        
+        strengthText.textContent = feedback;
+    }
+
+    resetPasswordStrength() {
+        const strengthFill = document.getElementById('passwordStrength');
+        const strengthText = document.getElementById('passwordStrengthText');
+        
+        strengthFill.className = 'strength-fill';
+        strengthText.textContent = 'Введите пароль';
     }
 
     selectTheme(themeName) {
@@ -300,13 +413,25 @@ class SettingsManager {
         
         // Применяем тему
         const themeLink = document.getElementById('theme');
-        themeLink.href = `css/${themeName}-theme.css`;
+        if (themeLink) {
+            themeLink.href = `css/${themeName}-theme.css`;
+        }
         
         // Сохраняем в настройках
         this.settings.theme = themeName;
         this.saveSettings();
         
-        this.showNotification(`Тема "${themeName}" применена`, 'success');
+        this.showNotification(`Тема "${this.getThemeName(themeName)}" применена`, 'success');
+    }
+
+    getThemeName(theme) {
+        const themes = {
+            'light': 'Светлая',
+            'dark': 'Темная',
+            'blue': 'Синяя',
+            'purple': 'Фиолетовая'
+        };
+        return themes[theme] || theme;
     }
 
     toggleAutoTheme(enabled) {
@@ -351,25 +476,29 @@ class SettingsManager {
             const themeOption = document.querySelector(`[data-theme="${this.settings.theme}"]`);
             if (themeOption) {
                 themeOption.classList.add('active');
-                document.getElementById('theme').href = `css/${this.settings.theme}-theme.css`;
+                const themeLink = document.getElementById('theme');
+                if (themeLink) {
+                    themeLink.href = `css/${this.settings.theme}-theme.css`;
+                }
             }
         }
 
         // Применяем другие настройки
-        if (this.settings.autoTheme !== undefined) {
-            document.getElementById('autoTheme').checked = this.settings.autoTheme;
-        }
+        this.setCheckboxValue('autoTheme', this.settings.autoTheme);
+        this.setCheckboxValue('showTimestamps', this.settings.showTimestamps);
+        this.setCheckboxValue('soundNotifications', this.settings.soundNotifications);
+        this.setCheckboxValue('desktopNotifications', this.settings.desktopNotifications);
+        this.setCheckboxValue('showAvatars', this.settings.showAvatars);
+        this.setCheckboxValue('messageBubbles', this.settings.messageBubbles);
+        this.setCheckboxValue('enterToSend', this.settings.enterToSend);
+        this.setCheckboxValue('compactMode', this.settings.compactMode);
+        this.setCheckboxValue('highContrast', this.settings.highContrast);
+    }
 
-        if (this.settings.showTimestamps !== undefined) {
-            document.getElementById('showTimestamps').checked = this.settings.showTimestamps;
-        }
-
-        if (this.settings.soundNotifications !== undefined) {
-            document.getElementById('soundNotifications').checked = this.settings.soundNotifications;
-        }
-
-        if (this.settings.desktopNotifications !== undefined) {
-            document.getElementById('desktopNotifications').checked = this.settings.desktopNotifications;
+    setCheckboxValue(id, value) {
+        const element = document.getElementById(id);
+        if (element && value !== undefined) {
+            element.checked = value;
         }
     }
 
@@ -394,13 +523,50 @@ class SettingsManager {
         }
     }
 
+    async saveGeneralSettings() {
+        const settings = {
+            showTimestamps: document.getElementById('showTimestamps').checked,
+            showAvatars: document.getElementById('showAvatars').checked,
+            messageBubbles: document.getElementById('messageBubbles').checked,
+            enterToSend: document.getElementById('enterToSend').checked,
+            compactMode: document.getElementById('compactMode').checked,
+            highContrast: document.getElementById('highContrast').checked
+        };
+
+        // Обновляем локальные настройки
+        this.settings = { ...this.settings, ...settings };
+        await this.saveSettings();
+        
+        this.showNotification('Настройки сохранены', 'success');
+    }
+
+    async savePrivacySettings() {
+        const settings = {
+            showOnlineStatus: document.getElementById('showOnlineStatus').checked,
+            showLastSeen: document.getElementById('showLastSeen').checked,
+            allowFriendRequests: document.getElementById('allowFriendRequests').checked,
+            profileVisibility: document.getElementById('profileVisibility').checked
+        };
+
+        // Обновляем локальные настройки
+        this.settings = { ...this.settings, ...settings };
+        await this.saveSettings();
+        
+        this.showNotification('Настройки приватности сохранены', 'success');
+    }
+
     async saveNotificationSettings() {
         const settings = {
             emailNotifications: document.getElementById('emailNotifications').checked,
             pushNotifications: document.getElementById('pushNotifications').checked,
+            soundNotifications: document.getElementById('soundNotifications').checked,
+            desktopNotifications: document.getElementById('desktopNotifications').checked,
             newMessageNotifications: document.getElementById('newMessageNotifications').checked,
+            mentionNotifications: document.getElementById('mentionNotifications').checked,
             chatRequestNotifications: document.getElementById('chatRequestNotifications').checked,
-            reviewNotifications: document.getElementById('reviewNotifications').checked
+            chatActivityNotifications: document.getElementById('chatActivityNotifications').checked,
+            systemNotifications: document.getElementById('systemNotifications').checked,
+            updateNotifications: document.getElementById('updateNotifications').checked
         };
 
         try {
@@ -424,6 +590,33 @@ class SettingsManager {
         }
     }
 
+    async toggleTwoFactorAuth(enabled) {
+        try {
+            const response = await fetch('/user/toggle-2fa', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ enabled })
+            });
+
+            if (response.ok) {
+                this.showNotification(
+                    `Двухфакторная аутентификация ${enabled ? 'включена' : 'отключена'}`,
+                    'success'
+                );
+            } else {
+                throw new Error('Ошибка изменения настроек 2FA');
+            }
+        } catch (error) {
+            console.error('Ошибка изменения 2FA:', error);
+            this.showNotification('Ошибка изменения настроек', 'error');
+            // Возвращаем чекбокс в исходное состояние
+            document.getElementById('twoFactorAuth').checked = !enabled;
+        }
+    }
+
     async loadSessions() {
         try {
             const response = await fetch('/user/sessions', {
@@ -443,6 +636,8 @@ class SettingsManager {
 
     renderSessions(sessions) {
         const container = document.getElementById('sessionsList');
+        if (!container) return;
+
         container.innerHTML = '';
 
         sessions.forEach(session => {
@@ -469,6 +664,10 @@ class SettingsManager {
     }
 
     async logoutSession(sessionId) {
+        if (!confirm('Завершить эту сессию?')) {
+            return;
+        }
+
         try {
             const response = await fetch('/user/logout-session', {
                 method: 'POST',
@@ -537,6 +736,8 @@ class SettingsManager {
 
     renderNotifications(notifications) {
         const container = document.getElementById('technicalNotifications');
+        if (!container) return;
+
         container.innerHTML = '';
 
         if (notifications.length === 0) {
@@ -608,18 +809,203 @@ class SettingsManager {
         }
     }
 
+    async loadAccountInfo() {
+        if (!this.currentUser) return;
+
+        document.getElementById('accountId').textContent = this.currentUser.id || '-';
+        document.getElementById('accountRole').textContent = this.currentUser.role || 'Пользователь';
+        document.getElementById('accountCreated').textContent = this.currentUser.created_at ? 
+            new Date(this.currentUser.created_at).toLocaleDateString('ru-RU') : '-';
+        document.getElementById('accountStatus').textContent = this.currentUser.is_active ? 'Активен' : 'Неактивен';
+    }
+
+    async exportData() {
+        try {
+            const response = await fetch('/user/export-data', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Создаем и скачиваем файл
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `user-data-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.showNotification('Данные успешно экспортированы', 'success');
+            } else {
+                throw new Error('Ошибка экспорта данных');
+            }
+        } catch (error) {
+            console.error('Ошибка экспорта данных:', error);
+            this.showNotification('Ошибка экспорта данных', 'error');
+        }
+    }
+
+    async clearHistory() {
+        if (!confirm('Вы уверены, что хотите очистить историю? Это действие нельзя отменить.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/user/clear-history', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                }
+            });
+
+            if (response.ok) {
+                this.showNotification('История очищена', 'success');
+            } else {
+                throw new Error('Ошибка очистки истории');
+            }
+        } catch (error) {
+            console.error('Ошибка очистки истории:', error);
+            this.showNotification('Ошибка очистки истории', 'error');
+        }
+    }
+
+    async deactivateAccount() {
+        if (!confirm('Вы уверены, что хотите деактивировать аккаунт? Вы сможете восстановить его позже.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/user/deactivate-account', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                }
+            });
+
+            if (response.ok) {
+                this.showNotification('Аккаунт деактивирован', 'success');
+                setTimeout(() => {
+                    this.logout();
+                }, 2000);
+            } else {
+                throw new Error('Ошибка деактивации аккаунта');
+            }
+        } catch (error) {
+            console.error('Ошибка деактивации аккаунта:', error);
+            this.showNotification('Ошибка деактивации аккаунта', 'error');
+        }
+    }
+
+    showLogoutConfirm() {
+        document.getElementById('logoutConfirmModal').classList.add('active');
+    }
+
+    closeLogoutConfirm() {
+        document.getElementById('logoutConfirmModal').classList.remove('active');
+    }
+
+    confirmLogout() {
+        this.logout();
+    }
+
+    showDeleteAccountModal() {
+        document.getElementById('deleteAccountModal').classList.add('active');
+    }
+
+    closeDeleteAccount() {
+        document.getElementById('deleteAccountModal').classList.remove('active');
+        document.getElementById('deletePassword').value = '';
+    }
+
+    async confirmDeleteAccount() {
+        const password = document.getElementById('deletePassword').value;
+        
+        if (!password) {
+            this.showNotification('Введите пароль для подтверждения', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/user/delete-account', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password })
+            });
+
+            if (response.ok) {
+                this.showNotification('Аккаунт успешно удален', 'success');
+                setTimeout(() => {
+                    this.logout();
+                }, 2000);
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка удаления аккаунта');
+            }
+        } catch (error) {
+            console.error('Ошибка удаления аккаунта:', error);
+            this.showNotification(error.message, 'error');
+        }
+    }
+
+    async saveAll() {
+        // Сохраняем все открытые формы
+        const activeTab = document.querySelector('.tab-content.active').id;
+        
+        switch (activeTab) {
+            case 'profileTab':
+                await this.saveProfile();
+                break;
+            case 'securityTab':
+                // Пароль сохраняется отдельно через свою форму
+                break;
+            case 'appearanceTab':
+                await this.saveGeneralSettings();
+                break;
+            case 'notificationsTab':
+                await this.saveNotificationSettings();
+                break;
+            case 'privacyTab':
+                await this.savePrivacySettings();
+                break;
+        }
+        
+        this.showNotification('Все изменения сохранены', 'success');
+    }
+
+    goBack() {
+        window.history.back();
+    }
+
     showNotification(message, type = 'info') {
+        const container = document.getElementById('notificationContainer');
+        if (!container) return;
+
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.innerHTML = `
             <i class="fas fa-${this.getNotificationIcon(type)}"></i>
-            ${message}
+            <span>${message}</span>
+            <button class="notification-close" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
         `;
 
-        document.body.appendChild(notification);
+        container.appendChild(notification);
 
+        // Автоматическое удаление через 5 секунд
         setTimeout(() => {
-            notification.remove();
+            if (notification.parentElement) {
+                notification.remove();
+            }
         }, 5000);
     }
 
@@ -639,6 +1025,70 @@ class SettingsManager {
         window.location.href = '/';
     }
 }
+
+// Добавьте этот CSS для уведомлений в settings.css
+const notificationStyles = `
+.notification {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    animation: slideInRight 0.3s ease;
+    max-width: 400px;
+}
+
+.notification.success {
+    border-left: 4px solid var(--success-color);
+    background: var(--success-color-20);
+}
+
+.notification.error {
+    border-left: 4px solid var(--danger-color);
+    background: var(--danger-color-20);
+}
+
+.notification.warning {
+    border-left: 4px solid var(--warning-color);
+    background: var(--warning-color-20);
+}
+
+.notification.info {
+    border-left: 4px solid var(--primary-color);
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    margin-left: auto;
+}
+
+.notification-close:hover {
+    color: var(--text-primary);
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+`;
+
+// Добавляем стили для уведомлений
+const styleSheet = document.createElement('style');
+styleSheet.textContent = notificationStyles;
+document.head.appendChild(styleSheet);
 
 // Глобальный экземпляр менеджера настроек
 const settings = new SettingsManager();
