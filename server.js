@@ -1,35 +1,29 @@
-const express = require('express');
+=const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
-
-// Используем существующий __dirname от Node.js
-const projectRoot = process.cwd(); // Или path.resolve() без присваивания в const
-
-// Базовые middleware для тестирования
-const basicAuth = (req, res, next) => {
-  const token = req.headers['authorization']?.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ error: 'Токен отсутствует' });
-  }
-  // Простая проверка - в продакшене используйте JWT
-  req.user = { id: 'test-user', role: 'user' };
-  next();
-};
 
 const app = express();
 const server = http.createServer(app);
+
+// Настройка CORS для TimeWeb
 const io = socketIo(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+    origin: ["http://spokoyniyrassvet.webtm.ru", "https://spokoyniyrassvet.webtm.ru"],
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling']
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ["http://spokoyniyrassvet.webtm.ru", "https://spokoyniyrassvet.webtm.ru"],
+  credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -40,158 +34,58 @@ app.use('/js', express.static(path.join(__dirname, 'frontend', 'js')));
 app.use('/images', express.static(path.join(__dirname, 'frontend', 'images')));
 app.use('/media', express.static(path.join(__dirname, 'frontend', 'media')));
 
-// Простые маршруты для тестирования
-app.post('/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  console.log('🔧 Login attempt:', email);
-  
-  // Временный ответ для тестирования
-  res.json({
-    token: 'test-token-' + Date.now(),
-    user: {
-      id: 'user-' + Date.now(),
-      username: email.split('@')[0],
-      email: email,
-      role: email.includes('admin') ? 'admin' : 
-            email.includes('owner') ? 'owner' : 'user',
-      avatar_url: null
-    }
-  });
+// Создаем папки если их нет
+const folders = ['./frontend/media/avatars', './frontend/media/uploads', './frontend/media/stickers'];
+folders.forEach(folder => {
+  if (!fs.existsSync(folder)) {
+    fs.mkdirSync(folder, { recursive: true });
+  }
 });
 
-app.post('/auth/register', (req, res) => {
-  const { username, email, password } = req.body;
-  console.log('🔧 Register attempt:', username, email);
-  
-  res.json({
-    token: 'test-token-' + Date.now(),
-    user: {
-      id: 'user-' + Date.now(),
-      username: username,
-      email: email,
-      role: 'user',
-      avatar_url: null
-    }
-  });
-});
+// Импорт маршрутов
+const authRoutes = require('./controllers/auth');
+const userRoutes = require('./controllers/user');
+const chatRoutes = require('./controllers/chat');
+const adminRoutes = require('./controllers/admin');
+const ownerRoutes = require('./controllers/owner');
+const coownerRoutes = require('./controllers/coowner');
+const listenerRoutes = require('./controllers/listener');
 
-app.get('/auth/verify', basicAuth, (req, res) => {
-  res.json({
-    user: {
-      id: req.user.id,
-      username: 'testuser',
-      email: 'test@test.com',
-      role: 'user',
-      avatar_url: null
-    }
-  });
-});
+// Подключение middleware
+const { authenticateToken, requireRole } = require('./middleware');
 
-// Простые чат маршруты
-app.post('/chat/create', basicAuth, (req, res) => {
-  res.json({
-    chat: {
-      id: 'chat-' + Date.now(),
-      user_id: req.user.id,
-      status: 'active',
-      created_at: new Date().toISOString()
-    }
-  });
-});
-
-app.post('/chat/message', basicAuth, (req, res) => {
-  const { chatId, content } = req.body;
-  res.json({
-    message: {
-      id: 'msg-' + Date.now(),
-      chat_id: chatId,
-      sender_id: req.user.id,
-      content: content,
-      message_type: 'text',
-      created_at: new Date().toISOString(),
-      sender: {
-        username: req.user.id,
-        avatar_url: null,
-        role: 'user'
-      }
-    }
-  });
-});
-
-// Простые админ маршруты
-app.get('/admin/stats', basicAuth, (req, res) => {
-  res.json({
-    stats: {
-      totalUsers: 150,
-      totalListeners: 25,
-      totalChats: 89,
-      totalMessages: 1247,
-      activeChats: 12
-    }
-  });
-});
-
-app.get('/admin/users', basicAuth, (req, res) => {
-  res.json({
-    users: [
-      {
-        id: 'user1',
-        username: 'testuser1',
-        email: 'test1@test.com',
-        role: 'user',
-        is_online: true,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: 'user2', 
-        username: 'testuser2',
-        email: 'test2@test.com',
-        role: 'listener',
-        is_online: false,
-        created_at: new Date().toISOString()
-      }
-    ]
-  });
-});
-
-// Простые user маршруты
-app.get('/users/profile', basicAuth, (req, res) => {
-  res.json({
-    user: {
-      id: req.user.id,
-      username: 'testuser',
-      email: 'test@test.com',
-      role: 'user',
-      avatar_url: null,
-      is_online: true,
-      created_at: new Date().toISOString()
-    }
-  });
-});
+// Маршруты
+app.use('/auth', authRoutes);
+app.use('/user', authenticateToken, userRoutes);
+app.use('/chat', authenticateToken, chatRoutes);
+app.use('/admin', authenticateToken, requireRole(['admin', 'coowner', 'owner']), adminRoutes);
+app.use('/coowner', authenticateToken, requireRole(['coowner', 'owner']), coownerRoutes);
+app.use('/owner', authenticateToken, requireRole(['owner']), ownerRoutes);
+app.use('/listener', authenticateToken, requireRole(['listener', 'admin', 'coowner', 'owner']), listenerRoutes);
 
 // Главная страница
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
 });
 
-// HTML страницы
-app.get('/chat.html', basicAuth, (req, res) => {
+// HTML страницы с проверкой авторизации
+app.get('/chat.html', authenticateToken, (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'chat.html'));
 });
 
-app.get('/admin.html', basicAuth, (req, res) => {
+app.get('/admin.html', authenticateToken, requireRole(['admin', 'coowner', 'owner']), (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'admin.html'));
 });
 
-app.get('/owner.html', basicAuth, (req, res) => {
+app.get('/owner.html', authenticateToken, requireRole(['owner']), (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'owner.html'));
 });
 
-app.get('/coowner.html', basicAuth, (req, res) => {
+app.get('/coowner.html', authenticateToken, requireRole(['coowner', 'owner']), (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'coowner.html'));
 });
 
-app.get('/settings.html', basicAuth, (req, res) => {
+app.get('/settings.html', authenticateToken, (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'settings.html'));
 });
 
@@ -201,39 +95,17 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     version: '1.0.0',
-    directory: __dirname
+    environment: process.env.NODE_ENV
   });
 });
 
 // WebSocket подключения
-io.on('connection', (socket) => {
-  console.log('🔌 Новое WebSocket подключение:', socket.id);
-  
-  socket.on('authenticate', (token) => {
-    console.log('🔑 WebSocket аутентификация');
-    socket.emit('authenticated', { username: 'testuser', role: 'user' });
-  });
-  
-  socket.on('send_message', (data) => {
-    console.log('💬 Новое сообщение:', data);
-    socket.broadcast.emit('new_message', {
-      ...data,
-      id: 'msg-' + Date.now(),
-      sender: { username: 'testuser', avatar_url: null, role: 'user' },
-      created_at: new Date().toISOString()
-    });
-  });
-  
-  socket.on('disconnect', () => {
-    console.log('🔌 WebSocket отключение:', socket.id);
-  });
-});
+require('./sockets')(io);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📁 Working directory: ${__dirname}`);
-  console.log(`🌐 DOMAIN: spokoyniyrassvet.webtm.ru`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'production'}`);
-  console.log(`✅ SERVER READY - All routes working!`);
+  console.log(`🌐 DOMAIN: ${process.env.DOMAIN}`);
+  console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
+  console.log(`✅ SERVER READY - All systems operational!`);
 });
