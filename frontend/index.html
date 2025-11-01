@@ -40,7 +40,7 @@
                             <input type="text" id="loginUsername" required>
                             <label for="loginUsername">
                                 <i class="fas fa-user"></i>
-                                Имя пользователя
+                                Имя пользователя или Telegram
                             </label>
                             <div class="input-line"></div>
                         </div>
@@ -86,10 +86,10 @@
                         </div>
 
                         <div class="form-group animated-input">
-                            <input type="email" id="registerEmail" required>
-                            <label for="registerEmail">
-                                <i class="fas fa-envelope"></i>
-                                Email
+                            <input type="text" id="registerTelegram" required placeholder="@username">
+                            <label for="registerTelegram">
+                                <i class="fab fa-telegram"></i>
+                                Telegram username
                             </label>
                             <div class="input-line"></div>
                         </div>
@@ -134,18 +134,18 @@
                     <!-- Форма восстановления пароля -->
                     <form id="forgotPasswordForm" class="auth-form">
                         <div class="form-group animated-input">
-                            <input type="email" id="forgotEmail" required>
-                            <label for="forgotEmail">
-                                <i class="fas fa-envelope"></i>
-                                Ваш Email
+                            <input type="text" id="forgotTelegram" required placeholder="@username">
+                            <label for="forgotTelegram">
+                                <i class="fab fa-telegram"></i>
+                                Ваш Telegram username
                             </label>
                             <div class="input-line"></div>
                         </div>
 
                         <div class="form-options">
                             <div class="telegram-info">
-                                <i class="fas fa-info-circle telegram-icon"></i>
-                                <p>Инструкции по восстановлению пароля будут отправлены на ваш email</p>
+                                <i class="fab fa-telegram telegram-icon"></i>
+                                <p>Ожидайте, в течение дня вам напишут в личные сообщения Telegram с вашим паролем</p>
                             </div>
                         </div>
 
@@ -181,7 +181,36 @@
                 <button class="modal-close" id="closeTermsModal">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Содержимое модального окна -->
+                <h3>1. Общие положения</h3>
+                <p>Настоящие Условия использования регулируют отношения между вами и "Спокойный рассвет"...</p>
+                
+                <h3>2. Регистрация аккаунта</h3>
+                <p>Для использования сервиса необходимо зарегистрировать аккаунт, предоставив имя пользователя и Telegram username...</p>
+                
+                <h3>3. Роли пользователей</h3>
+                <p>Система предусматривает следующие роли пользователей:</p>
+                <ul>
+                    <li><strong>Пользователь</strong> - базовая роль при регистрации</li>
+                    <li><strong>Слушатель</strong> - пользователь с расширенными правами</li>
+                    <li><strong>Совладелец</strong> - пользователь с правами управления</li>
+                    <li><strong>Администратор</strong> - полные права управления системой</li>
+                    <li><strong>Владелец</strong> - высший уровень доступа</li>
+                </ul>
+                
+                <h3>4. Восстановление пароля</h3>
+                <p>В случае утери пароля вы можете восстановить его через Telegram. Для этого укажите ваш Telegram username в форме восстановления.</p>
+                <p>Администратор свяжется с вами в течение 24 часов в личные сообщения Telegram для восстановления доступа.</p>
+                
+                <h3>5. Конфиденциальность</h3>
+                <p>Мы обязуемся защищать ваши персональные данные...</p>
+                
+                <div class="terms-accept">
+                    <label class="checkbox">
+                        <input type="checkbox" id="modalAcceptTerms">
+                        <span class="checkmark"></span>
+                        Я прочитал и принимаю условия использования
+                    </label>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-primary" id="acceptTermsBtn" disabled>Принять условия</button>
@@ -193,8 +222,6 @@
     <!-- Уведомления -->
     <div id="notificationsContainer"></div>
 
-    <!-- Подключение Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/auth.js"></script>
 </body>
 </html>
