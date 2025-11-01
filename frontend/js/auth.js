@@ -99,7 +99,7 @@ class AuthManager {
 
             const data = await response.json();
 
-            if (response.ok && data.success) {
+            if (data.success) {
                 this.showNotification('Успешный вход! Перенаправление...', 'success');
                 
                 // Сохраняем данные
@@ -176,7 +176,7 @@ class AuthManager {
 
             const data = await response.json();
 
-            if (response.ok && data.success) {
+            if (data.success) {
                 this.showNotification('Регистрация успешна! Вы можете войти.', 'success');
                 
                 setTimeout(() => {
@@ -218,7 +218,7 @@ class AuthManager {
 
             const data = await response.json();
 
-            if (response.ok && data.success) {
+            if (data.success) {
                 this.showNotification('Ожидайте, в течение дня вам напишут в личные сообщения Telegram с вашим паролем', 'success');
                 
                 setTimeout(() => {
@@ -237,7 +237,6 @@ class AuthManager {
         }
     }
 
-    // Остальные методы остаются без изменений...
     showForm(formType) {
         document.querySelectorAll('.auth-form').forEach(form => {
             form.classList.remove('active');
@@ -382,6 +381,19 @@ class AuthManager {
     }
 
     redirectUser(user) {
+        // Проверяем текущую страницу
+        const currentPage = window.location.pathname;
+        const targetPage = this.getTargetPage(user.role);
+        
+        console.log('📍 Текущая страница:', currentPage);
+        console.log('🎯 Целевая страница:', targetPage);
+        
+        // Если уже на нужной странице - не перенаправляем
+        if (currentPage.includes(targetPage)) {
+            console.log('✅ Уже на целевой странице, перенаправление не нужно');
+            return;
+        }
+        
         const role = user?.role || 'user';
         
         const roleNames = {
@@ -415,28 +427,62 @@ class AuthManager {
         }, 2000);
     }
 
+    getTargetPage(role) {
+        switch(role) {
+            case 'owner': return 'owner.html';
+            case 'admin': return 'admin.html';
+            case 'coowner': return 'coowner.html';
+            case 'listener': return 'listener.html';
+            default: return 'chat.html';
+        }
+    }
+
     async checkAuthState() {
         const token = localStorage.getItem('auth_token');
-        if (token) {
-            try {
-                const response = await fetch(`${this.apiBase}/verify`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+        const userData = localStorage.getItem('user_data');
+        
+        console.log('🔄 Проверка состояния аутентификации...');
+        console.log('Токен:', token ? 'есть' : 'нет');
+        console.log('Текущая страница:', window.location.pathname);
+        
+        if (!token || !userData) {
+            console.log('❌ Нет данных аутентификации');
+            return;
+        }
 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        this.redirectUser(data.user);
-                    }
+        // Если уже на странице чата - не перенаправляем
+        if (window.location.pathname.includes('chat.html') || 
+            window.location.pathname.includes('admin.html') ||
+            window.location.pathname.includes('owner.html') ||
+            window.location.pathname.includes('coowner.html') ||
+            window.location.pathname.includes('listener.html')) {
+            console.log('✅ Уже на защищенной странице, перенаправление не нужно');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/verify`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
                 }
-            } catch (error) {
-                console.error('Auth check error:', error);
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('✅ Пользователь аутентифицирован, перенаправляем...');
+                this.redirectUser(data.user);
+            } else {
+                console.log('❌ Токен невалиден:', data.error);
                 // Очищаем невалидный токен
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('user_data');
             }
+        } catch (error) {
+            console.error('Auth check error:', error);
+            // Очищаем невалидный токен
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_data');
         }
     }
 }
