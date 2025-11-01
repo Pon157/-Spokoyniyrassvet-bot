@@ -1,6 +1,6 @@
-/* Auth.css - Простой современный рабочий дизайн */
+/* Auth.css - Современный дизайн с анимациями */
 
-/* ===== СБРОС И БАЗОВЫЕ СТИЛИ ===== */
+/* ===== БАЗОВЫЕ СТИЛИ ===== */
 * {
     margin: 0;
     padding: 0;
@@ -8,39 +8,140 @@
 }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow-x: hidden;
 }
 
+/* ===== ФОН ===== */
 .auth-container {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
+    position: relative;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
 }
 
-/* ===== КОНТЕЙНЕР ФОРМ ===== */
-.auth-forms-container {
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.auth-background {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    max-width: 400px;
+    height: 100%;
+    opacity: 0.1;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.2) 0%, transparent 50%);
 }
 
+/* ===== ОСНОВНОЙ КОНТЕНТ ===== */
+.auth-content {
+    width: 100%;
+    max-width: 440px;
+    position: relative;
+    z-index: 2;
+}
+
+/* ===== ЗАГОЛОВОК ===== */
+.auth-header {
+    text-align: center;
+    margin-bottom: 50px;
+    animation: slideDown 0.8s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 24px;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.logo i {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 2.4rem;
+    animation: gentlePulse 3s ease-in-out infinite;
+}
+
+@keyframes gentlePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.auth-header h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: white;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.auth-header p {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.2rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== ФОРМЫ ===== */
 .auth-form {
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
     padding: 40px;
-    border-radius: 16px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(255, 255, 255, 0.2);
     display: none;
+    animation: formSlide 0.5s ease-out;
+}
+
+@keyframes formSlide {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .auth-form.active {
     display: block;
-    animation: slideUp 0.4s ease;
 }
 
-@keyframes slideUp {
+/* ===== ЗАГОЛОВКИ ФОРМ ===== */
+.form-header {
+    text-align: center;
+    margin-bottom: 35px;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+@keyframes fadeInUp {
     from {
         opacity: 0;
         transform: translateY(20px);
@@ -51,48 +152,8 @@ body {
     }
 }
 
-/* ===== ЗАГОЛОВОК ===== */
-.auth-header {
-    text-align: center;
-    margin-bottom: 40px;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #2d3748;
-    margin-bottom: 24px;
-}
-
-.logo i {
-    color: #667eea;
-    font-size: 2rem;
-}
-
-.auth-header h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: #2d3748;
-}
-
-.auth-header p {
-    color: #718096;
-    font-size: 1.1rem;
-}
-
-/* ===== ЗАГОЛОВКИ ФОРМ ===== */
-.form-header {
-    text-align: center;
-    margin-bottom: 32px;
-}
-
 .form-header h2 {
-    font-size: 1.6rem;
+    font-size: 1.8rem;
     font-weight: 600;
     margin-bottom: 8px;
     color: #2d3748;
@@ -100,14 +161,19 @@ body {
 
 .form-header p {
     color: #718096;
-    font-size: 1rem;
+    font-size: 1.1rem;
 }
 
 /* ===== ПОЛЯ ВВОДА ===== */
 .input-group {
     position: relative;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
+    animation: fadeInUp 0.6s ease-out 0.3s both;
 }
+
+.input-group:nth-child(2) { animation-delay: 0.4s; }
+.input-group:nth-child(3) { animation-delay: 0.5s; }
+.input-group:nth-child(4) { animation-delay: 0.6s; }
 
 .input-icon {
     position: absolute;
@@ -115,13 +181,14 @@ body {
     top: 50%;
     transform: translateY(-50%);
     color: #a0aec0;
+    transition: all 0.3s ease;
 }
 
 .input-group input {
     width: 100%;
     padding: 16px 16px 16px 48px;
     border: 2px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 12px;
     background: white;
     color: #2d3748;
     font-size: 1rem;
@@ -133,6 +200,12 @@ body {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    transform: translateY(-1px);
+}
+
+.input-group input:focus + .input-icon {
+    color: #667eea;
+    transform: translateY(-50%) scale(1.1);
 }
 
 .input-group input::placeholder {
@@ -148,11 +221,14 @@ body {
     border: none;
     color: #a0aec0;
     cursor: pointer;
-    padding: 4px;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
 }
 
 .password-toggle:hover {
     color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
 }
 
 /* ===== ОПЦИИ ФОРМЫ ===== */
@@ -160,16 +236,24 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
+    animation: fadeInUp 0.6s ease-out 0.7s both;
 }
 
 .checkbox {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: #718096;
+    transition: color 0.3s ease;
+}
+
+.checkbox:hover {
+    color: #4a5568;
 }
 
 .checkbox input {
@@ -177,10 +261,10 @@ body {
 }
 
 .checkmark {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border: 2px solid #e2e8f0;
-    border-radius: 4px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -190,6 +274,13 @@ body {
 .checkbox input:checked + .checkmark {
     background: #667eea;
     border-color: #667eea;
+    animation: checkPop 0.3s ease;
+}
+
+@keyframes checkPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
 }
 
 .checkbox input:checked + .checkmark::after {
@@ -202,34 +293,51 @@ body {
 .forgot-password {
     color: #667eea;
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 500;
+    transition: all 0.3s ease;
 }
 
 .forgot-password:hover {
-    text-decoration: underline;
+    color: #5a67d8;
+    transform: translateY(-1px);
 }
 
 /* ===== КНОПКИ ===== */
 .btn-primary {
     width: 100%;
-    padding: 16px;
-    background: #667eea;
+    padding: 18px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border: none;
-    border-radius: 8px;
-    font-size: 1rem;
+    border-radius: 12px;
+    font-size: 1.1rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    font-family: inherit;
     position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease-out 0.8s both;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s ease;
+}
+
+.btn-primary:hover::before {
+    left: 100%;
 }
 
 .btn-primary:hover {
-    background: #5a67d8;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:active {
@@ -237,12 +345,16 @@ body {
 }
 
 .btn-primary:disabled {
-    opacity: 0.6;
+    opacity: 0.7;
     cursor: not-allowed;
     transform: none;
 }
 
 .btn-loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: none;
 }
 
@@ -255,13 +367,12 @@ body {
 }
 
 .spinner {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border: 2px solid transparent;
     border-top: 2px solid white;
     border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto;
+    animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -272,45 +383,48 @@ body {
 /* ===== ПЕРЕКЛЮЧЕНИЕ ФОРМ ===== */
 .auth-switch {
     text-align: center;
-    margin-top: 24px;
-    padding-top: 24px;
+    margin-top: 30px;
+    padding-top: 30px;
     border-top: 1px solid #e2e8f0;
+    animation: fadeInUp 0.6s ease-out 0.9s both;
 }
 
 .auth-switch p {
     color: #718096;
-    font-size: 0.95rem;
+    font-size: 1rem;
 }
 
 .auth-switch a {
     color: #667eea;
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
+    transition: all 0.3s ease;
 }
 
 .auth-switch a:hover {
-    text-decoration: underline;
+    color: #5a67d8;
+    transform: translateY(-1px);
 }
 
 /* ===== УВЕДОМЛЕНИЯ ===== */
 .notification {
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: 25px;
+    right: 25px;
     background: white;
-    padding: 16px 20px;
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    padding: 18px 22px;
+    border-radius: 12px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
     border-left: 4px solid #48bb78;
-    transform: translateX(400px);
+    transform: translateX(400px) scale(0.9);
     opacity: 0;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1000;
-    max-width: 400px;
+    max-width: 380px;
 }
 
 .notification.show {
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
     opacity: 1;
 }
 
@@ -321,11 +435,11 @@ body {
 .notification-content {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
 }
 
 .notification-icon {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
 }
 
 .notification-icon.success {
@@ -339,9 +453,12 @@ body {
 .notification-message {
     color: #2d3748;
     font-weight: 500;
+    line-height: 1.4;
 }
 
 /* ===== АДАПТИВНОСТЬ ===== */
+
+/* Планшеты */
 @media (max-width: 768px) {
     .auth-container {
         padding: 16px;
@@ -350,31 +467,72 @@ body {
     }
     
     .auth-form {
-        padding: 32px 28px;
+        padding: 35px 30px;
+    }
+    
+    .auth-header {
+        margin-bottom: 40px;
+    }
+    
+    .auth-header h1 {
+        font-size: 2rem;
+    }
+    
+    .logo {
+        font-size: 1.7rem;
+    }
+    
+    .form-header h2 {
+        font-size: 1.6rem;
+    }
+    
+    .form-options {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+}
+
+/* Мобильные устройства */
+@media (max-width: 480px) {
+    .auth-container {
+        padding: 12px;
+        padding-top: 30px;
+    }
+    
+    .auth-form {
+        padding: 30px 25px;
     }
     
     .auth-header h1 {
         font-size: 1.8rem;
     }
     
+    .auth-header p {
+        font-size: 1.1rem;
+    }
+    
     .logo {
-        font-size: 1.6rem;
+        font-size: 1.5rem;
     }
     
     .form-header h2 {
         font-size: 1.4rem;
     }
     
-    .form-options {
-        flex-direction: column;
-        gap: 16px;
-        align-items: flex-start;
+    .input-group input {
+        padding: 14px 14px 14px 44px;
+    }
+    
+    .btn-primary {
+        padding: 16px;
     }
 }
 
-@media (max-width: 480px) {
+/* Очень маленькие экраны */
+@media (max-width: 360px) {
     .auth-form {
-        padding: 24px 20px;
+        padding: 25px 20px;
     }
     
     .auth-header h1 {
@@ -382,81 +540,35 @@ body {
     }
     
     .logo {
-        font-size: 1.4rem;
-    }
-    
-    .input-group input {
-        padding: 14px 14px 14px 44px;
+        font-size: 1.3rem;
     }
 }
 
-/* ===== ИСПРАВЛЕНИЕ ДЛЯ ПАНЕЛИ АДМИНИСТРАЦИИ ===== */
-
-/* Гарантия правильного растяжения контейнера */
-.auth-container {
-    width: 100%;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.auth-forms-container {
-    width: 100%;
-    max-width: 400px;
-    margin: 0 auto;
-}
-
-.auth-form {
-    width: 100%;
-    box-sizing: border-box;
-}
-
-/* Исправление для разных экранов */
-@media (max-width: 480px) {
+/* Ландшафтная ориентация */
+@media (max-height: 600px) and (orientation: landscape) {
     .auth-container {
-        padding: 10px;
+        padding-top: 20px;
+        padding-bottom: 20px;
     }
     
     .auth-form {
-        margin: 0;
-        border-radius: 12px;
-    }
-}
-
-/* Гарантия что форма не выходит за границы */
-.auth-form {
-    max-width: 100%;
-    overflow: hidden;
-}
-
-/* Исправление для очень маленьких экранов */
-@media (max-width: 320px) {
-    .auth-form {
-        padding: 20px 16px;
-        margin: 0 5px;
+        padding: 25px 30px;
     }
     
-    .input-group input {
-        padding: 12px 12px 12px 40px;
-        font-size: 16px; /* Предотвращает zoom на iOS */
+    .auth-header {
+        margin-bottom: 30px;
+    }
+    
+    .input-group {
+        margin-bottom: 18px;
     }
 }
 
-/* Гарантия что фон покрывает весь экран */
-body {
-    margin: 0;
-    padding: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) fixed;
-    background-size: cover;
-}
-
-/* Исправление для высоты */
-html, body {
-    height: 100%;
-}
-
-.auth-container {
-    min-height: 100vh;
-    height: auto;
+/* Поддержка prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
