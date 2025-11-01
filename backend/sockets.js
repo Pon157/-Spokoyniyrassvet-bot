@@ -1,157 +1,191 @@
-const jwt = require('jsonwebtoken');
 const { supabase } = require('./db');
+const jwt = require('jsonwebtoken');
 
-const setupSockets = (io) => {
-    io.use(async (socket, next) => {
-        try {
-            const token = socket.handshake.auth.token;
-            if (!token) {
-                return next(new Error('Authentication error'));
-            }
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            
-            // Получаем пользователя из Supabase
-            const { data: user, error } = await supabase
-                .from('users')
-                .select('id, username, role, is_blocked, mutes')
-                .eq('id', decoded.userId)
-                .single();
+class SocketManager {
+  constructor() {
+    this.io = null;
+    this.connectedUsers = new Map();
+  }
 
-            if (error || !user || user.is_blocked) {
-                return next(new Error('User not found or blocked'));
-            }
-
-            socket.userId = user.id;
-            socket.userRole = user.role;
-            socket.username = user.username;
-            next();
-        } catch (error) {
-            next(new Error('Authentication error'));
-        }
-    });
+  init(io) {
+    this.io = io;
 
     io.on('connection', (socket) => {
-        console.log(`User ${socket.username} connected`);
+      console.log('🔌 Новое подключение:', socket.id);
 
-        // Присоединение к комнатам  
-        socket.join(socket.userId);
-        if (['admin', 'coowner', 'owner'].includes(socket.userRole)) {
-            socket.join('admin-room');
+      // Аутентификация через JWT
+      socket.on('authenticate', async (token) => {
+        try {
+          const decoded = jwt.verify(token, JWT_SECRET);
+          const userId = decoded.userId;
+
+          // Проверяем пользователя в БД
+          const { data: user, error } = await supabase
+            .from('users')
+            .select('id, username, role, avatar_url')
+            .eq('id', userId)
+            .single();
+
+          if (error || !user) {
+            socket.emit('auth_error', 'Пользователь не найден');
+            return;
+          }
+
+          // Сохраняем информацию о подключении
+          socket.userId = userId;
+          socket.userData = user;
+          this.connectedUsers.set(userId, socket);
+
+          // Обновляем статус онлайн
+          await supabase
+            .from('users')
+            .update({ is_online: true })
+            .eq('id', userId);
+
+          // Присоединяем к комнатам
+          socket.join(`user_${userId}`);
+          if (user.role === 'listener') {
+            socket.join('listeners');
+          }
+          if (['admin', 'coowner', 'owner'].includes(user.role)) {
+            socket.join('admins');
+          }
+
+          socket.emit('authenticated', user);
+          this.broadcastUserStatus(userId, true);
+
+          console.log(`✅ Пользователь ${user.username} аутентифицирован`);
+
+        } catch (error) {
+          console.error('Socket auth error:', error);
+          socket.emit('auth_error', 'Ошибка аутентификации');
         }
+      });
 
-        // Создание нового чата
-        socket.on('create-chat', async (data) => {
-            try {
-                const { data: chat, error } = await supabase
-                    .from('chats')
-                    .insert([{
-                        participant_ids: [socket.userId, data.listenerId],
-                        status: 'active',
-                        created_at: new Date().toISOString()
-                    }])
-                    .select()
-                    .single();
+      // Отправка сообщения
+      socket.on('send_message', async (data) => {
+        try {
+          if (!socket.userId) {
+            socket.emit('error', 'Не авторизован');
+            return;
+          }
 
-                if (error) throw error;
-                
-                socket.join(chat.id);
-                socket.emit('chat-created', { chatId: chat.id });
-            } catch (error) {
-                socket.emit('error', { message: 'Ошибка создания чата' });
-            }
+          const { chatId, content, messageType = 'text', mediaUrl = null } = data;
+
+          // Сохраняем в БД
+          const { data: message, error } = await supabase
+            .from('messages')
+            .insert([
+              {
+                chat_id: chatId,
+                sender_id: socket.userId,
+                message_type: messageType,
+                content: content,
+                media_url: mediaUrl
+              }
+            ])
+            .select(`
+              *,
+              sender:users!messages_sender_id_fkey(username, avatar_url, role)
+            `)
+            .single();
+
+          if (error) throw error;
+
+          // Отправляем всем участникам чата
+          io.to(`chat_${chatId}`).emit('new_message', message);
+
+          // Обновляем время последней активности чата
+          await supabase
+            .from('chats')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', chatId);
+
+        } catch (error) {
+          console.error('Send message socket error:', error);
+          socket.emit('error', 'Ошибка отправки сообщения');
+        }
+      });
+
+      // Присоединение к чату
+      socket.on('join_chat', (chatId) => {
+        socket.join(`chat_${chatId}`);
+        console.log(`💬 Пользователь ${socket.userId} присоединился к чату ${chatId}`);
+      });
+
+      // Покидание чата
+      socket.on('leave_chat', (chatId) => {
+        socket.leave(`chat_${chatId}`);
+        console.log(`🚪 Пользователь ${socket.userId} покинул чат ${chatId}`);
+      });
+
+      // Типирование
+      socket.on('typing_start', (data) => {
+        socket.to(`chat_${data.chatId}`).emit('user_typing', {
+          userId: socket.userId,
+          username: socket.userData.username,
+          chatId: data.chatId
         });
+      });
 
-        // Отправка сообщения
-        socket.on('send-message', async (data) => {
-            try {
-                // Проверка мута  
-                const now = new Date();
-                const { data: user } = await supabase
-                    .from('users')
-                    .select('mutes')
-                    .eq('id', socket.userId)
-                    .single();
-
-                if (user.mutes && user.mutes.some(mute => new Date(mute.expires_at) > now)) {
-                    const activeMute = user.mutes.find(mute => new Date(mute.expires_at) > now);
-                    socket.emit('error', { 
-                        message: `Вы в муте до ${activeMute.expires_at}. Причина: ${activeMute.reason}` 
-                    });
-                    return;
-                }
-
-                // Сохраняем сообщение
-                const { data: message, error } = await supabase
-                    .from('messages')
-                    .insert([{
-                        chat_id: data.chatId,
-                        user_id: socket.userId,
-                        username: socket.username,
-                        content: data.content,
-                        message_type: data.type || 'text',
-                        media_url: data.mediaUrl,
-                        created_at: new Date().toISOString()
-                    }])
-                    .select()
-                    .single();
-
-                if (error) throw error;
-
-                // Логирование
-                await supabase
-                    .from('logs')
-                    .insert([{
-                        action: 'message_sent',
-                        user_id: socket.userId,
-                        target_id: data.chatId,
-                        details: {
-                            message_id: message.id,
-                            content: data.content,
-                            type: data.type
-                        },
-                        timestamp: new Date().toISOString()
-                    }]);
-
-                // Отправляем сообщение всем в чате
-                io.to(data.chatId).emit('new-message', message);
-            } catch (error) {
-                socket.emit('error', { message: 'Ошибка отправки сообщения' });
-            }
+      socket.on('typing_stop', (data) => {
+        socket.to(`chat_${data.chatId}`).emit('user_stop_typing', {
+          userId: socket.userId,
+          chatId: data.chatId
         });
+      });
 
-        // Присоединение к чату
-        socket.on('join-chat', (chatId) => {
-            socket.join(chatId);
-        });
+      // Отключение
+      socket.on('disconnect', async () => {
+        console.log('🔌 Отключение:', socket.id);
 
-        // Покидание чата
-        socket.on('leave-chat', (chatId) => {
-            socket.leave(chatId);
-        });
+        if (socket.userId) {
+          this.connectedUsers.delete(socket.userId);
 
-        // Запрос истории сообщений
-        socket.on('get-messages', async (chatId) => {
-            try {
-                const { data: messages, error } = await supabase
-                    .from('messages')
-                    .select('*')
-                    .eq('chat_id', chatId)
-                    .order('created_at', { ascending: true });
+          // Обновляем статус оффлайн
+          await supabase
+            .from('users')
+            .update({ 
+              is_online: false,
+              last_seen: new Date().toISOString()
+            })
+            .eq('id', socket.userId);
 
-                if (error) throw error;
-                
-                socket.emit('messages-history', messages || []);
-            } catch (error) {
-                socket.emit('error', { message: 'Ошибка загрузки сообщений' });
-            }
-        });
-
-        // Отключение
-        socket.on('disconnect', () => {
-            console.log(`User ${socket.username} disconnected`);
-        });
+          this.broadcastUserStatus(socket.userId, false);
+        }
+      });
     });
-};
+  }
 
-module.exports = setupSockets;
+  // Рассылка статуса пользователя
+  broadcastUserStatus(userId, isOnline) {
+    this.io.emit('user_status_change', {
+      userId,
+      isOnline,
+      lastSeen: new Date().toISOString()
+    });
+  }
+
+  // Отправка уведомления конкретному пользователю
+  sendNotification(userId, notification) {
+    const userSocket = this.connectedUsers.get(userId);
+    if (userSocket) {
+      userSocket.emit('new_notification', notification);
+    }
+  }
+
+  // Рассылка системного сообщения
+  broadcastSystemMessage(message) {
+    this.io.emit('system_message', message);
+  }
+}
+
+const socketManager = new SocketManager();
+
+function initSocket(io) {
+  socketManager.init(io);
+}
+
+module.exports = { initSocket, socketManager };
