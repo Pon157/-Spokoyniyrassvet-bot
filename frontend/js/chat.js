@@ -1,404 +1,351 @@
 class ChatManager {
-    constructor() {
-        this.currentUser = null;
-        this.currentChat = null;
-        this.socket = null;
-        this.API_BASE = 'http://spokoyniyrassvet.webtm.ru';
+    constructor(app) {
+        this.app = app;
+        this.isTyping = false;
+        this.typingTimeout = null;
+        this.mediaRecorder = null;
+        this.audioChunks = [];
         this.init();
     }
 
-    async init() {
-        await this.checkAuth();
-        this.setupEventListeners();
-        this.loadTheme();
-        this.loadUserData();
-        
-        if (this.currentUser.role === 'user') {
-            this.showListenersSection();
-            this.loadAvailableListeners();
-        } else if (this.currentUser.role === 'listener') {
-            this.showActiveChats();
-        }
-        
-        this.loadActiveUsers();
+    init() {
+        this.setupMessageInput();
+        this.setupMediaHandlers();
+        this.setupStickerHandlers();
+        this.setupVoiceMessage();
     }
 
-    async checkAuth() {
-        const token = localStorage.getItem('token');
-        const user = localStorage.getItem('user');
+    setupMessageInput() {
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
 
-        if (!token || !user) {
-            window.location.href = '/';
+        messageInput.addEventListener('input', () => {
+            this.handleTyping();
+        });
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener('click', () => {
+            this.sendMessage();
+        });
+    }
+
+    setupMediaHandlers() {
+        const mediaBtn = document.getElementById('mediaBtn');
+        const mediaModal = document.getElementById('mediaModal');
+        const mediaFile = document.getElementById('mediaFile');
+        const mediaPreview = document.getElementById('mediaPreview');
+        const sendMedia = document.getElementById('sendMedia');
+        const cancelMedia = document.getElementById('cancelMedia');
+
+        mediaBtn.addEventListener('click', () => {
+            mediaModal.style.display = 'block';
+        });
+
+        mediaFile.addEventListener('change', (e) => {
+            this.previewMedia(e.target.files[0]);
+        });
+
+        sendMedia.addEventListener('click', () => {
+            this.sendMediaMessage();
+        });
+
+        cancelMedia.addEventListener('click', () => {
+            this.closeMediaModal();
+        });
+
+        // Закрытие модального окна
+        mediaModal.addEventListener('click', (e) => {
+            if (e.target === mediaModal) {
+                this.closeMediaModal();
+            }
+        });
+
+        document.querySelector('#mediaModal .close-modal').addEventListener('click', () => {
+            this.closeMediaModal();
+        });
+    }
+
+    setupStickerHandlers() {
+        const stickerBtn = document.getElementById('stickerBtn');
+        const stickerModal = document.getElementById('stickerModal');
+
+        stickerBtn.addEventListener('click', () => {
+            stickerModal.style.display = 'block';
+        });
+
+        stickerModal.addEventListener('click', (e) => {
+            if (e.target === stickerModal) {
+                this.closeStickerModal();
+            }
+        });
+
+        document.querySelector('#stickerModal .close-modal').addEventListener('click', () => {
+            this.closeStickerModal();
+        });
+    }
+
+    setupVoiceMessage() {
+        const voiceBtn = document.getElementById('voiceBtn');
+        
+        voiceBtn.addEventListener('mousedown', () => {
+            this.startRecording();
+        });
+
+        voiceBtn.addEventListener('mouseup', () => {
+            this.stopRecording();
+        });
+
+        voiceBtn.addEventListener('mouseleave', () => {
+            this.stopRecording();
+        });
+
+        voiceBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.startRecording();
+        });
+
+        voiceBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.stopRecording();
+        });
+    }
+
+    handleTyping() {
+        if (!this.app.currentChat) return;
+
+        if (!this.isTyping) {
+            this.isTyping = true;
+            this.app.socket.emit('typing_start', {
+                chat_id: this.app.currentChat.id
+            });
+        }
+
+        clearTimeout(this.typingTimeout);
+        this.typingTimeout = setTimeout(() => {
+            this.isTyping = false;
+            this.app.socket.emit('typing_stop', {
+                chat_id: this.app.currentChat.id
+            });
+        }, 1000);
+    }
+
+    async sendMessage() {
+        const messageInput = document.getElementById('messageInput');
+        const content = messageInput.value.trim();
+
+        if (!content || !this.app.currentChat) return;
+
+        try {
+            this.app.socket.emit('send_message', {
+                chat_id: this.app.currentChat.id,
+                content: content,
+                message_type: 'text'
+            });
+
+            messageInput.value = '';
+            
+            // Останавливаем индикатор набора
+            if (this.isTyping) {
+                this.isTyping = false;
+                this.app.socket.emit('typing_stop', {
+                    chat_id: this.app.currentChat.id
+                });
+            }
+
+        } catch (error) {
+            console.error('Ошибка отправки сообщения:', error);
+            this.app.showNotification('Ошибка отправки сообщения', 'error');
+        }
+    }
+
+    async sendSticker(stickerUrl) {
+        if (!this.app.currentChat) return;
+
+        try {
+            this.app.socket.emit('send_message', {
+                chat_id: this.app.currentChat.id,
+                sticker_url: stickerUrl,
+                message_type: 'sticker'
+            });
+        } catch (error) {
+            console.error('Ошибка отправки стикера:', error);
+            this.app.showNotification('Ошибка отправки стикера', 'error');
+        }
+    }
+
+    previewMedia(file) {
+        const preview = document.getElementById('mediaPreview');
+        preview.innerHTML = '';
+
+        if (!file) return;
+
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            if (file.type.startsWith('image/')) {
+                preview.innerHTML = `<img src="${e.target.result}" class="media-preview-image">`;
+            } else if (file.type.startsWith('video/')) {
+                preview.innerHTML = `<video src="${e.target.result}" controls class="media-preview-video"></video>`;
+            } else if (file.type.startsWith('audio/')) {
+                preview.innerHTML = `<audio src="${e.target.result}" controls class="media-preview-audio"></audio>`;
+            }
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+    async sendMediaMessage() {
+        const fileInput = document.getElementById('mediaFile');
+        const file = fileInput.files[0];
+
+        if (!file || !this.app.currentChat) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('chat_id', this.app.currentChat.id);
+            formData.append('media', file);
+
+            const response = await fetch('/chat/upload-media', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                this.app.socket.emit('send_message', {
+                    chat_id: this.app.currentChat.id,
+                    media_url: data.media_url,
+                    message_type: this.getMediaType(file.type)
+                });
+
+                this.closeMediaModal();
+                this.app.showNotification('Медиа отправлено', 'success');
+            } else {
+                throw new Error('Ошибка загрузки медиа');
+            }
+
+        } catch (error) {
+            console.error('Ошибка отправки медиа:', error);
+            this.app.showNotification('Ошибка отправки медиа', 'error');
+        }
+    }
+
+    getMediaType(mimeType) {
+        if (mimeType.startsWith('image/')) return 'image';
+        if (mimeType.startsWith('video/')) return 'video';
+        if (mimeType.startsWith('audio/')) return 'audio';
+        return 'file';
+    }
+
+    async startRecording() {
+        if (!navigator.mediaDevices) {
+            this.app.showNotification('Запись аудио не поддерживается', 'error');
             return;
         }
 
         try {
-            const response = await fetch(`${this.API_BASE}/auth/verify`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Not authenticated');
-            }
-
-            const data = await response.json();
-            this.currentUser = data.user;
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.audioChunks = [];
+            this.mediaRecorder = new MediaRecorder(stream);
             
+            this.mediaRecorder.ondataavailable = (event) => {
+                this.audioChunks.push(event.data);
+            };
+
+            this.mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+                await this.sendVoiceMessage(audioBlob);
+                
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            this.mediaRecorder.start();
+            this.app.showNotification('Запись начата...', 'info');
+
         } catch (error) {
-            console.error('Auth check failed:', error);
-            this.logout();
+            console.error('Ошибка записи аудио:', error);
+            this.app.showNotification('Ошибка доступа к микрофону', 'error');
         }
     }
 
-    setupEventListeners() {
-        // Форма отправки сообщения
-        document.getElementById('messageForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.sendMessage();
-        });
-
-        // Кнопка начала чата
-        document.getElementById('startChatBtn').addEventListener('click', () => {
-            this.startNewChat();
-        });
-
-        // Кнопка завершения чата
-        document.getElementById('endChatBtn').addEventListener('click', () => {
-            this.endChat();
-        });
-
-        // Кнопка отзыва
-        document.getElementById('rateChatBtn').addEventListener('click', () => {
-            this.openRateModal();
-        });
-
-        // Ввод сообщения
-        document.getElementById('messageInput').addEventListener('input', (e) => {
-            this.handleTyping(e.target.value);
-        });
-
-        // Тема
-        document.getElementById('themeToggle').addEventListener('click', (e) => {
-            e.stopPropagation();
-            const dropdown = document.getElementById('themeDropdown');
-            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-        });
-
-        document.querySelectorAll('.theme-option').forEach(option => {
-            option.addEventListener('click', (e) => {
-                this.changeTheme(e.target.dataset.theme);
-            });
-        });
-
-        document.addEventListener('click', () => {
-            document.getElementById('themeDropdown').style.display = 'none';
-        });
-    }
-
-    loadUserData() {
-        document.getElementById('userWelcome').textContent = `Привет, ${this.currentUser.username}!`;
-        
-        if (this.currentUser.role === 'listener') {
-            document.getElementById('welcomeText').textContent = 'Ожидайте подключения пользователей...';
+    stopRecording() {
+        if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+            this.mediaRecorder.stop();
+            this.app.showNotification('Запись завершена', 'info');
         }
     }
 
-    async loadAvailableListeners() {
+    async sendVoiceMessage(audioBlob) {
+        if (!this.app.currentChat) return;
+
         try {
-            const response = await fetch(`${this.API_BASE}/admin/users?role=listener&is_online=true`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            const formData = new FormData();
+            formData.append('chat_id', this.app.currentChat.id);
+            formData.append('audio', audioBlob, 'voice-message.wav');
 
-            if (response.ok) {
-                const data = await response.json();
-                this.renderListenersList(data.users);
-            }
-        } catch (error) {
-            console.error('Error loading listeners:', error);
-        }
-    }
-
-    renderListenersList(listeners) {
-        const container = document.getElementById('listenersList');
-        container.innerHTML = '';
-
-        listeners.forEach(listener => {
-            const listenerElement = document.createElement('div');
-            listenerElement.className = 'user-item';
-            listenerElement.innerHTML = `
-                <img src="${listener.avatar_url || 'images/default-avatar.png'}" 
-                     alt="${listener.username}" class="user-avatar">
-                <div class="user-info">
-                    <strong>${listener.username}</strong>
-                    <span class="status-online">● онлайн</span>
-                </div>
-                <button class="btn btn-primary btn-sm" onclick="chatManager.startChatWithListener('${listener.id}')">
-                    Начать чат
-                </button>
-            `;
-            container.appendChild(listenerElement);
-        });
-    }
-
-    async startChatWithListener(listenerId) {
-        try {
-            const response = await fetch(`${this.API_BASE}/chat/create`, {
+            const response = await fetch('/chat/upload-voice', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
                 },
-                body: JSON.stringify({ listenerId })
+                body: formData
             });
 
             if (response.ok) {
                 const data = await response.json();
-                this.openChat(data.chat);
+                
+                this.app.socket.emit('send_message', {
+                    chat_id: this.app.currentChat.id,
+                    media_url: data.media_url,
+                    message_type: 'audio'
+                });
+
+                this.app.showNotification('Голосовое сообщение отправлено', 'success');
             } else {
-                this.showMessage('Ошибка создания чата', 'error');
+                throw new Error('Ошибка загрузки аудио');
             }
+
         } catch (error) {
-            console.error('Error starting chat:', error);
-            this.showMessage('Ошибка соединения', 'error');
+            console.error('Ошибка отправки голосового сообщения:', error);
+            this.app.showNotification('Ошибка отправки голосового сообщения', 'error');
         }
     }
 
-    async openChat(chat) {
-        this.currentChat = chat;
+    closeMediaModal() {
+        const modal = document.getElementById('mediaModal');
+        const fileInput = document.getElementById('mediaFile');
+        const preview = document.getElementById('mediaPreview');
         
-        // Показываем интерфейс чата
-        document.getElementById('noChatSelected').style.display = 'none';
-        document.getElementById('chatHeader').style.display = 'flex';
-        document.getElementById('messageInputContainer').style.display = 'block';
-        
-        // Обновляем заголовок
-        const otherUser = chat.user_id === this.currentUser.id ? chat.listener : chat.user;
-        document.getElementById('chatWithUser').textContent = otherUser.username;
-        
-        // Показываем кнопки действий
-        if (this.currentUser.role === 'user') {
-            document.getElementById('endChatBtn').style.display = 'block';
-            document.getElementById('rateChatBtn').style.display = 'block';
+        modal.style.display = 'none';
+        fileInput.value = '';
+        preview.innerHTML = '';
+    }
+
+    closeStickerModal() {
+        const modal = document.getElementById('stickerModal');
+        modal.style.display = 'none';
+    }
+
+    openMedia(url) {
+        window.open(url, '_blank');
+    }
+}
+
+// Инициализация менеджера чата после загрузки приложения
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if (window.app) {
+            window.chatManager = new ChatManager(window.app);
         }
-
-        // Загружаем сообщения
-        await this.loadChatMessages(chat.id);
-        
-        // Подключаемся к сокету чата
-        if (this.socket) {
-            this.socket.emit('join_chat', chat.id);
-        }
-    }
-
-    async loadChatMessages(chatId) {
-        try {
-            const response = await fetch(`${this.API_BASE}/chat/${chatId}/messages`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.renderMessages(data.messages);
-            }
-        } catch (error) {
-            console.error('Error loading messages:', error);
-        }
-    }
-
-    renderMessages(messages) {
-        const container = document.getElementById('messagesContainer');
-        container.innerHTML = '';
-
-        messages.forEach(message => {
-            const messageElement = this.createMessageElement(message);
-            container.appendChild(messageElement);
-        });
-
-        this.scrollToBottom();
-    }
-
-    createMessageElement(message) {
-        const isOwn = message.sender_id === this.currentUser.id;
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message-item ${isOwn ? 'own' : 'other'} fade-in`;
-
-        let contentHtml = '';
-        
-        switch (message.message_type) {
-            case 'image':
-                contentHtml = `<div class="media-message">
-                    <img src="${message.media_url}" alt="Изображение" onclick="openMediaViewer('${message.media_url}')">
-                </div>`;
-                break;
-            case 'video':
-                contentHtml = `<div class="media-message">
-                    <video controls src="${message.media_url}"></video>
-                </div>`;
-                break;
-            case 'audio':
-                contentHtml = `<div class="audio-message">
-                    <audio controls src="${message.media_url}"></audio>
-                </div>`;
-                break;
-            case 'sticker':
-                contentHtml = `<div class="sticker-message">${message.content}</div>`;
-                break;
-            default:
-                contentHtml = `<div class="message-text">${this.escapeHtml(message.content)}</div>`;
-        }
-
-        messageDiv.innerHTML = `
-            <div class="message-header">
-                <span class="message-sender">${message.sender.username}</span>
-                <span class="message-time">${this.formatTime(message.created_at)}</span>
-            </div>
-            ${contentHtml}
-        `;
-
-        return messageDiv;
-    }
-
-    async sendMessage() {
-        const input = document.getElementById('messageInput');
-        const content = input.value.trim();
-
-        if (!content || !this.currentChat) return;
-
-        try {
-            const response = await fetch(`${this.API_BASE}/chat/message`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    chatId: this.currentChat.id,
-                    content: content,
-                    messageType: 'text'
-                })
-            });
-
-            if (response.ok) {
-                input.value = '';
-                this.autoResize(input);
-            } else {
-                this.showMessage('Ошибка отправки сообщения', 'error');
-            }
-        } catch (error) {
-            console.error('Error sending message:', error);
-            this.showMessage('Ошибка соединения', 'error');
-        }
-    }
-
-    handleTyping(text) {
-        if (!this.currentChat || !this.socket) return;
-
-        if (text.length > 0) {
-            this.socket.emit('typing_start', { chatId: this.currentChat.id });
-            this.typingTimeout = setTimeout(() => {
-                this.socket.emit('typing_stop', { chatId: this.currentChat.id });
-            }, 1000);
-        } else {
-            this.socket.emit('typing_stop', { chatId: this.currentChat.id });
-            if (this.typingTimeout) {
-                clearTimeout(this.typingTimeout);
-            }
-        }
-    }
-
-    showListenersSection() {
-        document.getElementById('listenersSection').style.display = 'block';
-        document.getElementById('startChatBtn').style.display = 'block';
-    }
-
-    changeTheme(theme) {
-        const themeStyle = document.getElementById('theme-style');
-        themeStyle.href = `css/${theme}-theme.css`;
-        localStorage.setItem('theme', theme);
-        document.getElementById('themeDropdown').style.display = 'none';
-    }
-
-    loadTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        this.changeTheme(savedTheme);
-    }
-
-    showMessage(text, type) {
-        const messageEl = document.getElementById('message');
-        messageEl.textContent = text;
-        messageEl.className = `message ${type}`;
-        
-        setTimeout(() => {
-            messageEl.textContent = '';
-            messageEl.className = 'message';
-        }, 5000);
-    }
-
-    autoResize(textarea) {
-        textarea.style.height = 'auto';
-        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-    }
-
-    scrollToBottom() {
-        const container = document.getElementById('messagesContainer');
-        container.scrollTop = container.scrollHeight;
-    }
-
-    formatTime(dateString) {
-        return new Date(dateString).toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/';
-    }
-}
-
-// Глобальные функции
-function openSettings() {
-    window.location.href = '/settings.html';
-}
-
-function logout() {
-    chatManager.logout();
-}
-
-function openMediaPicker() {
-    document.getElementById('mediaModal').style.display = 'block';
-}
-
-function closeMediaPicker() {
-    document.getElementById('mediaModal').style.display = 'none';
-}
-
-function openStickerPicker() {
-    document.getElementById('stickerModal').style.display = 'block';
-}
-
-function closeStickerPicker() {
-    document.getElementById('stickerModal').style.display = 'none';
-}
-
-function startVoiceRecording() {
-    // Реализация записи голоса
-    alert('Функция записи голоса в разработке');
-}
-
-// Инициализация
-const chatManager = new ChatManager();
+    }, 1000);
+});
