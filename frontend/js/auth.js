@@ -1,30 +1,14 @@
-// Auth functionality with Supabase
+// Auth functionality with Telegram username
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
-        this.supabase = null;
+        this.apiBase = '/auth';
         this.init();
     }
 
-    async init() {
-        await this.initSupabase();
+    init() {
         this.bindEvents();
         this.checkAuthState();
-    }
-
-    async initSupabase() {
-        try {
-            // Проверяем, что Supabase доступен глобально
-            if (window.supabase) {
-                this.supabase = window.supabase;
-                console.log('✅ Supabase инициализирован');
-            } else {
-                throw new Error('Supabase не загружен');
-            }
-        } catch (error) {
-            console.error('❌ Ошибка инициализации Supabase:', error);
-            this.showNotification('Ошибка подключения к базе данных', 'error');
-        }
     }
 
     bindEvents() {
@@ -90,7 +74,7 @@ class AuthManager {
 
         // Валидация
         if (!username) {
-            this.showNotification('Пожалуйста, введите имя пользователя', 'error');
+            this.showNotification('Пожалуйста, введите имя пользователя или Telegram', 'error');
             return;
         }
 
@@ -102,80 +86,40 @@ class AuthManager {
         this.setLoading('loginBtn', true);
 
         try {
-            if (!this.supabase) {
-                throw new Error('База данных не инициализирована');
+            const response = await fetch(`${this.apiBase}/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                this.showNotification('Успешный вход! Перенаправление...', 'success');
+                
+                // Сохраняем данные
+                localStorage.setItem('auth_token', data.token);
+                localStorage.setItem('user_data', JSON.stringify(data.user));
+                
+                if (rememberMe) {
+                    localStorage.setItem('remember_me', 'true');
+                }
+
+                setTimeout(() => {
+                    this.redirectUser(data.user);
+                }, 1500);
+
+            } else {
+                this.showNotification(data.error || 'Ошибка входа', 'error');
             }
-
-            // Ищем пользователя по username
-            const { data: user, error: userError } = await this.supabase
-                .from('users')
-                .select('*')
-                .eq('username', username)
-                .single();
-
-            if (userError || !user) {
-                this.showNotification('Пользователь не найден', 'error');
-                return;
-            }
-
-            // Проверяем, не заблокирован ли пользователь
-            if (user.is_blocked) {
-                this.showNotification('Ваш аккаунт заблокирован', 'error');
-                return;
-            }
-
-            // Проверяем пароль (в реальном приложении используйте хэширование!)
-            // ВАЖНО: В продакшене пароли должны храниться в захэшированном виде
-            if (user.password_hash !== password) {
-                this.showNotification('Неверный пароль', 'error');
-                return;
-            }
-
-            // Успешный вход
-            this.showNotification('Успешный вход! Перенаправление...', 'success');
-            
-            // Обновляем статус онлайн
-            await this.supabase
-                .from('users')
-                .update({ is_online: true, updated_at: new Date().toISOString() })
-                .eq('id', user.id);
-
-            // Сохраняем данные пользователя
-            const userData = {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                role: user.role,
-                avatar_url: user.avatar_url,
-                theme: user.theme
-            };
-
-            localStorage.setItem('auth_token', user.id);
-            localStorage.setItem('user_data', JSON.stringify(userData));
-            
-            if (rememberMe) {
-                localStorage.setItem('remember_me', 'true');
-            }
-
-            // Логируем вход
-            await this.supabase
-                .from('system_logs')
-                .insert([
-                    {
-                        user_id: user.id,
-                        action: 'user_login',
-                        details: { method: 'username_password' },
-                        ip_address: await this.getClientIP()
-                    }
-                ]);
-
-            setTimeout(() => {
-                this.redirectUser(userData);
-            }, 1500);
-
         } catch (error) {
             console.error('Login error:', error);
-            this.showNotification('Ошибка входа: ' + error.message, 'error');
+            this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoading('loginBtn', false);
         }
@@ -183,7 +127,7 @@ class AuthManager {
 
     async handleRegister() {
         const username = document.getElementById('registerUsername').value;
-        const email = document.getElementById('registerEmail').value;
+        const telegram = document.getElementById('registerTelegram').value;
         const password = document.getElementById('registerPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
@@ -194,8 +138,8 @@ class AuthManager {
             return;
         }
 
-        if (!this.validateEmail(email)) {
-            this.showNotification('Пожалуйста, введите корректный email', 'error');
+        if (!telegram || !telegram.startsWith('@')) {
+            this.showNotification('Telegram username должен начинаться с @', 'error');
             return;
         }
 
@@ -217,156 +161,80 @@ class AuthManager {
         this.setLoading('registerBtn', true);
 
         try {
-            if (!this.supabase) {
-                throw new Error('База данных не инициализирована');
+            const response = await fetch(`${this.apiBase}/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    telegram_username: telegram,
+                    password: password,
+                    confirmPassword: confirmPassword
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                this.showNotification('Регистрация успешна! Вы можете войти.', 'success');
+                
+                setTimeout(() => {
+                    this.showForm('login');
+                    document.getElementById('registerForm').reset();
+                }, 2000);
+
+            } else {
+                this.showNotification(data.error || 'Ошибка регистрации', 'error');
             }
-
-            // Проверяем, не существует ли уже пользователь с таким username или email
-            const { data: existingUsers, error: checkError } = await this.supabase
-                .from('users')
-                .select('username, email')
-                .or(`username.eq.${username},email.eq.${email}`);
-
-            if (checkError) {
-                throw new Error('Ошибка проверки пользователя');
-            }
-
-            if (existingUsers && existingUsers.length > 0) {
-                const existingUser = existingUsers[0];
-                if (existingUser.username === username) {
-                    this.showNotification('Пользователь с таким именем уже существует', 'error');
-                    return;
-                }
-                if (existingUser.email === email) {
-                    this.showNotification('Пользователь с таким email уже существует', 'error');
-                    return;
-                }
-            }
-
-            // ВАЖНО: В реальном приложении пароль должен быть захэширован!
-            // Здесь используется plain text для демонстрации
-            const password_hash = password; // Замените на bcrypt.hash(password, 10)
-
-            // Создаем нового пользователя
-            const { data: newUser, error: createError } = await this.supabase
-                .from('users')
-                .insert([
-                    {
-                        username: username,
-                        email: email,
-                        password_hash: password_hash,
-                        role: 'user',
-                        theme: 'light',
-                        is_online: false,
-                        is_blocked: false,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    }
-                ])
-                .select();
-
-            if (createError) {
-                throw new Error('Ошибка создания пользователя: ' + createError.message);
-            }
-
-            // Логируем регистрацию
-            await this.supabase
-                .from('system_logs')
-                .insert([
-                    {
-                        user_id: newUser[0].id,
-                        action: 'user_registration',
-                        details: { username: username, email: email },
-                        ip_address: await this.getClientIP()
-                    }
-                ]);
-
-            this.showNotification('Регистрация успешна! Вы можете войти.', 'success');
-            
-            setTimeout(() => {
-                this.showForm('login');
-                document.getElementById('registerForm').reset();
-            }, 2000);
-
         } catch (error) {
             console.error('Register error:', error);
-            this.showNotification('Ошибка регистрации: ' + error.message, 'error');
+            this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoading('registerBtn', false);
         }
     }
 
     async handleForgotPassword() {
-        const email = document.getElementById('forgotEmail').value;
+        const telegram = document.getElementById('forgotTelegram').value;
 
-        if (!this.validateEmail(email)) {
-            this.showNotification('Пожалуйста, введите корректный email', 'error');
+        if (!telegram || !telegram.startsWith('@')) {
+            this.showNotification('Введите корректный Telegram username (начинается с @)', 'error');
             return;
         }
 
         this.setLoading('forgotBtn', true);
 
         try {
-            if (!this.supabase) {
-                throw new Error('База данных не инициализирована');
+            const response = await fetch(`${this.apiBase}/forgot-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    telegram_username: telegram
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                this.showNotification('Ожидайте, в течение дня вам напишут в личные сообщения Telegram с вашим паролем', 'success');
+                
+                setTimeout(() => {
+                    this.showForm('login');
+                    document.getElementById('forgotPasswordForm').reset();
+                }, 3000);
+
+            } else {
+                this.showNotification(data.error || 'Ошибка восстановления пароля', 'error');
             }
-
-            // Ищем пользователя по email
-            const { data: user, error: searchError } = await this.supabase
-                .from('users')
-                .select('id, username, email')
-                .eq('email', email)
-                .single();
-
-            if (searchError || !user) {
-                this.showNotification('Пользователь с таким email не найден', 'error');
-                return;
-            }
-
-            // Здесь должна быть логика отправки email с инструкциями
-            // Например, отправка письма через ваш email сервис
-            
-            // Создаем уведомление для пользователя
-            await this.supabase
-                .from('notifications')
-                .insert([
-                    {
-                        user_id: user.id,
-                        title: 'Восстановление пароля',
-                        message: 'Запрос на восстановление пароля был получен. Следуйте инструкциям, отправленным на ваш email.',
-                        notification_type: 'info'
-                    }
-                ]);
-
-            this.showNotification('Инструкции по восстановлению пароля отправлены на ваш email', 'success');
-            
-            setTimeout(() => {
-                this.showForm('login');
-                document.getElementById('forgotPasswordForm').reset();
-            }, 3000);
-
         } catch (error) {
             console.error('Forgot password error:', error);
-            this.showNotification('Ошибка восстановления пароля: ' + error.message, 'error');
+            this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoading('forgotBtn', false);
         }
-    }
-
-    async getClientIP() {
-        // Упрощенный метод получения IP (в реальном приложении используйте серверный endpoint)
-        try {
-            const response = await fetch('https://api.ipify.org?format=json');
-            const data = await response.json();
-            return data.ip;
-        } catch (error) {
-            return 'unknown';
-        }
-    }
-
-    validateEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
     }
 
     // Остальные методы остаются без изменений...
@@ -478,7 +346,6 @@ class AuthManager {
             }, 300);
         }, 5000);
 
-        // Добавляем стили для анимаций, если их еще нет
         if (!document.getElementById('notificationStyles')) {
             const style = document.createElement('style');
             style.id = 'notificationStyles';
@@ -527,34 +394,49 @@ class AuthManager {
         
         this.showNotification(`Добро пожаловать, ${user.username}! Ваша роль: ${roleNames[role]}`, 'success');
         
-        // В реальном приложении здесь будет перенаправление
+        // Перенаправление по роли
         setTimeout(() => {
-            // window.location.href = '/chat.html'; // Раскомментируйте для реального использования
+            switch(user.role) {
+                case 'owner':
+                    window.location.href = '/owner.html';
+                    break;
+                case 'admin':
+                    window.location.href = '/admin.html';
+                    break;
+                case 'coowner':
+                    window.location.href = '/coowner.html';
+                    break;
+                case 'listener':
+                    window.location.href = '/listener.html';
+                    break;
+                default:
+                    window.location.href = '/chat.html';
+            }
         }, 2000);
     }
 
-    checkAuthState() {
+    async checkAuthState() {
         const token = localStorage.getItem('auth_token');
         if (token) {
-            this.validateToken(token);
-        }
-    }
+            try {
+                const response = await fetch(`${this.apiBase}/verify`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
 
-    async validateToken(token) {
-        try {
-            if (!this.supabase) return;
-
-            const { data: user, error } = await this.supabase
-                .from('users')
-                .select('*')
-                .eq('id', token)
-                .single();
-
-            if (!error && user && !user.is_blocked) {
-                this.redirectUser(user);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        this.redirectUser(data.user);
+                    }
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                // Очищаем невалидный токен
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user_data');
             }
-        } catch (error) {
-            console.error('Token validation error:', error);
         }
     }
 }
