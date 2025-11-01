@@ -55,6 +55,9 @@ class AuthManager {
             this.togglePassword('registerPassword', 'toggleRegisterPassword');
         });
 
+        // Условия использования
+        this.setupTermsModal();
+
         // Enter key support
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -63,6 +66,55 @@ class AuthManager {
                     const submitBtn = activeForm.querySelector('button[type="submit"]');
                     if (submitBtn) submitBtn.click();
                 }
+            }
+        });
+    }
+
+    setupTermsModal() {
+        const termsLink = document.getElementById('termsLink');
+        const closeTermsModal = document.getElementById('closeTermsModal');
+        const acceptTermsBtn = document.getElementById('acceptTermsBtn');
+        const cancelTermsBtn = document.getElementById('cancelTermsBtn');
+        const modalAcceptTerms = document.getElementById('modalAcceptTerms');
+
+        if (termsLink) {
+            termsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('termsModal').style.display = 'block';
+            });
+        }
+
+        if (closeTermsModal) {
+            closeTermsModal.addEventListener('click', () => {
+                document.getElementById('termsModal').style.display = 'none';
+            });
+        }
+
+        if (cancelTermsBtn) {
+            cancelTermsBtn.addEventListener('click', () => {
+                document.getElementById('termsModal').style.display = 'none';
+            });
+        }
+
+        if (modalAcceptTerms) {
+            modalAcceptTerms.addEventListener('change', () => {
+                acceptTermsBtn.disabled = !modalAcceptTerms.checked;
+            });
+        }
+
+        if (acceptTermsBtn) {
+            acceptTermsBtn.addEventListener('click', () => {
+                document.getElementById('acceptTerms').checked = true;
+                document.getElementById('termsModal').style.display = 'none';
+                this.showNotification('Условия приняты', 'success');
+            });
+        }
+
+        // Закрытие модального окна при клике вне его
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('termsModal');
+            if (e.target === modal) {
+                modal.style.display = 'none';
             }
         });
     }
@@ -102,7 +154,7 @@ class AuthManager {
             if (data.success) {
                 this.showNotification('Успешный вход! Перенаправление...', 'success');
                 
-                // Сохраняем данные
+                // Сохраняем данные - ИСПРАВЛЕНО: используем auth_token
                 localStorage.setItem('auth_token', data.token);
                 localStorage.setItem('user_data', JSON.stringify(data.user));
                 
@@ -248,12 +300,19 @@ class AuthManager {
             this.currentForm = formType;
         }
 
+        // Обновляем текст переключателя
+        const switchText = document.getElementById('switchText');
+        const switchBtn = document.getElementById('switchBtn');
+        
         if (formType === 'login') {
-            document.getElementById('switchText').textContent = 'Нет аккаунта?';
-            document.getElementById('switchBtn').textContent = 'Создать аккаунт';
+            switchText.textContent = 'Нет аккаунта?';
+            switchBtn.textContent = 'Создать аккаунт';
         } else if (formType === 'register') {
-            document.getElementById('switchText').textContent = 'Уже есть аккаунт?';
-            document.getElementById('switchBtn').textContent = 'Войти';
+            switchText.textContent = 'Уже есть аккаунт?';
+            switchBtn.textContent = 'Войти';
+        } else if (formType === 'forgotPassword') {
+            switchText.textContent = '';
+            switchBtn.textContent = '';
         }
 
         window.scrollTo(0, 0);
@@ -334,17 +393,35 @@ class AuthManager {
         messageEl.textContent = message;
         notification.appendChild(messageEl);
 
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        closeBtn.style.cssText = `
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            margin-left: auto;
+            opacity: 0.8;
+        `;
+        closeBtn.addEventListener('click', () => {
+            notification.remove();
+        });
+        notification.appendChild(closeBtn);
+
         container.appendChild(notification);
 
         setTimeout(() => {
-            notification.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 300);
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
         }, 5000);
 
+        // Добавляем стили если их еще нет
         if (!document.getElementById('notificationStyles')) {
             const style = document.createElement('style');
             style.id = 'notificationStyles';
@@ -381,19 +458,6 @@ class AuthManager {
     }
 
     redirectUser(user) {
-        // Проверяем текущую страницу
-        const currentPage = window.location.pathname;
-        const targetPage = this.getTargetPage(user.role);
-        
-        console.log('📍 Текущая страница:', currentPage);
-        console.log('🎯 Целевая страница:', targetPage);
-        
-        // Если уже на нужной странице - не перенаправляем
-        if (currentPage.includes(targetPage)) {
-            console.log('✅ Уже на целевой странице, перенаправление не нужно');
-            return;
-        }
-        
         const role = user?.role || 'user';
         
         const roleNames = {
@@ -427,16 +491,6 @@ class AuthManager {
         }, 2000);
     }
 
-    getTargetPage(role) {
-        switch(role) {
-            case 'owner': return 'owner.html';
-            case 'admin': return 'admin.html';
-            case 'coowner': return 'coowner.html';
-            case 'listener': return 'listener.html';
-            default: return 'chat.html';
-        }
-    }
-
     async checkAuthState() {
         const token = localStorage.getItem('auth_token');
         const userData = localStorage.getItem('user_data');
@@ -450,13 +504,9 @@ class AuthManager {
             return;
         }
 
-        // Если уже на странице чата - не перенаправляем
-        if (window.location.pathname.includes('chat.html') || 
-            window.location.pathname.includes('admin.html') ||
-            window.location.pathname.includes('owner.html') ||
-            window.location.pathname.includes('coowner.html') ||
-            window.location.pathname.includes('listener.html')) {
-            console.log('✅ Уже на защищенной странице, перенаправление не нужно');
+        // Если уже на странице аутентификации - не перенаправляем
+        if (window.location.pathname === '/' || window.location.pathname.includes('index.html')) {
+            console.log('✅ Уже на странице аутентификации, перенаправление не нужно');
             return;
         }
 
@@ -490,4 +540,19 @@ class AuthManager {
 // Initialize auth manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     window.authManager = new AuthManager();
+    
+    // Проверяем, если пользователь уже авторизован, перенаправляем
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user_data');
+    
+    if (token && userData) {
+        console.log('🔄 Пользователь уже авторизован, проверяем страницу...');
+        const currentPage = window.location.pathname;
+        
+        // Если на странице аутентификации, но пользователь авторизован - перенаправляем
+        if (currentPage === '/' || currentPage.includes('index.html')) {
+            console.log('📍 На странице аутентификации, но пользователь авторизован - перенаправляем');
+            window.authManager.redirectUser(JSON.parse(userData));
+        }
+    }
 });
