@@ -1,311 +1,438 @@
 const express = require('express');
-const { supabase } = require('../db');
+const { createClient } = require('@supabase/supabase-js');
+const { logAction } = require('../middleware');
+
 const router = express.Router();
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
-// Все функции админа + дополнительные
+// Все функции администратора + дополнительные возможности
 
-// Назначение ролей (слушатель, администратор)
-router.post('/users/:id/assign-role', async (req, res) => {
-    try {
-        const userId = req.params.id;
-        const { role } = req.body;
+// Отправка технических уведомлений
+router.post('/send-notification', async (req, res) => {
+  try {
+    const coownerId = req.user.id;
+    const { user_id, title, message, notification_type = 'info' } = req.body;
 
-        const allowedRoles = ['listener', 'admin'];
-        if (!allowedRoles.includes(role)) {
-            return res.status(400).json({ error: 'Недопустимая роль' });
-        }
-
-        const { data: user, error } = await supabase
-            .from('users')
-            .update({
-                role: role,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // Логируем действие
-        await supabase
-            .from('logs')
-            .insert([{
-                action: 'role_assigned',
-                user_id: req.user.id,
-                target_id: userId,
-                details: {
-                    new_role: role,
-                    assigned_by: req.user.username
-                },
-                timestamp: new Date().toISOString()
-            }]);
-
-        res.json({
-            success: true,
-            message: `Роль "${role}" назначена пользователю`,
-            user: user
-        });
-    } catch (error) {
-        console.error('Assign role error:', error);
-        res.status(500).json({ error: 'Ошибка назначения роли' });
+    if (!title || !message) {
+      return res.status(400).json({ error: 'Заголовок и сообщение обязательны' });
     }
+
+    const notificationData = {
+      title,
+      message,
+      notification_type,
+      created_at: new Date().toISOString()
+    };
+
+    // Если указан конкретный пользователь
+    if (user_id) {
+      notificationData.user_id = user_id;
+      
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notificationData);
+
+      if (error) throw error;
+
+      await logAction(coownerId, 'SEND_USER_NOTIFICATION', { 
+        target_user_id: user_id, 
+        title,
+        notification_type 
+      });
+
+    } else {
+      // Рассылка всем пользователям
+      const { data: users } = await supabase
+        .from('users')
+        .select('id')
+        .eq('is_blocked', false);
+
+      const notifications = users.map(user => ({
+        ...notificationData,
+        user_id: user.id
+      }));
+
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (error) throw error;
+
+      await logAction(coownerId, 'SEND_BROADCAST_NOTIFICATION', { 
+        title,
+        notification_type,
+        recipients_count: users.length 
+      });
+    }
+
+    res.json({ message: 'Уведомление отправлено' });
+  } catch (error) {
+    console.error('Ошибка отправки уведомления:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
-// Увольнение слушателя/администратора
-router.post('/users/:id/dismiss', async (req, res) => {
-    try {
-        const userId = req.params.id;
-        const { reason } = req.body;
+// Назначение слушателей
+router.post('/assign-listener', async (req, res) => {
+  try {
+    const coownerId = req.user.id;
+    const { user_id, new_role } = req.body;
 
-        // Получаем текущую роль пользователя
-        const { data: currentUser, error: fetchError } = await supabase
-            .from('users')
-            .select('role, username')
-            .eq('id', userId)
-            .single();
-
-        if (fetchError) throw fetchError;
-
-        if (!['listener', 'admin'].includes(currentUser.role)) {
-            return res.status(400).json({ error: 'Можно уволить только слушателя или администратора' });
-        }
-
-        // Понижаем до user и деактивируем
-        const { data: user, error } = await supabase
-            .from('users')
-            .update({
-                role: 'user',
-                is_active: false,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', userId)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // Логируем действие
-        await supabase
-            .from('logs')
-            .insert([{
-                action: 'user_dismissed',
-                user_id: req.user.id,
-                target_id: userId,
-                details: {
-                    previous_role: currentUser.role,
-                    reason: reason,
-                    dismissed_by: req.user.username
-                },
-                timestamp: new Date().toISOString()
-            }]);
-
-        res.json({
-            success: true,
-            message: `Пользователь ${currentUser.username} уволен`,
-            user: user
-        });
-    } catch (error) {
-        console.error('Dismiss user error:', error);
-        res.status(500).json({ error: 'Ошибка увольнения пользователя' });
+    if (!user_id || !new_role) {
+      return res.status(400).json({ error: 'ID пользователя и новая роль обязательны' });
     }
+
+    // Проверяем допустимые роли для назначения
+    const allowedRoles = ['listener', 'admin'];
+    if (!allowedRoles.includes(new_role)) {
+      return res.status(400).json({ error: 'Недопустимая роль для назначения' });
+    }
+
+    // Проверяем существование пользователя
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user_id)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    // Обновляем роль пользователя
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ 
+        role: new_role,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user_id);
+
+    if (updateError) throw updateError;
+
+    // Создаем уведомление для пользователя
+    const { error: notificationError } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: user_id,
+        title: 'Изменение роли',
+        message: `Ваша роль изменена на: ${getRoleDisplayName(new_role)}`,
+        notification_type: 'info'
+      });
+
+    if (notificationError) throw notificationError;
+
+    await logAction(coownerId, 'ASSIGN_ROLE', { 
+      target_user_id: user_id, 
+      old_role: user.role,
+      new_role: new_role 
+    });
+
+    res.json({ 
+      message: 'Роль пользователя изменена',
+      user: {
+        id: user_id,
+        username: user.username,
+        new_role: new_role
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка назначения роли:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
-// Отправка технического уведомления
-router.post('/notifications/send', async (req, res) => {
-    try {
-        const { title, message, target_roles, target_users } = req.body;
-
-        const notification = {
-            title: title,
-            message: message,
-            sent_by: req.user.id,
-            target_roles: target_roles || [],
-            target_users: target_users || [],
-            created_at: new Date().toISOString(),
-            is_read: false
-        };
-
-        const { data: savedNotification, error } = await supabase
-            .from('notifications')
-            .insert([notification])
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // Логируем действие
-        await supabase
-            .from('logs')
-            .insert([{
-                action: 'notification_sent',
-                user_id: req.user.id,
-                details: {
-                    title: title,
-                    target_roles: target_roles,
-                    target_users: target_users
-                },
-                timestamp: new Date().toISOString()
-            }]);
-
-        // Отправляем уведомление через WebSocket
-        // (реализуется в sockets.js)
-
-        res.json({
-            success: true,
-            message: 'Уведомление отправлено',
-            notification: savedNotification
-        });
-    } catch (error) {
-        console.error('Send notification error:', error);
-        res.status(500).json({ error: 'Ошибка отправки уведомления' });
-    }
-});
-
-// Массовая рассылка
-router.post('/broadcast', async (req, res) => {
-    try {
-        const { message, target_roles } = req.body;
-
-        // Создаем broadcast запись
-        const broadcast = {
-            message: message,
-            sent_by: req.user.id,
-            target_roles: target_roles || ['user', 'listener', 'admin'],
-            created_at: new Date().toISOString()
-        };
-
-        const { data: savedBroadcast, error } = await supabase
-            .from('broadcasts')
-            .insert([broadcast])
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // Логируем действие
-        await supabase
-            .from('logs')
-            .insert([{
-                action: 'broadcast_sent',
-                user_id: req.user.id,
-                details: {
-                    message: message,
-                    target_roles: target_roles
-                },
-                timestamp: new Date().toISOString()
-            }]);
-
-        res.json({
-            success: true,
-            message: 'Рассылка отправлена',
-            broadcast: savedBroadcast
-        });
-    } catch (error) {
-        console.error('Broadcast error:', error);
-        res.status(500).json({ error: 'Ошибка отправки рассылки' });
-    }
-});
-
-// Получение детальной статистики системы
-router.get('/detailed-stats', async (req, res) => {
-    try {
-        const { period = '7d' } = req.query; // 7d, 30d, 90d
-        
-        let days;
-        switch (period) {
-            case '7d': days = 7; break;
-            case '30d': days = 30; break;
-            case '90d': days = 90; break;
-            default: days = 7;
-        }
-
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - days);
-
-        // Статистика регистраций
-        const { data: registrations, error: regError } = await supabase
-            .from('users')
-            .select('created_at')
-            .gte('created_at', startDate.toISOString());
-
-        if (regError) throw regError;
-
-        // Статистика сообщений
-        const { data: messages, error: msgError } = await supabase
-            .from('messages')
-            .select('created_at')
-            .gte('created_at', startDate.toISOString());
-
-        if (msgError) throw msgError;
-
-        // Статистика чатов
-        const { data: chats, error: chatError } = await supabase
-            .from('chats')
-            .select('created_at, status')
-            .gte('created_at', startDate.toISOString());
-
-        if (chatError) throw chatError;
-
-        res.json({
-            period: period,
-            registrations: registrations.length,
-            messages: messages.length,
-            chats: {
-                total: chats.length,
-                active: chats.filter(c => c.status === 'active').length,
-                completed: chats.filter(c => c.status === 'completed').length
-            },
-            timeframe: {
-                start: startDate.toISOString(),
-                end: new Date().toISOString()
-            }
-        });
-    } catch (error) {
-        console.error('Detailed stats error:', error);
-        res.status(500).json({ error: 'Ошибка получения статистики' });
-    }
-});
-
-// Получение всех логов с расширенной фильтрацией
+// Просмотр всех логов системы
 router.get('/all-logs', async (req, res) => {
-    try {
-        const { action, user_id, start_date, end_date, limit = 200 } = req.query;
-        
-        let query = supabase
-            .from('logs')
-            .select(`
-                *,
-                user:users(username, role),
-                target_user:users!logs_target_id_fkey(username, role)
-            `)
-            .order('timestamp', { ascending: false })
-            .limit(parseInt(limit));
+  try {
+    const { page = 1, limit = 50, action_type, user_id } = req.query;
 
-        if (action && action !== 'all') {
-            query = query.eq('action', action);
-        }
+    let query = supabase
+      .from('system_logs')
+      .select(`
+        *,
+        user:users(username, email)
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false });
 
-        if (user_id) {
-            query = query.eq('user_id', user_id);
-        }
-
-        if (start_date) {
-            query = query.gte('timestamp', start_date);
-        }
-
-        if (end_date) {
-            query = query.lte('timestamp', end_date);
-        }
-
-        const { data: logs, error } = await query;
-
-        if (error) throw error;
-        res.json(logs || []);
-    } catch (error) {
-        console.error('All logs error:', error);
-        res.status(500).json({ error: 'Ошибка получения логов' });
+    // Фильтрация
+    if (action_type) {
+      query = query.eq('action', action_type);
     }
+
+    if (user_id) {
+      query = query.eq('user_id', user_id);
+    }
+
+    // Пагинация
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data: logs, error, count } = await query.range(from, to);
+
+    if (error) throw error;
+
+    res.json({
+      logs,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: count,
+        pages: Math.ceil(count / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка получения логов:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
+
+// Увольнение слушателя или администратора
+router.post('/dismiss-staff', async (req, res) => {
+  try {
+    const coownerId = req.user.id;
+    const { user_id, reason } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ error: 'ID пользователя обязателен' });
+    }
+
+    // Проверяем существование пользователя и его роль
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user_id)
+      .in('role', ['listener', 'admin'])
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({ error: 'Пользователь не найден или не является сотрудником' });
+    }
+
+    // Нельзя уволить себя
+    if (user_id === coownerId) {
+      return res.status(400).json({ error: 'Нельзя уволить себя' });
+    }
+
+    // Понижаем до пользователя
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ 
+        role: 'user',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user_id);
+
+    if (updateError) throw updateError;
+
+    // Создаем уведомление для пользователя
+    const { error: notificationError } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: user_id,
+        title: 'Изменение статуса',
+        message: `Вы больше не являетесь ${getRoleDisplayName(user.role)}. ${reason ? `Причина: ${reason}` : ''}`,
+        notification_type: 'warning'
+      });
+
+    if (notificationError) throw notificationError;
+
+    await logAction(coownerId, 'DISMISS_STAFF', { 
+      target_user_id: user_id, 
+      old_role: user.role,
+      reason: reason 
+    });
+
+    res.json({ 
+      message: 'Сотрудник уволен',
+      user: {
+        id: user_id,
+        username: user.username,
+        old_role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка увольнения сотрудника:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Получение детальной статистики
+router.get('/detailed-stats', async (req, res) => {
+  try {
+    const { period = 'day' } = req.query; // day, week, month
+
+    // Определяем временной диапазон
+    const now = new Date();
+    let startDate = new Date();
+
+    switch (period) {
+      case 'day':
+        startDate.setDate(now.getDate() - 1);
+        break;
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      default:
+        startDate.setDate(now.getDate() - 1);
+    }
+
+    // Статистика регистраций
+    const { count: newRegistrations } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', startDate.toISOString());
+
+    // Статистика сообщений
+    const { count: newMessages } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', startDate.toISOString());
+
+    // Статистика чатов
+    const { count: newChats } = await supabase
+      .from('chats')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', startDate.toISOString());
+
+    // Активность по часам
+    const { data: hourlyActivity } = await supabase
+      .from('messages')
+      .select('created_at')
+      .gte('created_at', startDate.toISOString());
+
+    const activityByHour = {};
+    hourlyActivity.forEach(msg => {
+      const hour = new Date(msg.created_at).getHours();
+      activityByHour[hour] = (activityByHour[hour] || 0) + 1;
+    });
+
+    // Топ слушателей по отзывам
+    const { data: topListeners } = await supabase
+      .from('reviews')
+      .select(`
+        rating,
+        listener:users!reviews_listener_id_fkey(username, avatar_url)
+      `)
+      .gte('created_at', startDate.toISOString());
+
+    const listenerStats = {};
+    topListeners.forEach(review => {
+      const listener = review.listener;
+      if (!listenerStats[listener.username]) {
+        listenerStats[listener.username] = {
+          username: listener.username,
+          avatar_url: listener.avatar_url,
+          total_rating: 0,
+          review_count: 0
+        };
+      }
+      listenerStats[listener.username].total_rating += review.rating;
+      listenerStats[listener.username].review_count += 1;
+    });
+
+    const topListenersFormatted = Object.values(listenerStats)
+      .map(listener => ({
+        ...listener,
+        avg_rating: listener.total_rating / listener.review_count
+      }))
+      .sort((a, b) => b.avg_rating - a.avg_rating)
+      .slice(0, 10);
+
+    res.json({
+      period,
+      start_date: startDate.toISOString(),
+      end_date: now.toISOString(),
+      stats: {
+        new_registrations: newRegistrations,
+        new_messages: newMessages,
+        new_chats: newChats,
+        hourly_activity: activityByHour,
+        top_listeners: topListenersFormatted
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка получения детальной статистики:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Управление стикерами
+router.post('/stickers', async (req, res) => {
+  try {
+    const coownerId = req.user.id;
+    const { name, url, category } = req.body;
+
+    if (!name || !url) {
+      return res.status(400).json({ error: 'Название и URL стикера обязательны' });
+    }
+
+    const { data: sticker, error } = await supabase
+      .from('stickers')
+      .insert({
+        name,
+        url,
+        category: category || 'general',
+        created_by: coownerId
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await logAction(coownerId, 'STICKER_CREATE', { 
+      sticker_id: sticker.id,
+      name: name
+    });
+
+    res.json({ 
+      message: 'Стикер добавлен',
+      sticker 
+    });
+  } catch (error) {
+    console.error('Ошибка добавления стикера:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Удаление стикера
+router.delete('/stickers/:stickerId', async (req, res) => {
+  try {
+    const coownerId = req.user.id;
+    const { stickerId } = req.params;
+
+    const { error } = await supabase
+      .from('stickers')
+      .update({ is_active: false })
+      .eq('id', stickerId);
+
+    if (error) throw error;
+
+    await logAction(coownerId, 'STICKER_DELETE', { sticker_id: stickerId });
+
+    res.json({ message: 'Стикер удален' });
+  } catch (error) {
+    console.error('Ошибка удаления стикера:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Вспомогательная функция для получения отображаемого имени роли
+function getRoleDisplayName(role) {
+  const roles = {
+    'user': 'Пользователь',
+    'listener': 'Слушатель',
+    'admin': 'Администратор',
+    'coowner': 'Совладелец',
+    'owner': 'Владелец'
+  };
+  return roles[role] || role;
+}
 
 module.exports = router;
