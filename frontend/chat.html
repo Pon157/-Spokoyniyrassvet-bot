@@ -4,25 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Чат Система - Общение</title>
-    <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/light-theme.css" id="theme-style">
 </head>
 <body>
     <div class="app-container">
         <header class="app-header">
             <div class="container">
-                <h1 class="logo">💬 ЧатСистема</h1>
+                <h1 class="logo">💬 Чат</h1>
                 <div class="header-actions">
-                    <span id="userWelcome"></span>
-                    <div class="theme-selector">
-                        <button class="btn btn-icon" id="themeToggle">🎨</button>
-                        <div class="theme-dropdown" id="themeDropdown">
-                            <div class="theme-option" data-theme="light">🌞 Светлая</div>
-                            <div class="theme-option" data-theme="dark">🌙 Темная</div>
-                            <div class="theme-option" data-theme="blue">🔵 Синяя</div>
-                            <div class="theme-option" data-theme="green">🟢 Зеленая</div>
-                        </div>
-                    </div>
+                    <span id="userWelcome">Пользователь</span>
                     <button class="btn btn-outline" onclick="openSettings()">⚙️ Настройки</button>
                     <button class="btn btn-outline" onclick="logout()">🚪 Выйти</button>
                 </div>
@@ -30,142 +21,184 @@
         </header>
 
         <main class="chat-container">
-            <!-- Сайдбар -->
             <aside class="chat-sidebar">
                 <div class="sidebar-section">
-                    <h3>Мои чаты</h3>
-                    <div id="chatsList" class="chats-list">
-                        <!-- Список чатов будет здесь -->
-                    </div>
-                </div>
-
-                <div class="sidebar-section" id="listenersSection" style="display: none;">
-                    <h3>Доступные слушатели</h3>
-                    <div id="listenersList" class="users-list">
-                        <!-- Список слушателей -->
-                    </div>
-                </div>
-
-                <div class="sidebar-section" id="activeUsersSection">
-                    <h3>Онлайн сейчас</h3>
-                    <div id="activeUsersList" class="users-list">
-                        <!-- Активные пользователи -->
+                    <h3>Мой чат</h3>
+                    <div class="chat-info">
+                        <p>Статус: <span class="status-online">● онлайн</span></p>
+                        <button class="btn btn-primary btn-full" onclick="startChat()">Начать чат</button>
                     </div>
                 </div>
             </aside>
 
-            <!-- Основная область чата -->
             <div class="chat-main">
-                <div class="chat-header" id="chatHeader" style="display: none;">
-                    <div class="chat-info">
-                        <h3 id="chatWithUser"></h3>
-                        <span id="userStatus" class="status-offline"></span>
-                    </div>
-                    <div class="chat-actions">
-                        <button class="btn btn-outline btn-sm" id="endChatBtn" style="display: none;">
-                            Завершить чат
-                        </button>
-                        <button class="btn btn-outline btn-sm" id="rateChatBtn" style="display: none;">
-                            Оставить отзыв
-                        </button>
-                    </div>
-                </div>
-
                 <div class="messages-container" id="messagesContainer">
-                    <div class="no-chat-selected" id="noChatSelected">
-                        <div class="welcome-message">
-                            <h2>Добро пожаловать в чат!</h2>
-                            <p id="welcomeText">Выберите чат или начните новый разговор</p>
-                            <button class="btn btn-primary mt-2" id="startChatBtn" style="display: none;">
-                                Начать новый чат
-                            </button>
-                        </div>
+                    <div class="welcome-message">
+                        <h2>Добро пожаловать в чат!</h2>
+                        <p>Начните общение, нажав кнопку "Начать чат"</p>
                     </div>
                 </div>
 
-                <div class="message-input-container" id="messageInputContainer" style="display: none;">
+                <div class="message-input-container">
                     <form class="message-input-form" id="messageForm">
-                        <div class="message-actions">
-                            <button type="button" class="btn btn-icon" onclick="openMediaPicker()">📎</button>
-                            <button type="button" class="btn btn-icon" onclick="openStickerPicker()">😊</button>
-                            <button type="button" class="btn btn-icon" onclick="startVoiceRecording()">🎤</button>
-                        </div>
-                        <textarea 
-                            id="messageInput" 
-                            class="message-input" 
-                            placeholder="Введите сообщение..." 
-                            rows="1"
-                            oninput="autoResize(this)"
-                        ></textarea>
-                        <button type="submit" class="btn btn-primary">Отправить</button>
+                        <input type="text" id="messageInput" class="message-input" placeholder="Введите сообщение..." disabled>
+                        <button type="submit" class="btn btn-primary" disabled>Отправить</button>
                     </form>
-                    <div id="typingIndicator" class="typing-indicator" style="display: none;">
-                        <span id="typingUser"></span> печатает...
-                    </div>
                 </div>
             </div>
         </main>
 
-        <!-- Модальные окна -->
-        <div id="mediaModal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Отправить медиа</h3>
-                    <button class="btn btn-icon" onclick="closeMediaPicker()">✕</button>
-                </div>
-                <div class="modal-body">
-                    <input type="file" id="mediaFile" accept="image/*,video/*,audio/*" multiple>
-                    <div class="media-preview" id="mediaPreview"></div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeMediaPicker()">Отмена</button>
-                    <button class="btn btn-primary" onclick="sendMedia()">Отправить</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="stickerModal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Выберите стикер</h3>
-                    <button class="btn btn-icon" onclick="closeStickerPicker()">✕</button>
-                </div>
-                <div class="modal-body">
-                    <div class="stickers-grid" id="stickersGrid">
-                        <!-- Стикеры будут здесь -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="rateModal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Оцените чат</h3>
-                    <button class="btn btn-icon" onclick="closeRateModal()">✕</button>
-                </div>
-                <div class="modal-body">
-                    <div class="rating-stars">
-                        <span class="star" data-rating="1">★</span>
-                        <span class="star" data-rating="2">★</span>
-                        <span class="star" data-rating="3">★</span>
-                        <span class="star" data-rating="4">★</span>
-                        <span class="star" data-rating="5">★</span>
-                    </div>
-                    <textarea id="reviewComment" placeholder="Ваш отзыв (необязательно)" rows="3"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" onclick="closeRateModal()">Отмена</button>
-                    <button class="btn btn-primary" onclick="submitReview()">Отправить отзыв</button>
-                </div>
-            </div>
-        </div>
-
         <div id="message" class="message"></div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="js/chat.js"></script>
-    <script src="js/socket-client.js"></script>
+    <script>
+        class ChatManager {
+            constructor() {
+                this.currentUser = null;
+                this.init();
+            }
+
+            async init() {
+                await this.checkAuth();
+                this.setupEventListeners();
+                this.loadUserData();
+            }
+
+            async checkAuth() {
+                const token = localStorage.getItem('token');
+                const user = localStorage.getItem('user');
+
+                if (!token || !user) {
+                    window.location.href = '/';
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/auth/verify', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Not authenticated');
+                    }
+
+                    const data = await response.json();
+                    this.currentUser = data.user;
+                } catch (error) {
+                    this.logout();
+                }
+            }
+
+            setupEventListeners() {
+                document.getElementById('messageForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.sendMessage();
+                });
+            }
+
+            loadUserData() {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                document.getElementById('userWelcome').textContent = user.username || 'Пользователь';
+            }
+
+            async startChat() {
+                try {
+                    const response = await fetch('/chat/create', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.enableChat();
+                        this.showMessage('Чат создан!', 'success');
+                    }
+                } catch (error) {
+                    this.showMessage('Ошибка создания чата', 'error');
+                }
+            }
+
+            enableChat() {
+                document.getElementById('messageInput').disabled = false;
+                document.querySelector('button[type="submit"]').disabled = false;
+                document.querySelector('.welcome-message').style.display = 'none';
+            }
+
+            async sendMessage() {
+                const input = document.getElementById('messageInput');
+                const content = input.value.trim();
+
+                if (!content) return;
+
+                try {
+                    const response = await fetch('/chat/message', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            chatId: 'test-chat',
+                            content: content
+                        })
+                    });
+
+                    if (response.ok) {
+                        input.value = '';
+                        this.addMessage(content, true);
+                    }
+                } catch (error) {
+                    this.showMessage('Ошибка отправки', 'error');
+                }
+            }
+
+            addMessage(content, isOwn = false) {
+                const container = document.getElementById('messagesContainer');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message-item ${isOwn ? 'own' : 'other'}`;
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <span class="message-sender">${isOwn ? 'Вы' : 'Слушатель'}</span>
+                        <span class="message-time">${new Date().toLocaleTimeString()}</span>
+                    </div>
+                    <div class="message-text">${content}</div>
+                `;
+                container.appendChild(messageDiv);
+                container.scrollTop = container.scrollHeight;
+            }
+
+            showMessage(text, type) {
+                const messageEl = document.getElementById('message');
+                messageEl.textContent = text;
+                messageEl.className = `message ${type}`;
+                setTimeout(() => messageEl.textContent = '', 5000);
+            }
+
+            logout() {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/';
+            }
+        }
+
+        // Глобальные функции
+        function openSettings() {
+            window.location.href = '/settings.html';
+        }
+
+        function logout() {
+            chatManager.logout();
+        }
+
+        function startChat() {
+            chatManager.startChat();
+        }
+
+        // Инициализация
+        const chatManager = new ChatManager();
+    </script>
 </body>
 </html>
