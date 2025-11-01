@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чат Система - Вход</title>
+    <title>Система - Вход</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -23,8 +23,8 @@
                 <!-- Логотип и заголовок -->
                 <div class="auth-header">
                     <div class="logo">
-                        <i class="fas fa-comments"></i>
-                        <span>ChatFlow</span>
+                        <i class="fas fa-sun"></i>
+                        <span>Спокойный рассвет</span>
                     </div>
                     <h1>Добро пожаловать</h1>
                     <p>Войдите в свою учетную запись чтобы продолжить</p>
@@ -35,10 +35,10 @@
                     <!-- Форма входа -->
                     <form id="loginForm" class="auth-form active">
                         <div class="form-group animated-input">
-                            <input type="email" id="loginEmail" required>
-                            <label for="loginEmail">
-                                <i class="fas fa-envelope"></i>
-                                Email
+                            <input type="text" id="loginUsername" required>
+                            <label for="loginUsername">
+                                <i class="fas fa-user"></i>
+                                Имя пользователя или Telegram
                             </label>
                             <div class="input-line"></div>
                         </div>
@@ -79,15 +79,6 @@
                             <label for="registerUsername">
                                 <i class="fas fa-user"></i>
                                 Имя пользователя
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="email" id="registerEmail" required>
-                            <label for="registerEmail">
-                                <i class="fas fa-envelope"></i>
-                                Email
                             </label>
                             <div class="input-line"></div>
                         </div>
@@ -214,16 +205,26 @@
             </div>
             <div class="modal-body">
                 <h3>1. Общие положения</h3>
-                <p>Настоящие Условия использования регулируют отношения между вами и ChatFlow...</p>
+                <p>Настоящие Условия использования регулируют отношения между вами и "Спокойный рассвет"...</p>
                 
                 <h3>2. Регистрация аккаунта</h3>
-                <p>Для использования сервиса необходимо зарегистрировать аккаунт, предоставив достоверную информацию...</p>
+                <p>Для использования сервиса необходимо зарегистрировать аккаунт, предоставив имя пользователя и Telegram username...</p>
                 
-                <h3>3. Восстановление пароля</h3>
+                <h3>3. Роли пользователей</h3>
+                <p>Система предусматривает следующие роли пользователей:</p>
+                <ul>
+                    <li><strong>Пользователь</strong> - базовая роль при регистрации</li>
+                    <li><strong>Слушатель</strong> - пользователь с расширенными правами</li>
+                    <li><strong>Совладелец</strong> - пользователь с правами управления</li>
+                    <li><strong>Администратор</strong> - полные права управления системой</li>
+                    <li><strong>Владелец</strong> - высший уровень доступа</li>
+                </ul>
+                
+                <h3>4. Восстановление пароля</h3>
                 <p>В случае утери пароля вы можете восстановить его через Telegram. Для этого укажите ваш Telegram username в форме восстановления.</p>
                 <p>Администратор свяжется с вами в течение 24 часов в личные сообщения Telegram для восстановления доступа.</p>
                 
-                <h3>4. Конфиденциальность</h3>
+                <h3>5. Конфиденциальность</h3>
                 <p>Мы обязуемся защищать ваши персональные данные...</p>
                 
                 <div class="terms-accept">
