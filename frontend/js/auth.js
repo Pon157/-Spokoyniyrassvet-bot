@@ -1,7 +1,7 @@
 class AuthManager {
     constructor() {
         this.currentUser = null;
-        this.API_BASE = window.location.origin; // ИСПРАВЛЕНО: используем текущий origin
+        this.API_BASE = 'http://spokoyniyrassvet.webtm.ru'; // ИСПРАВЛЕНО для Timeweb
         this.init();
     }
 
@@ -90,9 +90,9 @@ class AuthManager {
         }
 
         try {
-            console.log('Login attempt:', { email }); // Не логируем пароль
+            console.log('Login attempt:', { email });
             
-            const response = await fetch(`${this.API_BASE}/auth/login`, { // ИСПРАВЛЕНО
+            const response = await fetch(`${this.API_BASE}/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ class AuthManager {
         try {
             console.log('Register attempt:', { username, email });
             
-            const response = await fetch(`${this.API_BASE}/auth/register`, { // ИСПРАВЛЕНО
+            const response = await fetch(`${this.API_BASE}/auth/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -168,10 +168,17 @@ class AuthManager {
     }
 
     redirectToApp(role) {
-        if (['admin', 'coowner', 'owner'].includes(role)) {
-            window.location.href = `${this.API_BASE}/admin.html`; // ИСПРАВЛЕНО
+        // ИСПРАВЛЕНО для Timeweb структуры
+        if (role === 'owner') {
+            window.location.href = `${this.API_BASE}/owner.html`;
+        } else if (role === 'coowner') {
+            window.location.href = `${this.API_BASE}/coowner.html`;
+        } else if (role === 'admin') {
+            window.location.href = `${this.API_BASE}/admin.html`;
+        } else if (role === 'listener') {
+            window.location.href = `${this.API_BASE}/chat.html?role=listener`;
         } else {
-            window.location.href = `${this.API_BASE}/chat.html`; // ИСПРАВЛЕНО
+            window.location.href = `${this.API_BASE}/chat.html`;
         }
     }
 
@@ -194,7 +201,7 @@ class AuthManager {
     changeTheme(theme) {
         const themeStyle = document.getElementById('theme-style');
         if (themeStyle) {
-            themeStyle.href = `css/${theme}-theme.css`; // ИСПРАВЛЕНО
+            themeStyle.href = `css/${theme}-theme.css`;
         }
         localStorage.setItem('theme', theme);
         
