@@ -97,7 +97,7 @@
                                 <div class="form-grid">
                                     <div class="form-group">
                                         <label for="username">Имя пользователя</label>
-                                        <input type="text" id="username" class="form-input" required>
+                                        <input type="text" id="username" class="form-input" required minlength="3" maxlength="20">
                                         <div class="form-hint">От 3 до 20 символов</div>
                                     </div>
 
@@ -109,7 +109,7 @@
 
                                     <div class="form-group full-width">
                                         <label for="bio">О себе</label>
-                                        <textarea id="bio" class="form-input" rows="4" placeholder="Расскажите о себе..."></textarea>
+                                        <textarea id="bio" class="form-input" rows="4" placeholder="Расскажите о себе..." maxlength="500"></textarea>
                                         <div class="form-hint">Максимум 500 символов</div>
                                     </div>
                                 </div>
@@ -140,23 +140,38 @@
                                 <div class="form-grid">
                                     <div class="form-group">
                                         <label for="currentPassword">Текущий пароль</label>
-                                        <input type="password" id="currentPassword" class="form-input" required>
+                                        <div class="password-input">
+                                            <input type="password" id="currentPassword" class="form-input" required>
+                                            <button type="button" class="toggle-password">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div class="form-group">
                                         <label for="newPassword">Новый пароль</label>
-                                        <input type="password" id="newPassword" class="form-input" required oninput="settings.checkPasswordStrength()">
+                                        <div class="password-input">
+                                            <input type="password" id="newPassword" class="form-input" required minlength="6" oninput="settings.checkPasswordStrength()">
+                                            <button type="button" class="toggle-password">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
                                         <div class="password-strength">
                                             <div class="strength-bar">
                                                 <div class="strength-fill" id="passwordStrength"></div>
                                             </div>
-                                            <div class="strength-text" id="passwordStrengthText">Слабый</div>
+                                            <div class="strength-text" id="passwordStrengthText">Введите пароль</div>
                                         </div>
                                     </div>
 
                                     <div class="form-group">
                                         <label for="confirmPassword">Подтвердите пароль</label>
-                                        <input type="password" id="confirmPassword" class="form-input" required>
+                                        <div class="password-input">
+                                            <input type="password" id="confirmPassword" class="form-input" required minlength="6">
+                                            <button type="button" class="toggle-password">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -175,7 +190,19 @@
                         </div>
                         <div class="card-body">
                             <div class="sessions-list" id="sessionsList">
-                                <!-- Сессии загружаются здесь -->
+                                <div class="session-item">
+                                    <div class="session-info">
+                                        <div class="session-device">
+                                            <i class="fas fa-desktop"></i>
+                                            Текущее устройство
+                                        </div>
+                                        <div class="session-details">
+                                            <span class="session-location">Москва, Россия</span>
+                                            <span class="session-time">Сейчас</span>
+                                        </div>
+                                    </div>
+                                    <span class="badge success">Текущая</span>
+                                </div>
                             </div>
                             <div class="session-actions">
                                 <button class="btn btn-warning" onclick="settings.logoutAllSessions()">
@@ -340,39 +367,47 @@
                             <h3>Типы уведомлений</h3>
                         </div>
                         <div class="card-body">
-                            <div class="notification-options">
-                                <div class="option-group">
-                                    <label class="option-label">
-                                        <input type="checkbox" id="emailNotifications" checked>
-                                        <span class="checkmark"></span>
-                                        Email уведомления
-                                    </label>
+                            <form id="notificationForm">
+                                <div class="notification-options">
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="emailNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Email уведомления
+                                        </label>
+                                    </div>
+
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="pushNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Push уведомления
+                                        </label>
+                                    </div>
+
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="soundNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Звуковые уведомления
+                                        </label>
+                                    </div>
+
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="desktopNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Уведомления на рабочем столе
+                                        </label>
+                                    </div>
                                 </div>
 
-                                <div class="option-group">
-                                    <label class="option-label">
-                                        <input type="checkbox" id="pushNotifications" checked>
-                                        <span class="checkmark"></span>
-                                        Push уведомления
-                                    </label>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Сохранить настройки уведомлений
+                                    </button>
                                 </div>
-
-                                <div class="option-group">
-                                    <label class="option-label">
-                                        <input type="checkbox" id="soundNotifications" checked>
-                                        <span class="checkmark"></span>
-                                        Звуковые уведомления
-                                    </label>
-                                </div>
-
-                                <div class="option-group">
-                                    <label class="option-label">
-                                        <input type="checkbox" id="desktopNotifications" checked>
-                                        <span class="checkmark"></span>
-                                        Уведомления на рабочем столе
-                                    </label>
-                                </div>
-                            </div>
+                            </form>
                         </div>
                     </div>
 
@@ -438,6 +473,17 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Технические уведомления</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="technical-notifications" id="technicalNotifications">
+                                <p>Нет технических уведомлений</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Приватность -->
@@ -494,7 +540,7 @@
                         </div>
                         <div class="card-body">
                             <div class="blocked-users" id="blockedUsers">
-                                <!-- Заблокированные пользователи -->
+                                <p>Нет заблокированных пользователей</p>
                             </div>
                         </div>
                     </div>
@@ -560,7 +606,7 @@
                                         <h4>Выйти из аккаунта</h4>
                                         <p>Завершить текущую сессию и выйти из системы</p>
                                     </div>
-                                    <button class="btn btn-warning" onclick="settings.logout()">
+                                    <button class="btn btn-warning" onclick="settings.showLogoutConfirm()">
                                         <i class="fas fa-sign-out-alt"></i> Выйти
                                     </button>
                                 </div>
@@ -580,7 +626,7 @@
                                         <h4>Удалить аккаунт</h4>
                                         <p>Полностью удалить ваш аккаунт и все связанные данные. Это действие необратимо.</p>
                                     </div>
-                                    <button class="btn btn-danger" onclick="settings.deleteAccount()">
+                                    <button class="btn btn-danger" onclick="settings.showDeleteAccountModal()">
                                         <i class="fas fa-trash"></i> Удалить аккаунт
                                     </button>
                                 </div>
@@ -597,7 +643,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Подтверждение выхода</h3>
-                <button class="btn-close">&times;</button>
+                <button class="btn-close" onclick="settings.closeLogoutConfirm()">&times;</button>
             </div>
             <div class="modal-body">
                 <p>Вы уверены, что хотите выйти из аккаунта?</p>
@@ -613,7 +659,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Удаление аккаунта</h3>
-                <button class="btn-close">&times;</button>
+                <button class="btn-close" onclick="settings.closeDeleteAccount()">&times;</button>
             </div>
             <div class="modal-body">
                 <p class="warning-text">
@@ -631,6 +677,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Уведомления -->
+    <div id="notificationContainer" class="notification-container"></div>
 
     <script src="js/settings.js"></script>
 </body>
