@@ -181,12 +181,12 @@ class AuthManager {
     }
 
     async handleLogin() {
-        const email = document.getElementById('loginEmail').value;
+        const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
         const rememberMe = document.getElementById('rememberMe').checked;
 
-        if (!this.validateEmail(email)) {
-            this.showNotification('Пожалуйста, введите корректный email', 'error');
+        if (!username) {
+            this.showNotification('Пожалуйста, введите имя пользователя или Telegram', 'error');
             return;
         }
 
@@ -206,7 +206,8 @@ class AuthManager {
                 success: true,
                 token: 'demo_token_' + Date.now(),
                 user: {
-                    role: 'listener'
+                    username: username,
+                    role: 'user' // По умолчанию роль "пользователь"
                 }
             };
 
@@ -225,7 +226,7 @@ class AuthManager {
                 }, 1500);
 
             } else {
-                this.showNotification('Неверный email или пароль', 'error');
+                this.showNotification('Неверное имя пользователя или пароль', 'error');
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -237,7 +238,6 @@ class AuthManager {
 
     async handleRegister() {
         const username = document.getElementById('registerUsername').value;
-        const email = document.getElementById('registerEmail').value;
         const telegram = document.getElementById('registerTelegram').value;
         const password = document.getElementById('registerPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
@@ -246,11 +246,6 @@ class AuthManager {
         // Валидация
         if (!username || username.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
-            return;
-        }
-
-        if (!this.validateEmail(email)) {
-            this.showNotification('Пожалуйста, введите корректный email', 'error');
             return;
         }
 
@@ -379,11 +374,6 @@ class AuthManager {
         this.setTheme(savedTheme);
     }
 
-    validateEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
-
     setLoading(buttonId, isLoading) {
         const button = document.getElementById(buttonId);
         if (!button) return;
@@ -485,7 +475,17 @@ class AuthManager {
 
     redirectUser(user) {
         const role = user?.role || 'user';
-        this.showNotification(`Роль пользователя: ${role}. В реальном приложении будет перенаправление`, 'success');
+        
+        // Иерархия ролей: пользователь → слушатель → совладелец → администратор → владелец
+        const roleNames = {
+            'user': 'Пользователь',
+            'listener': 'Слушатель', 
+            'coowner': 'Совладелец',
+            'admin': 'Администратор',
+            'owner': 'Владелец'
+        };
+        
+        this.showNotification(`Добро пожаловать! Ваша роль: ${roleNames[role]}. В реальном приложении будет перенаправление`, 'success');
     }
 
     checkAuthState() {
