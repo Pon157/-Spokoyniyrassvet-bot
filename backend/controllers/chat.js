@@ -226,4 +226,154 @@ router.post('/upload-media', upload.single('media'), async (req, res) => {
 router.post('/upload-voice', upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) {
-      return res
+      return res.status(400).json({ error: 'Аудио файл не загружен' });
+    }
+
+    const { chat_id } = req.body;
+    const userId = req.user.id;
+
+    // Проверяем доступ к чату
+    const { data: chat } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('id', chat_id)
+      .or(`user_id.eq.${userId},listener_id.eq.${userId}`)
+      .single();
+
+    if (!chat) {
+      return res.status(404).json({ error: 'Чат не найден' });
+    }
+
+    const mediaUrl = `/media/uploads/${req.file.filename}`;
+
+    await logAction(userId, 'VOICE_UPLOAD', { 
+      chat_id: chat_id,
+      filename: req.file.filename
+    });
+
+    res.json({ media_url: mediaUrl });
+  } catch (error) {
+    console.error('Ошибка загрузки аудио:', error);
+    res.status(500).json({ error: 'Ошибка загрузки аудио' });
+  }
+});
+
+// Получение списка слушателей
+router.get('/listeners', async (req, res) => {
+  try {
+    const { data: listeners, error } = await supabase
+      .from('users')
+      .select(`
+        *,
+        reviews:reviews!reviews_listener_id_fkey(rating)
+      `)
+      .eq('role', 'listener')
+      .eq('is_blocked', false)
+      .order('is_online', { ascending: false });
+
+    if (error) throw error;
+
+    // Рассчитываем средний рейтинг
+    const listenersWithRating = listeners.map(listener => {
+      const ratings = listener.reviews.map(r => r.rating);
+      const avgRating = ratings.length > 0 
+        ? ratings.reduce((a, b) => a + b, 0) / ratings.length 
+        : 0;
+
+      return {
+        ...listener,
+        avg_rating: Math.round(avgRating * 10) / 10,
+        reviews_count: ratings.length
+      };
+    });
+
+    res.json({ listeners: listenersWithRating });
+  } catch (error) {
+    console.error('Ошибка получения слушателей:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Получение стикеров
+router.get('/stickers', async (req, res) => {
+  try {
+    const { data: stickers, error } = await supabase
+      .from('stickers')
+      .select('*')
+      .eq('is_active', true)
+      .order('category')
+      .order('created_at');
+
+    if (error) throw error;
+
+    res.json({ stickers });
+  } catch (error) {
+    console.error('Ошибка получения стикеров:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Добавление отзыва
+router.post('/review', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { chat_id, rating, comment } = req.body;
+
+    if (!chat_id || !rating) {
+      return res.status(400).json({ error: 'Чат и оценка обязательны' });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Оценка должна быть от 1 до 5' });
+    }
+
+    // Проверяем чат
+    const { data: chat } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('id', chat_id)
+      .eq('user_id', userId)
+      .single();
+
+    if (!chat) {
+      return res.status(404).json({ error: 'Чат не найден' });
+    }
+
+    // Проверяем, не оставлял ли уже отзыв
+    const { data: existingReview } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('chat_id', chat_id)
+      .single();
+
+    if (existingReview) {
+      return res.status(400).json({ error: 'Отзыв уже оставлен' });
+    }
+
+    const { data: review, error } = await supabase
+      .from('reviews')
+      .insert({
+        listener_id: chat.listener_id,
+        user_id: userId,
+        chat_id: chat_id,
+        rating: rating,
+        comment: comment
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await logAction(userId, 'REVIEW_CREATE', { 
+      listener_id: chat.listener_id,
+      rating: rating
+    });
+
+    res.json({ review });
+  } catch (error) {
+    console.error('Ошибка создания отзыва:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+module.exports = router;
