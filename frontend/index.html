@@ -4,90 +4,70 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Чат Система - Вход</title>
-    <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="/css/light-theme.css" id="theme-style">
+    <link rel="stylesheet" href="css/common.css">
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="container">
-                <h1 class="logo">💬 ЧатСистема</h1>
-                <div class="header-actions">
-                    <div class="theme-selector">
-                        <button class="btn btn-icon" id="themeToggle">🎨</button>
-                        <div class="theme-dropdown" id="themeDropdown">
-                            <div class="theme-option" data-theme="light">🌞 Светлая</div>
-                            <div class="theme-option" data-theme="dark">🌙 Темная</div>
-                            <div class="theme-option" data-theme="blue">🔵 Синяя</div>
-                            <div class="theme-option" data-theme="green">🟢 Зеленая</div>
-                        </div>
-                    </div>
-                </div>
+    <div class="login-container">
+        <div class="logo">💬 ЧатСистема</div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" placeholder="test@test.com" required>
             </div>
-        </header>
-
-        <main class="auth-page">
-            <div class="container">
-                <div class="auth-layout">
-                    <div class="auth-main">
-                        <div class="auth-card">
-                            <div class="auth-header">
-                                <h2>Добро пожаловать</h2>
-                                <p>Войдите в свою учётную запись</p>
-                            </div>
-
-                            <div class="auth-tabs">
-                                <button class="tab-btn active" data-tab="login">Вход</button>
-                                <button class="tab-btn" data-tab="register">Регистрация</button>
-                            </div>
-
-                            <form id="loginForm" class="auth-form active">
-                                <div class="form-group">
-                                    <label for="loginEmail">Email</label>
-                                    <input type="email" id="loginEmail" required placeholder="your@email.com">
-                                </div>
-                                <div class="form-group">
-                                    <label for="loginPassword">Пароль</label>
-                                    <input type="password" id="loginPassword" required placeholder="Ваш пароль">
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-full">Войти в систему</button>
-                            </form>
-
-                            <form id="registerForm" class="auth-form">
-                                <div class="form-group">
-                                    <label for="regUsername">Имя пользователя</label>
-                                    <input type="text" id="regUsername" required placeholder="Придумайте имя">
-                                </div>
-                                <div class="form-group">
-                                    <label for="regEmail">Email</label>
-                                    <input type="email" id="regEmail" required placeholder="your@email.com">
-                                </div>
-                                <div class="form-group">
-                                    <label for="regPassword">Пароль</label>
-                                    <input type="password" id="regPassword" required placeholder="Не менее 6 символов">
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-full">Создать аккаунт</button>
-                            </form>
-
-                            <div class="auth-info">
-                                <p>Все новые пользователи регистрируются с ролью "Пользователь"</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="auth-sidebar">
-                        <div class="system-info">
-                            <h3>О системе</h3>
-                            <p>Безопасное общение с системой ролей и модерацией</p>
-                        </div>
-                    </div>
-                </div>
+            <div class="form-group">
+                <label for="password">Пароль:</label>
+                <input type="password" id="password" placeholder="Введите пароль" required>
             </div>
-        </main>
-
-        <div id="message" class="message"></div>
+            <button type="submit" class="btn btn-primary">Войти в систему</button>
+        </form>
+        <div id="message"></div>
     </div>
 
-    <script src="/js/auth.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const messageEl = document.getElementById('message');
+            
+            if (!email || !password) {
+                showMessage('Заполните все поля', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, password }),
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    showMessage('Успешный вход! Перенаправление...', 'success');
+                    setTimeout(() => window.location.href = '/chat.html', 1000);
+                } else {
+                    showMessage(data.error || 'Ошибка входа', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка соединения с сервером', 'error');
+            }
+        });
+        
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            setTimeout(() => messageEl.textContent = '', 3000);
+        }
+        
+        // Автозаполнение для теста
+        document.getElementById('email').value = 'test@test.com';
+        document.getElementById('password').value = 'password';
+    </script>
 </body>
 </html>
