@@ -3,39 +3,463 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель совладельца - Чат Система</title>
+    <title>Панель Совладельца - Чат Система</title>
     <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
+    <link rel="stylesheet" href="css/modern.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="container">
-                <h1 class="logo">👑 Панель совладельца</h1>
-                <div class="header-actions">
-                    <button class="btn btn-secondary" onclick="window.location.href='/admin'">🛠️ К админке</button>
-                    <button class="btn btn-secondary" onclick="window.location.href='/chat'">💬 К чату</button>
-                    <button class="btn btn-danger" onclick="logout()">🚪 Выйти</button>
+    <div class="admin-container">
+        <!-- Header -->
+        <header class="admin-header glass-effect">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="logo">
+                        <i class="fas fa-crown"></i>
+                        <span>Co-Owner Panel</span>
+                    </div>
+                    <nav class="admin-nav">
+                        <button class="nav-btn active" data-tab="dashboard">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>Дашборд</span>
+                        </button>
+                        <button class="nav-btn" data-tab="staff">
+                            <i class="fas fa-users-cog"></i>
+                            <span>Персонал</span>
+                        </button>
+                        <button class="nav-btn" data-tab="notifications">
+                            <i class="fas fa-bell"></i>
+                            <span>Уведомления</span>
+                        </button>
+                        <button class="nav-btn" data-tab="analytics">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Аналитика</span>
+                        </button>
+                        <button class="nav-btn" data-tab="system">
+                            <i class="fas fa-cog"></i>
+                            <span>Система</span>
+                        </button>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="user-menu">
+                        <img src="images/default-avatar.svg" alt="Avatar" class="avatar-sm">
+                        <span id="coownerName">Совладелец</span>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-secondary" onclick="window.location.href='settings.html'">
+                                <i class="fas fa-cog"></i> Настройки
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="coowner.logout()">
+                                <i class="fas fa-sign-out-alt"></i> Выход
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
 
+        <!-- Main Content -->
         <main class="admin-main">
-            <div class="container">
-                <div class="coming-soon">
-                    <h2>🚧 Раздел в разработке</h2>
-                    <p>Панель совладельца будет доступна в ближайшее время</p>
+            <!-- Дашборд -->
+            <div class="tab-content active" id="dashboardTab">
+                <div class="dashboard-header">
+                    <h1>Панель совладельца</h1>
+                    <p>Расширенное управление системой и персоналом</p>
+                </div>
+
+                <!-- Статистика -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon users">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="totalStaff">0</div>
+                            <div class="stat-label">Сотрудников</div>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>5%</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon revenue">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="revenue">0</div>
+                            <div class="stat-label">Доход (мес.)</div>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>18%</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon performance">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="performance">0%</div>
+                            <div class="stat-label">Эффективность</div>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>7%</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon satisfaction">
+                            <i class="fas fa-smile"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="satisfaction">0%</div>
+                            <div class="stat-label">Удовлетворенность</div>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>12%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Быстрые действия -->
+                <div class="card quick-actions">
+                    <div class="card-header">
+                        <h3>Быстрые действия</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="actions-grid">
+                            <button class="action-btn" onclick="coowner.showSendNotification()">
+                                <i class="fas fa-bullhorn"></i>
+                                <span>Рассылка</span>
+                            </button>
+                            <button class="action-btn" onclick="coowner.showAssignRole()">
+                                <i class="fas fa-user-tag"></i>
+                                <span>Назначить роль</span>
+                            </button>
+                            <button class="action-btn" onclick="coowner.showStaffReport()">
+                                <i class="fas fa-chart-pie"></i>
+                                <span>Отчет по персоналу</span>
+                            </button>
+                            <button class="action-btn" onclick="coowner.showStickerManager()">
+                                <i class="fas fa-smile"></i>
+                                <span>Стикеры</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Активность персонала -->
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Активность персонала</h3>
+                            <select id="staffActivityPeriod">
+                                <option value="today">Сегодня</option>
+                                <option value="week">Неделя</option>
+                                <option value="month">Месяц</option>
+                            </select>
+                        </div>
+                        <div class="card-body">
+                            <div class="staff-activity" id="staffActivity">
+                                <!-- Активность персонала -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Топ слушатели</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="top-listeners" id="topListeners">
+                                <!-- Топ слушатели -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Персонал -->
+            <div class="tab-content" id="staffTab">
+                <div class="section-header">
+                    <h2>Управление персоналом</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="coowner.showAddStaff()">
+                            <i class="fas fa-plus"></i> Добавить сотрудника
+                        </button>
+                    </div>
+                </div>
+
+                <div class="staff-tabs">
+                    <button class="staff-tab-btn active" data-staff-role="all">Все</button>
+                    <button class="staff-tab-btn" data-staff-role="listener">Слушатели</button>
+                    <button class="staff-tab-btn" data-staff-role="admin">Администраторы</button>
+                    <button class="staff-tab-btn" data-staff-role="coowner">Совладельцы</button>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Сотрудник</th>
+                                    <th>Должность</th>
+                                    <th>Статус</th>
+                                    <th>Производительность</th>
+                                    <th>Рейтинг</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staffTable">
+                                <!-- Персонал загружается здесь -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Уведомления -->
+            <div class="tab-content" id="notificationsTab">
+                <div class="section-header">
+                    <h2>Управление уведомлениями</h2>
+                    <button class="btn btn-primary" onclick="coowner.showSendNotification()">
+                        <i class="fas fa-plus"></i> Новое уведомление
+                    </button>
+                </div>
+
+                <div class="notifications-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Отправить уведомление</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Тип уведомления:</label>
+                                <select id="notificationType" class="form-select">
+                                    <option value="info">Информация</option>
+                                    <option value="warning">Предупреждение</option>
+                                    <option value="alert">Важное</option>
+                                    <option value="broadcast">Рассылка</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Получатель:</label>
+                                <select id="notificationTarget" class="form-select">
+                                    <option value="all">Все пользователи</option>
+                                    <option value="users">Только пользователи</option>
+                                    <option value="listeners">Только слушатели</option>
+                                    <option value="staff">Весь персонал</option>
+                                    <option value="specific">Конкретный пользователь</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="specificUserGroup" style="display: none;">
+                                <label>Выберите пользователя:</label>
+                                <select id="specificUser" class="form-select">
+                                    <option value="">-- Выберите пользователя --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Заголовок:</label>
+                                <input type="text" id="notificationTitle" class="form-input" placeholder="Введите заголовок">
+                            </div>
+                            <div class="form-group">
+                                <label>Сообщение:</label>
+                                <textarea id="notificationMessage" rows="4" placeholder="Введите текст уведомления"></textarea>
+                            </div>
+                            <button class="btn btn-primary btn-block" onclick="coowner.sendNotification()">
+                                <i class="fas fa-paper-plane"></i> Отправить уведомление
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>История уведомлений</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="notifications-history" id="notificationsHistory">
+                                <!-- История уведомлений -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Аналитика -->
+            <div class="tab-content" id="analyticsTab">
+                <div class="section-header">
+                    <h2>Детальная аналитика</h2>
+                    <div class="header-actions">
+                        <select id="analyticsPeriod">
+                            <option value="7">7 дней</option>
+                            <option value="30">30 дней</option>
+                            <option value="90">90 дней</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="coowner.exportAnalytics()">
+                            <i class="fas fa-download"></i> Экспорт
+                        </button>
+                    </div>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Рост пользователей</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-placeholder" id="usersGrowthChart">
+                                <!-- График роста пользователей -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Распределение по ролям</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="pie-chart" id="rolesDistributionChart">
+                                <!-- Круговая диаграмма -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Эффективность слушателей</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="performance-list" id="listenersPerformance">
+                                <!-- Эффективность слушателей -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Финансовые показатели</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="financial-stats" id="financialStats">
+                                <!-- Финансовая статистика -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Система -->
+            <div class="tab-content" id="systemTab">
+                <div class="section-header">
+                    <h2>Управление системой</h2>
+                </div>
+
+                <div class="system-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-sticky-note"></i> Управление стикерами</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="stickers-management">
+                                <div class="form-group">
+                                    <label>Добавить новый стикер:</label>
+                                    <input type="text" id="stickerName" class="form-input" placeholder="Название стикера">
+                                    <input type="text" id="stickerUrl" class="form-input" placeholder="URL изображения">
+                                    <select id="stickerCategory" class="form-select">
+                                        <option value="general">Общие</option>
+                                        <option value="emotions">Эмоции</option>
+                                        <option value="animals">Животные</option>
+                                        <option value="objects">Объекты</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-primary" onclick="coowner.addSticker()">
+                                    <i class="fas fa-plus"></i> Добавить стикер
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-database"></i> Логи системы</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="system-logs">
+                                <div class="log-filters">
+                                    <select id="systemLogType">
+                                        <option value="">Все действия</option>
+                                        <option value="SYSTEM">Системные</option>
+                                        <option value="MODERATION">Модерация</option>
+                                        <option value="USER">Пользователи</option>
+                                    </select>
+                                    <input type="date" id="systemLogDate">
+                                    <button class="btn btn-sm btn-secondary" onclick="coowner.loadSystemLogs()">
+                                        <i class="fas fa-filter"></i>
+                                    </button>
+                                </div>
+                                <div class="logs-list" id="systemLogsList">
+                                    <!-- Системные логи -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <script>
-        function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/';
-        }
-    </script>
+    <!-- Модальные окна -->
+    <div class="modal" id="assignRoleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Назначение роли</h3>
+                <button class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Выберите пользователя:</label>
+                    <select id="assignUserSelect" class="form-select">
+                        <option value="">-- Выберите пользователя --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Новая роль:</label>
+                    <select id="newRoleSelect" class="form-select">
+                        <option value="listener">Слушатель</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Причина (опционально):</label>
+                    <textarea id="assignReason" placeholder="Причина изменения роли" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="coowner.closeAssignRole()">Отмена</button>
+                <button class="btn btn-primary" onclick="coowner.assignRole()">Назначить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="staffDetailModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>Детали сотрудника</h3>
+                <button class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="staffDetailContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/coowner.js"></script>
 </body>
 </html>
