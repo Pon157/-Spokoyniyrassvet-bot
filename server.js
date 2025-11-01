@@ -5,8 +5,8 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Абсолютные пути для PM2
-const __dirname = path.resolve();
+// Используем существующий __dirname от Node.js
+const projectRoot = process.cwd(); // Или path.resolve() без присваивания в const
 
 // Базовые middleware для тестирования
 const basicAuth = (req, res, next) => {
@@ -200,7 +200,8 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
+    directory: __dirname
   });
 });
 
