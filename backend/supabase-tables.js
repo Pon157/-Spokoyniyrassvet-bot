@@ -1,8 +1,11 @@
--- Пользователи системы
+-- Удаляем старую таблицу users и создаем новую с telegram
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Пользователи системы с Telegram
 CREATE TABLE IF NOT EXISTS users (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
+    telegram_username VARCHAR(100) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user', -- user, listener, admin, coowner, owner
     avatar_url TEXT,
@@ -17,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Чаты
+-- Обновляем остальные таблицы (убираем email зависимости)
 CREATE TABLE IF NOT EXISTS chats (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES users(id),
@@ -29,7 +32,6 @@ CREATE TABLE IF NOT EXISTS chats (
     closed_at TIMESTAMP
 );
 
--- Сообщения
 CREATE TABLE IF NOT EXISTS messages (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     chat_id UUID REFERENCES chats(id),
@@ -42,7 +44,6 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Отзывы
 CREATE TABLE IF NOT EXISTS reviews (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     listener_id UUID REFERENCES users(id),
@@ -53,7 +54,6 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Модерационные действия
 CREATE TABLE IF NOT EXISTS moderation_actions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     moderator_id UUID REFERENCES users(id),
@@ -65,7 +65,6 @@ CREATE TABLE IF NOT EXISTS moderation_actions (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Технические уведомления
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES users(id),
@@ -76,7 +75,6 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Системные логи
 CREATE TABLE IF NOT EXISTS system_logs (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES users(id),
@@ -86,7 +84,6 @@ CREATE TABLE IF NOT EXISTS system_logs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Стикеры
 CREATE TABLE IF NOT EXISTS stickers (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -100,6 +97,7 @@ CREATE TABLE IF NOT EXISTS stickers (
 -- Индексы для оптимизации
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_online ON users(is_online);
+CREATE INDEX IF NOT EXISTS idx_users_telegram ON users(telegram_username);
 CREATE INDEX IF NOT EXISTS idx_chats_status ON chats(status);
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
