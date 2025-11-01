@@ -1,19 +1,27 @@
 {
   "name": "chat-system",
   "version": "1.0.0",
-  "description": "Многоуровневая чат система",
+  "description": "Многоуровневая чат система для TimeWeb",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "node render-build.sh"
+    "fix-dirs": "node fix-directories.js",
+    "setup": "npm run fix-dirs && npm start",
+    "pm2-start": "pm2 start server.js --name chat-app",
+    "pm2-restart": "pm2 restart chat-app",
+    "pm2-stop": "pm2 stop chat-app",
+    "pm2-logs": "pm2 logs chat-app",
+    "test": "node test-server.js"
   },
+  "keywords": ["chat", "websocket", "timeweb", "nodejs"],
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "path": "^0.12.7",
     "@supabase/supabase-js": "^2.38.0",
     "multer": "^1.4.5-lts.1",
     "bcryptjs": "^2.4.3",
@@ -21,5 +29,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
