@@ -1,46 +1,63 @@
-class AdminPanel {
+class AdminManager {
     constructor() {
         this.currentUser = null;
+        this.API_BASE = 'http://spokoyniyrassvet.webtm.ru';
+        this.selectedUser = null;
         this.init();
     }
 
     async init() {
         await this.checkAuth();
-        this.checkAdminAccess();
+        this.checkAdminRights();
         this.setupEventListeners();
+        this.loadTheme();
         this.loadStats();
         this.loadUsers();
+        this.loadChats();
     }
 
     async checkAuth() {
         const token = localStorage.getItem('token');
         const user = localStorage.getItem('user');
-        
+
         if (!token || !user) {
             window.location.href = '/';
             return;
         }
-        
-        this.currentUser = JSON.parse(user);
+
+        try {
+            const response = await fetch(`${this.API_BASE}/auth/verify`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Not authenticated');
+            }
+
+            const data = await response.json();
+            this.currentUser = data.user;
+            document.getElementById('userWelcome').textContent = `Админ: ${this.currentUser.username}`;
+            
+        } catch (error) {
+            console.error('Auth check failed:', error);
+            this.logout();
+        }
     }
 
-    checkAdminAccess() {
+    checkAdminRights() {
         const allowedRoles = ['admin', 'coowner', 'owner'];
         if (!allowedRoles.includes(this.currentUser.role)) {
-            window.location.href = '/chat';
-            return;
+            this.showMessage('Недостаточно прав для доступа к админ панели', 'error');
+            setTimeout(() => {
+                window.location.href = '/chat.html';
+            }, 2000);
         }
     }
 
     setupEventListeners() {
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            this.logout();
-        });
-
-        document.getElementById('refreshUsers').addEventListener('click', () => {
-            this.loadUsers();
-        });
-
+        // Тема
         document.getElementById('themeToggle').addEventListener('click', (e) => {
             e.stopPropagation();
             const dropdown = document.getElementById('themeDropdown');
@@ -60,210 +77,270 @@ class AdminPanel {
 
     async loadStats() {
         try {
-            const response = await fetch('/api/admin/stats', {
+            const response = await fetch(`${this.API_BASE}/admin/stats`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
             });
-            
+
             if (response.ok) {
-                const stats = await response.json();
-                this.displayStats(stats);
+                const data = await response.json();
+                this.renderStats(data.stats);
             }
         } catch (error) {
             console.error('Error loading stats:', error);
         }
     }
 
-    displayStats(stats) {
-        document.getElementById('totalUsers').textContent = stats.totalUsers || 0;
-        document.getElementById('totalListeners').textContent = stats.totalListeners || 0;
-        document.getElementById('totalChats').textContent = stats.totalChats || 0;
-        document.getElementById('totalMessages').textContent = stats.totalMessages || 0;
+    renderStats(stats) {
+        document.getElementById('totalUsers').textContent = stats.totalUsers;
+        document.getElementById('totalListeners').textContent = stats.totalListeners;
+        document.getElementById('totalChats').textContent = stats.totalChats;
+        document.getElementById('activeChats').textContent = stats.activeChats;
+        document.getElementById('totalMessages').textContent = stats.totalMessages;
     }
 
-    async loadUsers() {
+    async loadUsers(page = 1) {
         try {
-            const response = await fetch('/api/admin/users', {
+            const roleFilter = document.getElementById('roleFilter').value;
+            const params = new URLSearchParams({
+                page: page,
+                limit: 20,
+                ...(roleFilter && { role: roleFilter })
+            });
+
+            const response = await fetch(`${this.API_BASE}/admin/users?${params}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
             });
-            
+
             if (response.ok) {
-                const users = await response.json();
-                this.displayUsers(users);
+                const data = await response.json();
+                this.renderUsers(data.users, data.pagination);
             }
         } catch (error) {
             console.error('Error loading users:', error);
         }
     }
 
-    displayUsers(users) {
+    renderUsers(users, pagination) {
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '';
-
-        if (users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4">Пользователи не найдены</td></tr>';
-            return;
-        }
 
         users.forEach(user => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
-                    <div class="user-cell">
-                        <img src="${user.avatar || '/images/default-avatar.png'}" alt="Avatar" class="avatar-small">
+                    <div class="flex items-center gap-2">
+                        <img src="${user.avatar_url || 'images/default-avatar.png'}" 
+                             alt="${user.username}" class="user-avatar">
                         <div>
-                            <div class="username">${user.username}</div>
-                            <div class="user-email">${user.email}</div>
+                            <strong>${user.username}</strong>
+                            <div>${user.email}</div>
                         </div>
                     </div>
                 </td>
                 <td>
-                    <span class="role-badge role-${user.role}">${this.getRoleDisplayName(user.role)}</span>
+                    <span class="role-badge role-${user.role}">${this.getRoleName(user.role)}</span>
                 </td>
                 <td>
-                    <div class="status-cell">
-                        <span class="status-indicator ${user.isOnline ? 'online' : 'offline'}"></span>
-                        ${user.isOnline ? 'Онлайн' : 'Не в сети'}
-                        ${user.isBlocked ? '<div class="blocked-badge">🚫 Заблокирован</div>' : ''}
-                    </div>
+                    <span class="${user.is_online ? 'status-online' : 'status-offline'}">
+                        ${user.is_online ? '● онлайн' : '● оффлайн'}
+                    </span>
+                    ${user.is_banned ? '<br><span class="status-banned">🚫 забанен</span>' : ''}
+                    ${user.is_muted ? '<br><span class="status-muted">🔇 в муте</span>' : ''}
                 </td>
+                <td>${new Date(user.created_at).toLocaleDateString('ru-RU')}</td>
                 <td>
-                    <div class="action-buttons">
-                        ${!user.isBlocked ? 
-                            `<button class="btn btn-sm btn-danger" onclick="adminPanel.blockUser('${user._id}')">Блокировать</button>` :
-                            `<button class="btn btn-sm btn-success" onclick="adminPanel.unblockUser('${user._id}')">Разблокировать</button>`
-                        }
-                        <button class="btn btn-sm btn-warning" onclick="adminPanel.warnUser('${user._id}')">Предупредить</button>
-                    </div>
+                    <button class="btn btn-outline btn-sm" onclick="adminManager.openUserActions('${user.id}')">
+                        Действия
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        this.renderPagination(pagination, 'loadUsers');
+    }
+
+    async loadChats() {
+        try {
+            const response = await fetch(`${this.API_BASE}/admin/chats`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.renderChats(data.chats);
+            }
+        } catch (error) {
+            console.error('Error loading chats:', error);
+        }
+    }
+
+    renderChats(chats) {
+        const tbody = document.getElementById('chatsTableBody');
+        tbody.innerHTML = '';
+
+        chats.forEach(chat => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${chat.id.slice(0, 8)}...</td>
+                <td>${chat.user?.username || 'Неизвестно'}</td>
+                <td>${chat.listener?.username || 'Нет'}</td>
+                <td>
+                    <span class="status-${chat.status}">${this.getChatStatusName(chat.status)}</span>
+                </td>
+                <td>${chat.message_count || 0}</td>
+                <td>
+                    <button class="btn btn-outline btn-sm" onclick="adminManager.viewChat('${chat.id}')">
+                        Просмотр
+                    </button>
                 </td>
             `;
             tbody.appendChild(row);
         });
     }
 
-    getRoleDisplayName(role) {
+    openUserActions(userId) {
+        this.selectedUser = userId;
+        // Здесь можно загрузить дополнительную информацию о пользователе
+        document.getElementById('userActionsModal').style.display = 'block';
+    }
+
+    async moderateUser(action, reason, durationMinutes = null) {
+        if (!this.selectedUser) return;
+
+        try {
+            const response = await fetch(`${this.API_BASE}/admin/moderate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    userId: this.selectedUser,
+                    action: action,
+                    reason: reason,
+                    durationMinutes: durationMinutes
+                })
+            });
+
+            if (response.ok) {
+                this.showMessage('Действие применено успешно', 'success');
+                this.loadUsers();
+                this.closeModals();
+            } else {
+                const error = await response.json();
+                this.showMessage(error.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error moderating user:', error);
+            this.showMessage('Ошибка применения действия', 'error');
+        }
+    }
+
+    sendNotification() {
+        document.getElementById('notificationModal').style.display = 'block';
+    }
+
+    async sendNotificationToUsers() {
+        const title = document.getElementById('notificationTitle').value;
+        const message = document.getElementById('notificationMessage').value;
+        const type = document.getElementById('notificationType').value;
+
+        if (!title || !message) {
+            this.showMessage('Заполните все поля', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.API_BASE}/admin/notification`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    title,
+                    message,
+                    type
+                })
+            });
+
+            if (response.ok) {
+                this.showMessage('Уведомление отправлено', 'success');
+                this.closeModals();
+            } else {
+                const error = await response.json();
+                this.showMessage(error.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error sending notification:', error);
+            this.showMessage('Ошибка отправки уведомления', 'error');
+        }
+    }
+
+    getRoleName(role) {
         const roles = {
-            'user': '👤 Пользователь',
-            'listener': '👂 Слушатель', 
-            'admin': '🛠️ Администратор',
-            'coowner': '👑 Совладелец',
-            'owner': '👑 Владелец'
+            'user': 'Пользователь',
+            'listener': 'Слушатель',
+            'admin': 'Администратор',
+            'coowner': 'СоВладелец',
+            'owner': 'Владелец'
         };
         return roles[role] || role;
     }
 
-    async blockUser(userId) {
-        const reason = prompt('Укажите причину блокировки:');
-        if (!reason) return;
-
-        try {
-            const response = await fetch(`/api/admin/users/${userId}/block`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ reason })
-            });
-
-            if (response.ok) {
-                this.showMessage('Пользователь заблокирован', 'success');
-                this.loadUsers();
-            } else {
-                this.showMessage('Ошибка блокировки пользователя', 'error');
-            }
-        } catch (error) {
-            this.showMessage('Ошибка соединения', 'error');
-        }
+    getChatStatusName(status) {
+        const statuses = {
+            'active': 'Активен',
+            'closed': 'Завершен',
+            'archived': 'Архив'
+        };
+        return statuses[status] || status;
     }
 
-    async unblockUser(userId) {
-        try {
-            const response = await fetch(`/api/admin/users/${userId}/unblock`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+    renderPagination(pagination, callback) {
+        const container = document.getElementById('usersPagination');
+        if (!container) return;
 
-            if (response.ok) {
-                this.showMessage('Пользователь разблокирован', 'success');
-                this.loadUsers();
-            } else {
-                this.showMessage('Ошибка разблокировки', 'error');
+        const { page, limit, total } = pagination;
+        const totalPages = Math.ceil(total / limit);
+
+        let html = '';
+        if (totalPages > 1) {
+            html += '<div class="pagination-buttons">';
+            
+            if (page > 1) {
+                html += `<button class="btn btn-outline btn-sm" onclick="${callback}(${page - 1})">← Назад</button>`;
             }
-        } catch (error) {
-            this.showMessage('Ошибка соединения', 'error');
-        }
-    }
-
-    async warnUser(userId) {
-        const reason = prompt('Укажите причину предупреждения:');
-        if (!reason) return;
-
-        try {
-            const response = await fetch(`/api/admin/users/${userId}/warn`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ reason })
-            });
-
-            if (response.ok) {
-                this.showMessage('Предупреждение отправлено', 'success');
-            } else {
-                this.showMessage('Ошибка отправки предупреждения', 'error');
+            
+            html += `<span>Страница ${page} из ${totalPages}</span>`;
+            
+            if (page < totalPages) {
+                html += `<button class="btn btn-outline btn-sm" onclick="${callback}(${page + 1})">Вперед →</button>`;
             }
-        } catch (error) {
-            this.showMessage('Ошибка соединения', 'error');
+            
+            html += '</div>';
         }
-    }
 
-    async sendNotification() {
-        const message = prompt('Введите текст уведомления для всех пользователей:');
-        if (message) {
-            try {
-                const response = await fetch('/api/coowner/notifications', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({ 
-                        title: 'Системное уведомление',
-                        message: message,
-                        type: 'info'
-                    })
-                });
-
-                if (response.ok) {
-                    this.showMessage('Уведомление отправлено!', 'success');
-                } else {
-                    this.showMessage('Недостаточно прав для отправки уведомлений', 'error');
-                }
-            } catch (error) {
-                this.showMessage('Ошибка отправки уведомления', 'error');
-            }
-        }
-    }
-
-    async viewLogs() {
-        if (['coowner', 'owner'].includes(this.currentUser.role)) {
-            window.location.href = '/coowner';
-        } else {
-            this.showMessage('Недостаточно прав для просмотра логов', 'error');
-        }
+        container.innerHTML = html;
     }
 
     changeTheme(theme) {
-        document.getElementById('theme-style').href = `css/${theme}-theme.css`;
+        const themeStyle = document.getElementById('theme-style');
+        themeStyle.href = `css/${theme}-theme.css`;
         localStorage.setItem('theme', theme);
         document.getElementById('themeDropdown').style.display = 'none';
+    }
+
+    loadTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        this.changeTheme(savedTheme);
     }
 
     showMessage(text, type) {
@@ -277,6 +354,12 @@ class AdminPanel {
         }, 5000);
     }
 
+    closeModals() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.style.display = 'none';
+        });
+    }
+
     logout() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -284,6 +367,26 @@ class AdminPanel {
     }
 }
 
-// Инициализация админ-панели
-const adminPanel = new AdminPanel();
-window.adminPanel = adminPanel;
+// Глобальные функции
+function openSettings() {
+    window.location.href = '/settings.html';
+}
+
+function openChat() {
+    window.location.href = '/chat.html';
+}
+
+function logout() {
+    adminManager.logout();
+}
+
+function closeUserActionsModal() {
+    document.getElementById('userActionsModal').style.display = 'none';
+}
+
+function closeNotificationModal() {
+    document.getElementById('notificationModal').style.display = 'none';
+}
+
+// Инициализация
+const adminManager = new AdminManager();
