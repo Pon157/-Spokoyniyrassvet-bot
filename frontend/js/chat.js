@@ -679,4 +679,84 @@ class ChatApp {
         const diff = now - date;
         
         if (diff < 60000) return 'только что';
-        if (
+        if (diff < 3600000) return `${Math.floor(diff / 60000)} мин назад`;
+        if (diff < 86400000) return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        
+        return date.toLocaleDateString('ru-RU');
+    }
+
+    generateStarRating(rating) {
+        const stars = [];
+        for (let i = 1; i <= 5; i++) {
+            stars.push(i <= rating ? '★' : '☆');
+        }
+        return stars.join('');
+    }
+
+    getRoleDisplayName(role) {
+        const roles = {
+            'user': 'Пользователь',
+            'listener': 'Слушатель',
+            'admin': 'Администратор',
+            'coowner': 'Совладелец',
+            'owner': 'Владелец'
+        };
+        return roles[role] || role;
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    scrollToBottom() {
+        const container = document.getElementById('messagesContainer');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Создаем контейнер для уведомлений если его нет
+        let container = document.getElementById('notificationsContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notificationsContainer';
+            container.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            `;
+            document.body.appendChild(container);
+        }
+
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.style.cssText = `
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: white;
+            background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3'};
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        `;
+        notification.textContent = message;
+
+        container.appendChild(notification);
+
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+
+    logout() {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        window.location.href = '/';
+    }
+}
