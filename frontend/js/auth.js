@@ -2,6 +2,7 @@
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
+        this.termsLink = 'https://your-domain.com/terms-of-service'; // ЗАМЕНИТЕ НА ВАШУ ССЫЛКУ
         this.init();
     }
 
@@ -24,7 +25,7 @@ class AuthManager {
             this.handleRegister();
         });
 
-        // Форма восстановления пароля
+        // Форма восстановления пароля через Telegram
         document.getElementById('forgotPasswordForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleForgotPassword();
@@ -55,6 +56,36 @@ class AuthManager {
             this.togglePassword('registerPassword', 'toggleRegisterPassword');
         });
 
+        // Ссылка на условия использования
+        document.getElementById('termsLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.showTermsModal();
+        });
+
+        // Модальное окно условий
+        document.getElementById('closeTermsModal').addEventListener('click', () => {
+            this.hideTermsModal();
+        });
+
+        document.getElementById('cancelTermsBtn').addEventListener('click', () => {
+            this.hideTermsModal();
+        });
+
+        document.getElementById('modalAcceptTerms').addEventListener('change', (e) => {
+            document.getElementById('acceptTermsBtn').disabled = !e.target.checked;
+        });
+
+        document.getElementById('acceptTermsBtn').addEventListener('click', () => {
+            this.acceptTerms();
+        });
+
+        // Закрытие модального окна при клике вне его
+        document.getElementById('termsModal').addEventListener('click', (e) => {
+            if (e.target.id === 'termsModal') {
+                this.hideTermsModal();
+            }
+        });
+
         // Настройки темы
         document.getElementById('themeToggle').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -83,6 +114,32 @@ class AuthManager {
                 }
             }
         });
+
+        // Escape key для закрытия модальных окон
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.hideTermsModal();
+                this.hideThemeOptions();
+            }
+        });
+    }
+
+    showTermsModal() {
+        const modal = document.getElementById('termsModal');
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    hideTermsModal() {
+        const modal = document.getElementById('termsModal');
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    acceptTerms() {
+        document.getElementById('acceptTerms').checked = true;
+        this.hideTermsModal();
+        this.showNotification('Условия использования приняты', 'success');
     }
 
     switchForms() {
@@ -145,23 +202,6 @@ class AuthManager {
             await new Promise(resolve => setTimeout(resolve, 1500));
             
             // В реальном приложении здесь будет fetch запрос
-            /*
-            const response = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: email,
-                    password: password,
-                    rememberMe: rememberMe
-                })
-            });
-
-            const data = await response.json();
-            */
-
-            // Имитация успешного входа
             const data = {
                 success: true,
                 token: 'demo_token_' + Date.now(),
@@ -173,7 +213,6 @@ class AuthManager {
             if (data.success) {
                 this.showNotification('Успешный вход! Перенаправление...', 'success');
                 
-                // Сохраняем токен если есть
                 if (data.token) {
                     localStorage.setItem('auth_token', data.token);
                     if (rememberMe) {
@@ -181,7 +220,6 @@ class AuthManager {
                     }
                 }
 
-                // Перенаправление based on role
                 setTimeout(() => {
                     this.redirectUser(data.user);
                 }, 1500);
@@ -200,6 +238,7 @@ class AuthManager {
     async handleRegister() {
         const username = document.getElementById('registerUsername').value;
         const email = document.getElementById('registerEmail').value;
+        const telegram = document.getElementById('registerTelegram').value;
         const password = document.getElementById('registerPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
@@ -212,6 +251,11 @@ class AuthManager {
 
         if (!this.validateEmail(email)) {
             this.showNotification('Пожалуйста, введите корректный email', 'error');
+            return;
+        }
+
+        if (!this.validateTelegram(telegram)) {
+            this.showNotification('Пожалуйста, введите корректный Telegram username (например: @username)', 'error');
             return;
         }
 
@@ -233,27 +277,8 @@ class AuthManager {
         this.setLoading('registerBtn', true);
 
         try {
-            // Имитация API запроса
             await new Promise(resolve => setTimeout(resolve, 1500));
             
-            // В реальном приложении здесь будет fetch запрос
-            /*
-            const response = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    username: username,
-                    email: email,
-                    password: password
-                })
-            });
-
-            const data = await response.json();
-            */
-
-            // Имитация успешной регистрации
             const data = {
                 success: true
             };
@@ -261,10 +286,8 @@ class AuthManager {
             if (data.success) {
                 this.showNotification('Регистрация успешна! Вы можете войти.', 'success');
                 
-                // Переключаем на форму входа
                 setTimeout(() => {
                     this.showForm('login');
-                    // Очищаем форму регистрации
                     document.getElementById('registerForm').reset();
                 }, 2000);
 
@@ -280,48 +303,32 @@ class AuthManager {
     }
 
     async handleForgotPassword() {
-        const email = document.getElementById('forgotEmail').value;
+        const telegram = document.getElementById('forgotTelegram').value;
 
-        if (!this.validateEmail(email)) {
-            this.showNotification('Пожалуйста, введите корректный email', 'error');
+        if (!this.validateTelegram(telegram)) {
+            this.showNotification('Пожалуйста, введите корректный Telegram username (например: @username)', 'error');
             return;
         }
 
         this.setLoading('forgotBtn', true);
 
         try {
-            // Имитация API запроса
             await new Promise(resolve => setTimeout(resolve, 1500));
             
-            // В реальном приложении здесь будет fetch запрос
-            /*
-            const response = await fetch('/api/auth/forgot-password', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email: email })
-            });
-
-            const data = await response.json();
-            */
-
-            // Имитация успешного запроса
             const data = {
                 success: true
             };
 
             if (data.success) {
-                this.showNotification('Инструкции по восстановлению отправлены на ваш email', 'success');
+                this.showNotification('Ожидайте, в течение дня вам напишут в личные сообщения Telegram с вашим паролем', 'success');
                 
-                // Возврат к форме входа
                 setTimeout(() => {
                     this.showForm('login');
                     document.getElementById('forgotPasswordForm').reset();
                 }, 3000);
 
             } else {
-                this.showNotification('Пользователь с таким email не найден', 'error');
+                this.showNotification('Пользователь с таким Telegram не найден', 'error');
             }
         } catch (error) {
             console.error('Forgot password error:', error);
@@ -329,6 +336,12 @@ class AuthManager {
         } finally {
             this.setLoading('forgotBtn', false);
         }
+    }
+
+    validateTelegram(username) {
+        // Проверяем формат Telegram username
+        const telegramRegex = /^@?[a-zA-Z0-9_]{5,32}$/;
+        return telegramRegex.test(username.replace('@', ''));
     }
 
     togglePassword(inputId, buttonId) {
@@ -385,7 +398,6 @@ class AuthManager {
     }
 
     showNotification(message, type = 'success') {
-        // Создаем контейнер для уведомлений если его нет
         let container = document.getElementById('notificationsContainer');
         if (!container) {
             container = document.createElement('div');
@@ -402,7 +414,6 @@ class AuthManager {
             document.body.appendChild(container);
         }
 
-        // Создаем уведомление
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.style.cssText = `
@@ -418,20 +429,16 @@ class AuthManager {
             max-width: 400px;
         `;
 
-        // Добавляем иконку
         const icon = document.createElement('i');
         icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
         notification.appendChild(icon);
 
-        // Добавляем текст
         const messageEl = document.createElement('span');
         messageEl.textContent = message;
         notification.appendChild(messageEl);
 
-        // Добавляем в контейнер
         container.appendChild(notification);
 
-        // Авто-удаление
         setTimeout(() => {
             notification.style.animation = 'slideOutRight 0.3s ease';
             setTimeout(() => {
@@ -441,7 +448,6 @@ class AuthManager {
             }, 300);
         }, 5000);
 
-        // Добавляем CSS анимации
         if (!document.getElementById('notificationStyles')) {
             const style = document.createElement('style');
             style.id = 'notificationStyles';
@@ -478,61 +484,19 @@ class AuthManager {
     }
 
     redirectUser(user) {
-        // Based on user role, redirect to appropriate interface
         const role = user?.role || 'user';
-        
-        // В демо-версии просто показываем сообщение
         this.showNotification(`Роль пользователя: ${role}. В реальном приложении будет перенаправление`, 'success');
-        
-        /*
-        switch(role) {
-            case 'owner':
-                window.location.href = '/owner.html';
-                break;
-            case 'admin':
-                window.location.href = '/admin.html';
-                break;
-            case 'coowner':
-                window.location.href = '/coowner.html';
-                break;
-            case 'listener':
-                window.location.href = '/chat.html';
-                break;
-            default:
-                window.location.href = '/chat.html';
-        }
-        */
     }
 
     checkAuthState() {
         const token = localStorage.getItem('auth_token');
         if (token) {
-            // Если есть токен, проверяем его валидность
             this.validateToken(token);
         }
     }
 
     async validateToken(token) {
-        try {
-            // В демо-версии пропускаем проверку токена
-            /*
-            const response = await fetch('/api/auth/validate', {
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.valid) {
-                    this.redirectUser(data.user);
-                }
-            }
-            */
-        } catch (error) {
-            console.error('Token validation error:', error);
-            // Если ошибка, остаемся на странице аутентификации
-        }
+        // В демо-версии пропускаем проверку токена
     }
 }
 
