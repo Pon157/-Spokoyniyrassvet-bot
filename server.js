@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Импорты маршрутов
 const authRoutes = require('./backend/controllers/auth');
 const chatRoutes = require('./backend/controllers/chat');
 const adminRoutes = require('./backend/controllers/admin');
@@ -71,5 +72,5 @@ initSocket(io);
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📧 Using Supabase: ${process.env.SUPABASE_URL}`);
+  console.log(`📧 Using Supabase: ${process.env.SUPABASE_URL ? 'Yes' : 'No'}`);
 });
