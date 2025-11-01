@@ -1,4 +1,4 @@
-/* Auth.css - Современный адаптивный дизайн аутентификации */
+/* Auth.css - Чистый эффект жидкого стекла */
 
 /* ===== БАЗОВЫЕ СТИЛИ ===== */
 .auth-container {
@@ -13,36 +13,26 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ===== ФОН ===== */
+/* ===== ФОН С ГРАДИЕНТОМ ===== */
 .auth-background {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
     z-index: 1;
 }
 
-.auth-background::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: 
-        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.2) 0%, transparent 50%);
-    animation: gradientShift 15s ease infinite;
-}
-
 @keyframes gradientShift {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
-/* ===== КОНТЕЙНЕР ФОРМ ===== */
+/* ===== ЭФФЕКТ ЖИДКОГО СТЕКЛА ДЛЯ ФОРМ ===== */
 .auth-forms-container {
     position: relative;
     width: 100%;
@@ -51,14 +41,15 @@
 }
 
 .auth-form {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     padding: 40px 35px;
-    border-radius: 20px;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(255, 255, 255, 0.2);
+        0 25px 50px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
     width: 100%;
     position: absolute;
     top: 0;
@@ -88,28 +79,32 @@
     gap: 12px;
     font-size: 1.8rem;
     font-weight: 700;
-    color: #2d3748;
+    color: white;
     margin-bottom: 24px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .logo i {
-    color: #667eea;
+    color: rgba(255, 255, 255, 0.9);
     font-size: 2.2rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .auth-header h1 {
     font-size: 2.2rem;
     font-weight: 700;
     margin-bottom: 8px;
-    color: #2d3748;
+    color: white;
     line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .auth-header p {
-    color: #718096;
+    color: rgba(255, 255, 255, 0.9);
     font-size: 1.1rem;
     line-height: 1.5;
     margin: 0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* ===== ЗАГОЛОВКИ ФОРМ ===== */
@@ -122,18 +117,20 @@
     font-size: 1.8rem;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #2d3748;
+    color: white;
     line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .form-header p {
-    color: #718096;
+    color: rgba(255, 255, 255, 0.9);
     font-size: 1rem;
     line-height: 1.5;
     margin: 0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* ===== ПОЛЯ ВВОДА ===== */
+/* ===== ПОЛЯ ВВОДА В СТИЛЕ СТЕКЛА ===== */
 .input-group {
     position: relative;
     margin-bottom: 20px;
@@ -144,18 +141,19 @@
     left: 16px;
     top: 50%;
     transform: translateY(-50%);
-    color: #a0aec0;
+    color: rgba(255, 255, 255, 0.7);
     z-index: 2;
-    transition: color 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .input-group input {
     width: 100%;
     padding: 16px 16px 16px 48px;
-    border: 2px solid #e2e8f0;
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
     border-radius: 12px;
-    background: #ffffff;
-    color: #2d3748;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    color: white;
     font-size: 1rem;
     transition: all 0.3s ease;
     box-sizing: border-box;
@@ -164,16 +162,18 @@
 
 .input-group input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
 .input-group input:focus + .input-icon {
-    color: #667eea;
+    color: rgba(255, 255, 255, 0.9);
+    transform: translateY(-50%) scale(1.1);
 }
 
 .input-group input::placeholder {
-    color: #a0aec0;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .password-toggle {
@@ -181,17 +181,19 @@
     right: 16px;
     top: 50%;
     transform: translateY(-50%);
-    background: none;
+    background: rgba(255, 255, 255, 0.1);
     border: none;
-    color: #a0aec0;
+    color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    transition: color 0.3s ease;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
 }
 
 .password-toggle:hover {
-    color: #667eea;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* ===== ОПЦИИ ФОРМЫ ===== */
@@ -210,12 +212,12 @@
     gap: 8px;
     cursor: pointer;
     font-size: 0.9rem;
-    color: #718096;
+    color: rgba(255, 255, 255, 0.9);
     transition: color 0.3s ease;
 }
 
 .checkbox:hover {
-    color: #4a5568;
+    color: white;
 }
 
 .checkbox input {
@@ -225,47 +227,50 @@
 .checkmark {
     width: 18px;
     height: 18px;
-    border: 2px solid #e2e8f0;
+    border: 2px solid rgba(255, 255, 255, 0.5);
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s ease;
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
 }
 
 .checkbox input:checked + .checkmark {
-    background: #667eea;
-    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.9);
 }
 
 .checkbox input:checked + .checkmark::after {
     content: '✓';
-    color: white;
+    color: #667eea;
     font-size: 12px;
     font-weight: bold;
 }
 
 .forgot-password {
-    color: #667eea;
+    color: rgba(255, 255, 255, 0.9);
     text-decoration: none;
     font-size: 0.9rem;
     font-weight: 500;
-    transition: color 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .forgot-password:hover {
-    color: #5a67d8;
+    color: white;
     text-decoration: underline;
 }
 
-/* ===== КНОПКИ ===== */
+/* ===== КНОПКИ В СТИЛЕ СТЕКЛА ===== */
 .btn-primary {
     width: 100%;
     padding: 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.2) 0%, 
+        rgba(255, 255, 255, 0.1) 100%);
     color: white;
-    border: none;
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
     border-radius: 12px;
     font-size: 1rem;
     font-weight: 600;
@@ -274,11 +279,21 @@
     position: relative;
     overflow: hidden;
     font-family: inherit;
+    backdrop-filter: blur(20px);
+    box-shadow: 
+        0 8px 25px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .btn-primary:hover {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.25) 0%, 
+        rgba(255, 255, 255, 0.15) 100%);
+    border-color: rgba(255, 255, 255, 0.5);
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    box-shadow: 
+        0 12px 30px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .btn-primary:active {
@@ -286,7 +301,7 @@
 }
 
 .btn-primary:disabled {
-    opacity: 0.7;
+    opacity: 0.6;
     cursor: not-allowed;
     transform: none;
 }
@@ -326,37 +341,40 @@
     text-align: center;
     margin-top: 24px;
     padding-top: 24px;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .auth-switch p {
-    color: #718096;
+    color: rgba(255, 255, 255, 0.9);
     font-size: 0.95rem;
     margin: 0;
 }
 
 .auth-switch a {
-    color: #667eea;
+    color: white;
     text-decoration: none;
-    font-weight: 500;
-    transition: color 0.3s ease;
+    font-weight: 600;
+    transition: all 0.3s ease;
 }
 
 .auth-switch a:hover {
-    color: #5a67d8;
+    color: white;
     text-decoration: underline;
 }
 
-/* ===== УВЕДОМЛЕНИЯ ===== */
+/* ===== УВЕДОМЛЕНИЯ В СТИЛЕ СТЕКЛА ===== */
 .notification {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px) saturate(180%);
     padding: 16px 20px;
     border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    border-left: 4px solid #48bb78;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
     transform: translateX(400px);
     opacity: 0;
     transition: all 0.3s ease;
@@ -369,8 +387,12 @@
     opacity: 1;
 }
 
+.notification.success {
+    border-left: 4px solid rgba(72, 187, 120, 0.8);
+}
+
 .notification.error {
-    border-left-color: #f56565;
+    border-left: 4px solid rgba(245, 101, 101, 0.8);
 }
 
 .notification-content {
@@ -384,17 +406,18 @@
 }
 
 .notification-icon.success {
-    color: #48bb78;
+    color: rgba(72, 187, 120, 0.9);
 }
 
 .notification-icon.error {
-    color: #f56565;
+    color: rgba(245, 101, 101, 0.9);
 }
 
 .notification-message {
-    color: #2d3748;
+    color: white;
     font-weight: 500;
     line-height: 1.4;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* ===== АДАПТИВНОСТЬ ===== */
@@ -409,7 +432,7 @@
     
     .auth-form {
         padding: 32px 28px;
-        border-radius: 16px;
+        border-radius: 20px;
     }
     
     .auth-header {
@@ -459,7 +482,7 @@
     
     .auth-form {
         padding: 28px 24px;
-        border-radius: 14px;
+        border-radius: 18px;
     }
     
     .auth-header h1 {
@@ -554,98 +577,7 @@
     }
 }
 
-/* ===== ПОДДЕРЖКА ВЫСОКОЧАСТОТНЫХ ЭКРАНОВ ===== */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-    .auth-form {
-        border: 0.5px solid rgba(255, 255, 255, 0.3);
-    }
-}
-
-/* ===== УЛУЧШЕНИЯ ДОСТУПНОСТИ ===== */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* Фокус для клавиатуры */
-.input-group input:focus-visible {
-    outline: 2px solid #667eea;
-    outline-offset: 2px;
-}
-
-.btn-primary:focus-visible {
-    outline: 2px solid #667eea;
-    outline-offset: 2px;
-}
-
-/* Высокий контраст */
-@media (prefers-contrast: high) {
-    .auth-form {
-        background: #ffffff;
-        border: 2px solid #000000;
-    }
-    
-    .input-group input {
-        border: 2px solid #000000;
-    }
-    
-    .btn-primary {
-        background: #000000;
-    }
-}
-
-/* Темная тема */
-@media (prefers-color-scheme: dark) {
-    .auth-form {
-        background: rgba(45, 55, 72, 0.95);
-        color: #ffffff;
-    }
-    
-    .auth-header h1,
-    .form-header h2,
-    .notification-message {
-        color: #ffffff;
-    }
-    
-    .auth-header p,
-    .form-header p,
-    .auth-switch p {
-        color: #cbd5e0;
-    }
-    
-    .input-group input {
-        background: #4a5568;
-        border-color: #718096;
-        color: #ffffff;
-    }
-    
-    .input-group input::placeholder {
-        color: #a0aec0;
-    }
-    
-    .input-icon {
-        color: #a0aec0;
-    }
-    
-    .checkmark {
-        background: #4a5568;
-        border-color: #718096;
-    }
-    
-    .auth-switch {
-        border-top-color: #718096;
-    }
-    
-    .notification {
-        background: #4a5568;
-        color: #ffffff;
-    }
-}
-
-/* ===== ГАРАНТИЯ РАБОТОСПОСОБНОСТИ ===== */
+/* ===== ГАРАНТИЯ ЧИТАЕМОСТИ ===== */
 .auth-form {
     display: none;
 }
@@ -658,7 +590,13 @@
 .auth-header h1,
 .auth-header p,
 .form-header h2,
-.form-header p {
+.form-header p,
+.input-group input,
+.checkbox,
+.forgot-password,
+.auth-switch p,
+.auth-switch a,
+.notification-message {
     opacity: 1 !important;
     visibility: visible !important;
     position: static !important;
@@ -688,5 +626,21 @@
     .password-toggle,
     .input-group input {
         min-height: 44px;
+    }
+}
+
+/* Поддержка старых браузеров */
+@supports not (backdrop-filter: blur(20px)) {
+    .auth-form {
+        background: rgba(255, 255, 255, 0.9);
+    }
+    
+    .input-group input {
+        background: rgba(255, 255, 255, 0.9);
+        color: #2d3748;
+    }
+    
+    .input-group input::placeholder {
+        color: #718096;
     }
 }
