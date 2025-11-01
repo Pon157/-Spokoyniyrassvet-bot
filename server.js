@@ -47,5 +47,5 @@ app.all('*', (req, res) => {
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 ULTRA SIMPLE SERVER ON PORT ${PORT}`);
-    console.log(`🔗 Test URL: https://pon157-git--f288.twc1.net/health`);
+    console.log(`🔗 Test URL: spokoyniyrassvet.webtm.ru`);
 });
