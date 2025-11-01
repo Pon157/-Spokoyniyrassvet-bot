@@ -3,6 +3,8 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
@@ -25,13 +27,25 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 const { supabase } = require('./backend/db');
 console.log('✅ Database module loaded');
 
-// Health check
+// Health check для Render
 app.get('/health', (req, res) => {
-    res.status(200).json({ 
+    res.status(200).set('Content-Type', 'application/json');
+    res.json({ 
         status: 'OK', 
         message: 'Server is running',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
     });
+});
+
+// Простой health check
+app.get('/health.txt', (req, res) => {
+    res.status(200).set('Content-Type', 'text/plain');
+    res.send('OK');
+});
+
+app.get('/ping', (req, res) => {
+    res.status(200).send('pong');
 });
 
 // Корневой путь
@@ -41,6 +55,7 @@ app.get('/', (req, res) => {
         message: 'Chat System API is running',
         endpoints: [
             '/health',
+            '/ping',
             '/chat',
             '/admin', 
             '/setup-demo',
@@ -50,55 +65,142 @@ app.get('/', (req, res) => {
     });
 });
 
-// Маршруты аутентификации С ОБРАБОТКОЙ ОШИБОК
+// ВРЕМЕННЫЕ AUTH ROUTES - пока не починим auth.js
+app.post('/auth/register', async (req, res) => {
+    try {
+        const { username, email, password, role = 'user' } = req.body;
+        
+        console.log('Registration attempt:', { username, email, role });
+        
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        const { data, error } = await supabase
+            .from('users')
+            .insert([{ 
+                username, 
+                email, 
+                password: hashedPassword, 
+                role,
+                created_at: new Date().toISOString(),
+                is_active: true,
+                is_online: false,
+                last_seen: new Date().toISOString()
+            }])
+            .select();
+
+        if (error) {
+            console.error('Supabase error:', error);
+            if (error.code === '23505') {
+                return res.status(400).json({ error: 'User already exists' });
+            }
+            throw error;
+        }
+
+        const token = jwt.sign(
+            { userId: data[0].id, role: data[0].role },
+            process.env.JWT_SECRET || 'fallback-secret',
+            { expiresIn: '24h' }
+        );
+
+        res.json({
+            message: 'User registered successfully',
+            token,
+            user: { id: data[0].id, username, email, role }
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({ error: 'Internal server error: ' + error.message });
+    }
+});
+
+app.post('/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        console.log('Login attempt for:', email);
+
+        const { data: users, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .limit(1);
+
+        if (error) {
+            console.error('Supabase error:', error);
+            throw error;
+        }
+
+        if (users.length === 0) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const user = users[0];
+        const isValidPassword = await bcrypt.compare(password, user.password);
+
+        if (!isValidPassword) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign(
+            { userId: user.id, role: user.role },
+            process.env.JWT_SECRET || 'fallback-secret',
+            { expiresIn: '24h' }
+        );
+
+        res.json({
+            message: 'Login successful',
+            token,
+            user: { id: user.id, username: user.username, email: user.email, role: user.role }
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Internal server error: ' + error.message });
+    }
+});
+
+// Маршруты аутентификации (пробуем загрузить, но если ошибка - используем временные выше)
 try {
     const authRoutes = require('./backend/auth');
     app.use('/auth', authRoutes);
     console.log('✅ Auth routes loaded');
 } catch (error) {
-    console.error('❌ Failed to load auth routes:', error);
-    // Создаем временные auth routes
-    app.post('/auth/login', (req, res) => {
-        res.status(500).json({ error: 'Auth module not loaded' });
-    });
-    app.post('/auth/register', (req, res) => {
-        res.status(500).json({ error: 'Auth module not loaded' });
-    });
+    console.error('❌ Failed to load auth routes, using temporary routes:', error.message);
 }
 
-// API маршруты С ОБРАБОТКОЙ ОШИБОК
+// API маршруты с обработкой ошибок
 try {
     const { authenticateToken } = require('./backend/middleware');
     
-    // Загружаем контроллеры с проверкой
-    const loadController = (path) => {
+    const loadController = (path, name) => {
         try {
-            return require(path);
+            const controller = require(path);
+            console.log(`✅ ${name} controller loaded`);
+            return controller;
         } catch (error) {
-            console.error(`❌ Failed to load controller: ${path}`, error);
+            console.error(`❌ Failed to load ${name} controller:`, error.message);
             const router = express.Router();
-            router.get('/test', (req, res) => res.json({ message: 'Controller not loaded' }));
+            router.get('/test', (req, res) => res.json({ message: `${name} controller not loaded` }));
             return router;
         }
     };
 
-    app.use('/api/user', authenticateToken, loadController('./backend/controllers/user'));
-    app.use('/api/listener', authenticateToken, loadController('./backend/controllers/listener'));
-    app.use('/api/admin', authenticateToken, loadController('./backend/controllers/admin'));
-    app.use('/api/coowner', authenticateToken, loadController('./backend/controllers/coowner'));
-    app.use('/api/owner', authenticateToken, loadController('./backend/controllers/owner'));
+    app.use('/api/user', authenticateToken, loadController('./backend/controllers/user', 'User'));
+    app.use('/api/listener', authenticateToken, loadController('./backend/controllers/listener', 'Listener'));
+    app.use('/api/admin', authenticateToken, loadController('./backend/controllers/admin', 'Admin'));
+    app.use('/api/coowner', authenticateToken, loadController('./backend/controllers/coowner', 'CoOwner'));
+    app.use('/api/owner', authenticateToken, loadController('./backend/controllers/owner', 'Owner'));
     
     console.log('✅ API routes loaded');
 } catch (error) {
-    console.error('❌ Failed to load middleware:', error);
+    console.error('❌ Failed to load middleware:', error.message);
 }
 
-// WebSocket С ОБРАБОТКОЙ ОШИБОК
+// WebSocket с обработкой ошибок
 try {
     require('./backend/sockets')(io);
     console.log('✅ WebSocket loaded');
 } catch (error) {
-    console.error('❌ Failed to load WebSocket:', error);
+    console.error('❌ Failed to load WebSocket:', error.message);
 }
 
 // Статические маршруты
@@ -122,11 +224,9 @@ app.get('/owner', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/owner.html'));
 });
 
-// Создание тестовых пользователей (ОБНОВЛЕНО)
+// Создание тестовых пользователей
 app.post('/setup-demo', async (req, res) => {
     try {
-        const bcrypt = require('bcryptjs');
-        
         const users = [
             {
                 username: 'user',
@@ -158,7 +258,6 @@ app.post('/setup-demo', async (req, res) => {
         const { data, error } = await supabase.from('users').insert(users);
 
         if (error) {
-            // Если пользователи уже существуют, просто возвращаем успех
             if (error.code === '23505') {
                 return res.json({ 
                     success: true, 
@@ -196,4 +295,5 @@ const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔧 Health check: http://localhost:${PORT}/health`);
 });
