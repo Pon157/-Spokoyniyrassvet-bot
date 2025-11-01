@@ -1,1 +1,18 @@
-
+:root {
+    --primary-color: #2e7d32;
+    --secondary-color: #4caf50;
+    --success-color: #388e3c;
+    --danger-color: #d32f2f;
+    --warning-color: #f57c00;
+    --info-color: #00796b;
+    --light-color: #f1f8e9;
+    --dark-color: #1b5e20;
+    --bg-color: #e8f5e8;
+    --text-color: #1b5e20;
+    --border-color: #a5d6a7;
+    --sidebar-bg: #c8e6c9;
+    --chat-bg: #e8f5e8;
+    --message-bg: #c8e6c9;
+    --message-own-bg: #2e7d32;
+    --message-own-text: #ffffff;
+}
