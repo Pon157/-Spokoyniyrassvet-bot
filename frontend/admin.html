@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель администратора - Чат Система</title>
+    <title>Чат Система - Админ Панель</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
 </head>
@@ -11,8 +11,9 @@
     <div class="app-container">
         <header class="app-header">
             <div class="container">
-                <h1 class="logo">🛠️ Панель администратора</h1>
+                <h1 class="logo">💬 Админ Панель</h1>
                 <div class="header-actions">
+                    <span id="userWelcome"></span>
                     <div class="theme-selector">
                         <button class="btn btn-icon" id="themeToggle">🎨</button>
                         <div class="theme-dropdown" id="themeDropdown">
@@ -22,96 +23,178 @@
                             <div class="theme-option" data-theme="green">🟢 Зеленая</div>
                         </div>
                     </div>
-                    <button class="btn btn-secondary" onclick="window.location.href='/chat'">💬 К чату</button>
-                    <button class="btn btn-secondary" onclick="window.location.href='/settings'">⚙️ Настройки</button>
-                    <button class="btn btn-danger" id="logoutBtn">🚪 Выйти</button>
+                    <button class="btn btn-outline" onclick="openSettings()">⚙️ Настройки</button>
+                    <button class="btn btn-outline" onclick="openChat()">💬 Чат</button>
+                    <button class="btn btn-outline" onclick="logout()">🚪 Выйти</button>
                 </div>
             </div>
         </header>
 
-        <main class="admin-main">
-            <div class="container">
-                <!-- Статистика -->
-                <section class="stats-section">
-                    <h2>📊 Статистика системы</h2>
-                    <div class="stats-grid" id="statsGrid">
-                        <div class="stat-card">
-                            <div class="stat-icon">👥</div>
-                            <div class="stat-info">
-                                <div class="stat-value" id="totalUsers">0</div>
-                                <div class="stat-label">Всего пользователей</div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">👂</div>
-                            <div class="stat-info">
-                                <div class="stat-value" id="totalListeners">0</div>
-                                <div class="stat-label">Слушателей</div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">💬</div>
-                            <div class="stat-info">
-                                <div class="stat-value" id="totalChats">0</div>
-                                <div class="stat-label">Активных чатов</div>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">📨</div>
-                            <div class="stat-info">
-                                <div class="stat-value" id="totalMessages">0</div>
-                                <div class="stat-label">Сообщений</div>
-                            </div>
-                        </div>
+        <main class="admin-container">
+            <!-- Статистика -->
+            <section class="stats-section">
+                <h2>Статистика системы</h2>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalUsers">0</span>
+                        <span class="stat-label">Всего пользователей</span>
                     </div>
-                </section>
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalListeners">0</span>
+                        <span class="stat-label">Слушателей</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalChats">0</span>
+                        <span class="stat-label">Всего чатов</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="activeChats">0</span>
+                        <span class="stat-label">Активных чатов</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalMessages">0</span>
+                        <span class="stat-label">Сообщений</span>
+                    </div>
+                </div>
+            </section>
 
-                <!-- Управление пользователями -->
-                <section class="management-section">
-                    <div class="section-header">
-                        <h2>👥 Управление пользователями</h2>
-                        <button class="btn btn-primary" id="refreshUsers">🔄 Обновить</button>
-                    </div>
-                    
-                    <div class="table-container">
-                        <table class="users-table">
-                            <thead>
-                                <tr>
-                                    <th>Пользователь</th>
-                                    <th>Роль</th>
-                                    <th>Статус</th>
-                                    <th>Действия</th>
-                                </tr>
-                            </thead>
-                            <tbody id="usersTableBody">
-                                <tr>
-                                    <td colspan="4" class="loading-text">Загрузка пользователей...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Быстрые действия -->
-                <section class="actions-section">
-                    <h2>⚡ Быстрые действия</h2>
-                    <div class="actions-grid">
-                        <button class="action-btn" onclick="adminPanel.sendNotification()">
-                            <span class="action-icon">📢</span>
-                            <span>Отправить уведомление</span>
-                        </button>
-                        <button class="action-btn" onclick="adminPanel.viewLogs()">
-                            <span class="action-icon">📋</span>
-                            <span>Просмотр логов</span>
+            <!-- Управление пользователями -->
+            <section class="users-section mt-3">
+                <div class="section-header">
+                    <h2>Управление пользователями</h2>
+                    <div class="section-actions">
+                        <select id="roleFilter" onchange="adminManager.loadUsers()">
+                            <option value="">Все роли</option>
+                            <option value="user">Пользователи</option>
+                            <option value="listener">Слушатели</option>
+                            <option value="admin">Администраторы</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="adminManager.sendNotification()">
+                            📧 Рассылка
                         </button>
                     </div>
-                </section>
-            </div>
+                </div>
+                
+                <div class="users-table">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>Роль</th>
+                                <th>Статус</th>
+                                <th>Дата регистрации</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Данные будут загружены через JS -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="pagination" id="usersPagination">
+                    <!-- Пагинация -->
+                </div>
+            </section>
+
+            <!-- Модерация чатов -->
+            <section class="chats-section mt-3">
+                <h2>Модерация чатов</h2>
+                <div class="chats-table">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID чата</th>
+                                <th>Пользователь</th>
+                                <th>Слушатель</th>
+                                <th>Статус</th>
+                                <th>Сообщений</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="chatsTableBody">
+                            <!-- Данные будут загружены через JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Системные уведомления -->
+            <section class="notifications-section mt-3">
+                <div class="section-header">
+                    <h2>Системные уведомления</h2>
+                    <button class="btn btn-primary" onclick="adminManager.sendSystemNotification()">
+                        📢 Создать уведомление
+                    </button>
+                </div>
+                <div class="notifications-list" id="notificationsList">
+                    <!-- Уведомления -->
+                </div>
+            </section>
         </main>
+
+        <!-- Модальные окна -->
+        <div id="userActionsModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalUserName">Действия с пользователем</h3>
+                    <button class="btn btn-icon" onclick="closeUserActionsModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="action-buttons">
+                        <button class="btn btn-warning" onclick="adminManager.showWarningModal()">
+                            ⚠️ Предупреждение
+                        </button>
+                        <button class="btn btn-secondary" onclick="adminManager.showMuteModal()">
+                            🔇 Мут
+                        </button>
+                        <button class="btn btn-danger" onclick="adminManager.showBanModal()">
+                            🚫 Бан
+                        </button>
+                        <button class="btn btn-success" onclick="adminManager.showRoleModal()">
+                            👑 Сменить роль
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="notificationModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Отправка уведомления</h3>
+                    <button class="btn btn-icon" onclick="closeNotificationModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Заголовок</label>
+                        <input type="text" id="notificationTitle" placeholder="Введите заголовок">
+                    </div>
+                    <div class="form-group">
+                        <label>Сообщение</label>
+                        <textarea id="notificationMessage" rows="4" placeholder="Введите сообщение"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Тип</label>
+                        <select id="notificationType">
+                            <option value="info">Информация</option>
+                            <option value="warning">Предупреждение</option>
+                            <option value="success">Успех</option>
+                            <option value="error">Ошибка</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeNotificationModal()">Отмена</button>
+                    <button class="btn btn-primary" onclick="adminManager.sendNotificationToUsers()">Отправить</button>
+                </div>
+            </div>
+        </div>
 
         <div id="message" class="message"></div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="js/admin.js"></script>
 </body>
 </html>
