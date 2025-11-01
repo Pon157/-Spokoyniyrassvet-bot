@@ -245,8 +245,6 @@ router.get('/settings', async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // В реальной системе настройки могут храниться в отдельной таблице
-    // Пока возвращаем базовые настройки из поля theme
     const { data: user, error } = await supabase
       .from('users')
       .select('theme, settings')
@@ -260,7 +258,12 @@ router.get('/settings', async (req, res) => {
       autoTheme: false,
       showTimestamps: true,
       soundNotifications: true,
-      desktopNotifications: true
+      desktopNotifications: true,
+      showAvatars: true,
+      messageBubbles: true,
+      enterToSend: true,
+      compactMode: false,
+      highContrast: false
     };
 
     res.json({ settings });
@@ -420,16 +423,18 @@ router.post('/delete-notification', async (req, res) => {
   }
 });
 
-// Получение активных сессий (заглушка)
+// Получение активных сессий
 router.get('/sessions', async (req, res) => {
   try {
+    const userId = req.user.id;
+
     // В реальной системе здесь бы получались активные сессии из базы
-    // Пока возвращаем заглушку
+    // Пока возвращаем тестовые данные
     const sessions = [
       {
         id: 'current',
         device_type: 'desktop',
-        device_name: 'Windows Chrome',
+        device_name: `${req.user.username} - Текущее устройство`,
         location: 'Москва, Россия',
         last_activity: new Date().toISOString(),
         is_current: true
@@ -451,13 +456,13 @@ router.get('/sessions', async (req, res) => {
   }
 });
 
-// Завершение сессии (заглушка)
+// Завершение сессии
 router.post('/logout-session', async (req, res) => {
   try {
     const { session_id } = req.body;
 
     // В реальной системе здесь бы завершалась конкретная сессия
-    // Пока просто возвращаем успех
+    console.log(`Завершение сессии ${session_id} для пользователя ${req.user.id}`);
 
     await logAction(req.user.id, 'SESSION_LOGOUT', { session_id });
 
@@ -476,7 +481,7 @@ router.post('/logout-all-sessions', async (req, res) => {
     const userId = req.user.id;
 
     // В реальной системе здесь бы инвалидировались все токены пользователя
-    // Пока просто разлогиниваем текущего пользователя
+    console.log(`Выход со всех устройств для пользователя ${userId}`);
 
     await supabase
       .from('users')
@@ -490,6 +495,172 @@ router.post('/logout-all-sessions', async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка выхода со всех устройств:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Экспорт данных пользователя
+router.get('/export-data', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Получаем данные пользователя
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (userError) throw userError;
+
+    // Скрываем пароль
+    const { password_hash, ...userData } = user;
+
+    // В реальной системе здесь бы добавлялись другие данные (чаты, сообщения и т.д.)
+    const exportData = {
+      user: userData,
+      export_date: new Date().toISOString(),
+      export_version: '1.0'
+    };
+
+    res.json(exportData);
+  } catch (error) {
+    console.error('Ошибка экспорта данных:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Очистка истории
+router.post('/clear-history', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // В реальной системе здесь бы очищалась история сообщений
+    console.log(`Очистка истории для пользователя ${userId}`);
+
+    await logAction(userId, 'CLEAR_HISTORY');
+
+    res.json({ 
+      message: 'История очищена'
+    });
+  } catch (error) {
+    console.error('Ошибка очистки истории:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Деактивация аккаунта
+router.post('/deactivate-account', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Обновляем статус пользователя
+    const { error } = await supabase
+      .from('users')
+      .update({
+        is_active: false,
+        deactivated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    await logAction(userId, 'ACCOUNT_DEACTIVATE');
+
+    res.json({ 
+      message: 'Аккаунт деактивирован'
+    });
+  } catch (error) {
+    console.error('Ошибка деактивации аккаунта:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Удаление аккаунта
+router.post('/delete-account', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'Пароль обязателен' });
+    }
+
+    // Проверяем пароль
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('password_hash')
+      .eq('id', userId)
+      .single();
+
+    if (userError) throw userError;
+
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    if (!isPasswordValid) {
+      return res.status(400).json({ error: 'Неверный пароль' });
+    }
+
+    // В реальной системе здесь бы удалялись все данные пользователя
+    // Пока просто отмечаем как удаленного
+    const { error } = await supabase
+      .from('users')
+      .update({
+        is_active: false,
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    await logAction(userId, 'ACCOUNT_DELETE');
+
+    res.json({ 
+      message: 'Аккаунт удален'
+    });
+  } catch (error) {
+    console.error('Ошибка удаления аккаунта:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Включение/выключение двухфакторной аутентификации
+router.post('/toggle-2fa', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { enabled } = req.body;
+
+    // Обновляем настройки 2FA
+    const { data: user } = await supabase
+      .from('users')
+      .select('settings')
+      .eq('id', userId)
+      .single();
+
+    const currentSettings = user?.settings || {};
+    const updatedSettings = {
+      ...currentSettings,
+      twoFactorAuth: enabled
+    };
+
+    const { error } = await supabase
+      .from('users')
+      .update({
+        settings: updatedSettings,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    await logAction(userId, '2FA_TOGGLE', { enabled });
+
+    res.json({ 
+      message: `Двухфакторная аутентификация ${enabled ? 'включена' : 'отключена'}`
+    });
+  } catch (error) {
+    console.error('Ошибка изменения 2FA:', error);
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
