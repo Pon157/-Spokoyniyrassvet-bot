@@ -1,6 +1,7 @@
-class AuthManager {
+\class AuthManager {
     constructor() {
         this.currentUser = null;
+        this.API_BASE = 'https://pon157-git--f288.twc1.net'; // ДОБАВЬ ЭТУ СТРОКУ
         this.init();
     }
 
@@ -68,13 +69,17 @@ class AuthManager {
         }
 
         try {
-            const response = await fetch('/auth/login', {
+            console.log('Login attempt:', { email, password }); // ДЛЯ ОТЛАДКИ
+            
+            const response = await fetch(`${this.API_BASE}/auth/login`, { // ИСПРАВЬ ЭТУ СТРОКУ
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ email, password }),
             });
+
+            console.log('Login response status:', response.status); // ДЛЯ ОТЛАДКИ
 
             const data = await response.json();
 
@@ -105,13 +110,17 @@ class AuthManager {
         }
 
         try {
-            const response = await fetch('/auth/register', {
+            console.log('Register attempt:', { username, email }); // ДЛЯ ОТЛАДКИ
+            
+            const response = await fetch(`${this.API_BASE}/auth/register`, { // ИСПРАВЬ ЭТУ СТРОКУ
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ username, email, password }),
             });
+
+            console.log('Register response status:', response.status); // ДЛЯ ОТЛАДКИ
 
             const data = await response.json();
 
@@ -139,9 +148,9 @@ class AuthManager {
 
     redirectToApp(role) {
         if (['admin', 'coowner', 'owner'].includes(role)) {
-            window.location.href = '/admin';
+            window.location.href = `${this.API_BASE}/admin`; // ИСПРАВЬ ЭТУ СТРОКУ
         } else {
-            window.location.href = '/chat';
+            window.location.href = `${this.API_BASE}/chat`; // ИСПРАВЬ ЭТУ СТРОКУ
         }
     }
 
@@ -156,7 +165,7 @@ class AuthManager {
     }
 
     changeTheme(theme) {
-        document.getElementById('theme-style').href = `css/${theme}-theme.css`;
+        document.getElementById('theme-style').href = `${this.API_BASE}/css/${theme}-theme.css`; // ИСПРАВЬ ЭТУ СТРОКУ
         localStorage.setItem('theme', theme);
         document.getElementById('themeDropdown').style.display = 'none';
     }
