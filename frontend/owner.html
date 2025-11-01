@@ -1,1 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель Владельца - Чат Система</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/modern.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Header -->
+        <header class="admin-header glass-effect">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="logo">
+                        <i class="fas fa-crown"></i>
+                        <span>Owner Panel</span>
+                    </div>
+                    <nav class="admin-nav">
+                        <button class="nav-btn active" data-tab="overview">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>Обзор</span>
+                        </button>
+                        <button class="nav-btn" data-tab="ownership">
+                            <i class="fas fa-user-shield"></i>
+                            <span>Владельцы</span>
+                        </button>
+                        <button class="nav-btn" data-tab="finance">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Финансы</span>
+                        </button>
+                        <button class="nav-btn" data-tab="system">
+                            <i class="fas fa-server"></i>
+                            <span>Система</span>
+                        </button>
+                        <button class="nav-btn" data-tab="backup">
+                            <i class="fas fa-database"></i>
+                            <span>Резервные копии</span>
+                        </button>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <div class="user-menu">
+                        <img src="images/default-avatar.svg" alt="Avatar" class="avatar-sm">
+                        <span id="ownerName">Владелец</span>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-secondary" onclick="window.location.href='settings.html'">
+                                <i class="fas fa-cog"></i> Настройки
+                            </button>
+                            <button class="btn btn-sm btn-secondary" onclick="owner.logout()">
+                                <i class="fas fa-sign-out-alt"></i> Выход
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
 
+        <!-- Main Content -->
+        <main class="admin-main">
+            <!-- Обзор -->
+            <div class="tab-content active" id="overviewTab">
+                <div class="dashboard-header">
+                    <h1>Панель владельца системы</h1>
+                    <p>Полный контроль над всеми аспектами системы</p>
+                </div>
+
+                <!-- Ключевые метрики -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon revenue">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="totalRevenue">$0</div>
+                            <div class="stat-label">Общий доход</div>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>22%</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon growth">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="growthRate">0%</div>
+                            <div class="stat-label">Рост за месяц</div>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>15%</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon users">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="activeUsers">0</div>
+                            <div class="stat-label">Активных пользователей</div>
+                        </div>
+                        <div class="stat-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>8%</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon performance">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-number" id="systemUptime">100%</div>
+                            <div class="stat-label">Аптайм системы</div>
+                        </div>
+                        <div class="stat-trend stable">
+                            <i class="fas fa-minus"></i>
+                            <span>0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Системные предупреждения -->
+                <div class="card alerts-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-exclamation-triangle"></i> Системные предупреждения</h3>
+                        <span class="badge danger" id="alertsCount">0</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="alerts-list" id="systemAlerts">
+                            <!-- Системные предупреждения -->
+                            <div class="alert-item info">
+                                <i class="fas fa-info-circle"></i>
+                                <div class="alert-content">
+                                    <div class="alert-title">Система работает стабильно</div>
+                                    <div class="alert-message">Все сервисы функционируют в нормальном режиме</div>
+                                </div>
+                                <div class="alert-time">Только что</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Быстрый доступ -->
+                <div class="quick-access-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Управление доступом</h3>
+                        </div>
+                        <div class="card-body">
+                            <button class="btn btn-primary btn-block" onclick="owner.showAddCoowner()">
+                                <i class="fas fa-user-plus"></i> Добавить совладельца
+                            </button>
+                            <button class="btn btn-secondary btn-block" onclick="owner.manageCoowners()">
+                                <i class="fas fa-users-cog"></i> Управление совладельцами
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Системные операции</h3>
+                        </div>
+                        <div class="card-body">
+                            <button class="btn btn-warning btn-block" onclick="owner.showSystemSettings()">
+                                <i class="fas fa-cogs"></i> Настройки системы
+                            </button>
+                            <button class="btn btn-info btn-block" onclick="owner.showBackupManager()">
+                                <i class="fas fa-download"></i> Резервное копирование
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Владельцы -->
+            <div class="tab-content" id="ownershipTab">
+                <div class="section-header">
+                    <h2>Управление владельцами</h2>
+                    <button class="btn btn-primary" onclick="owner.showAddCoowner()">
+                        <i class="fas fa-user-plus"></i> Добавить совладельца
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Текущие владельцы системы</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="owners-list" id="ownersList">
+                            <!-- Список владельцев -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>История изменений прав</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Дата</th>
+                                        <th>Действие</th>
+                                        <th>Пользователь</th>
+                                        <th>Инициатор</th>
+                                        <th>Детали</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ownershipHistory">
+                                    <!-- История изменений -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Финансы -->
+            <div class="tab-content" id="financeTab">
+                <div class="section-header">
+                    <h2>Финансовый контроль</h2>
+                    <div class="header-actions">
+                        <select id="financePeriod">
+                            <option value="month">Текущий месяц</option>
+                            <option value="quarter">Квартал</option>
+                            <option value="year">Год</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="owner.exportFinancialReport()">
+                            <i class="fas fa-file-export"></i> Экспорт отчета
+                        </button>
+                    </div>
+                </div>
+
+                <div class="finance-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Доходы и расходы</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="finance-chart" id="financeChart">
+                                <!-- График финансов -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Ключевые показатели</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="finance-metrics" id="financeMetrics">
+                                <!-- Финансовые метрики -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Подписки и платежи</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="subscriptions-list" id="subscriptionsList">
+                                <!-- Список подписок -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Система -->
+            <div class="tab-content" id="systemTab">
+                <div class="section-header">
+                    <h2>Управление системой</h2>
+                </div>
+
+                <div class="system-controls-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-sliders-h"></i> Настройки системы</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="system-settings">
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="autoBackup" checked>
+                                        <span class="checkmark"></span>
+                                        Автоматическое резервное копирование
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="emailNotifications" checked>
+                                        <span class="checkmark"></span>
+                                        Email уведомления
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="maintenanceMode">
+                                        <span class="checkmark"></span>
+                                        Режим обслуживания
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Максимальный размер файла (MB):</label>
+                                    <input type="number" id="maxFileSize" class="form-input" value="10" min="1" max="100">
+                                </div>
+                                <button class="btn btn-primary" onclick="owner.saveSystemSettings()">
+                                    <i class="fas fa-save"></i> Сохранить настройки
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-bar"></i> Производительность</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="performance-metrics">
+                                <div class="metric">
+                                    <div class="metric-label">Загрузка CPU</div>
+                                    <div class="metric-value" id="cpuUsage">15%</div>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill" style="width: 15%"></div>
+                                    </div>
+                                </div>
+                                <div class="metric">
+                                    <div class="metric-label">Использование памяти</div>
+                                    <div class="metric-value" id="memoryUsage">42%</div>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill" style="width: 42%"></div>
+                                    </div>
+                                </div>
+                                <div class="metric">
+                                    <div class="metric-label">Дисковое пространство</div>
+                                    <div class="metric-value" id="diskUsage">68%</div>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill" style="width: 68%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Резервные копии -->
+            <div class="tab-content" id="backupTab">
+                <div class="section-header">
+                    <h2>Управление резервными копиями</h2>
+                    <button class="btn btn-primary" onclick="owner.createBackup()">
+                        <i class="fas fa-plus"></i> Создать резервную копию
+                    </button>
+                </div>
+
+                <div class="backup-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Создание резервной копии</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="backup-options">
+                                <div class="form-group">
+                                    <label>Тип резервной копии:</label>
+                                    <select id="backupType" class="form-select">
+                                        <option value="full">Полная копия</option>
+                                        <option value="database">Только база данных</option>
+                                        <option value="files">Только файлы</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Комментарий (опционально):</label>
+                                    <textarea id="backupComment" placeholder="Описание резервной копии" rows="3"></textarea>
+                                </div>
+                                <button class="btn btn-primary btn-block" onclick="owner.startBackup()">
+                                    <i class="fas fa-download"></i> Начать создание резервной копии
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Существующие резервные копии</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="backups-list" id="backupsList">
+                                <!-- Список резервных копий -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальные окна -->
+    <div class="modal" id="addCoownerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Добавление совладельца</h3>
+                <button class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Выберите пользователя:</label>
+                    <select id="coownerUserSelect" class="form-select">
+                        <option value="">-- Выберите пользователя --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Уровень доступа:</label>
+                    <select id="coownerAccessLevel" class="form-select">
+                        <option value="full">Полный доступ</option>
+                        <option value="limited">Ограниченный доступ</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Примечание (опционально):</label>
+                    <textarea id="coownerNote" placeholder="Примечание о назначении" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="owner.closeAddCoowner()">Отмена</button>
+                <button class="btn btn-primary" onclick="owner.addCoowner()">Назначить совладельцем</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="systemSettingsModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>Расширенные настройки системы</h3>
+                <button class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="systemSettingsContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/owner.js"></script>
+</body>
+</html>
