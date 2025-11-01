@@ -6,10 +6,10 @@ class SocketClient {
 
     connect(token) {
         try {
-            // Автоматическое определение URL для production/development
-            const serverUrl = window.location.hostname === 'localhost' 
-                ? 'http://localhost:3000' 
-                : window.location.origin;
+            // Явно указываем URL для Timeweb
+            const serverUrl = 'https://pon157-git--f288.twc1.net';
+            
+            console.log('Connecting to:', serverUrl); // ДЛЯ ОТЛАДКИ
             
             this.socket = io(serverUrl, {
                 auth: {
@@ -26,13 +26,13 @@ class SocketClient {
 
     setupEventHandlers() {
         this.socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('✅ Connected to server');
             this.isConnected = true;
             this.onConnect && this.onConnect();
         });
 
         this.socket.on('disconnect', (reason) => {
-            console.log('Disconnected from server:', reason);
+            console.log('❌ Disconnected from server:', reason);
             this.isConnected = false;
             this.onDisconnect && this.onDisconnect(reason);
         });
