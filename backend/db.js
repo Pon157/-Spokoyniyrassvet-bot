@@ -1,32 +1,30 @@
 const { createClient } = require('@supabase/supabase-js');
 
-console.log('🔧 Database module loaded');
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error('❌ Missing database credentials');
-    process.exit(1);
+// Инициализация таблиц (выполнить один раз)
+async function initDatabase() {
+  try {
+    console.log('🔄 Проверка и инициализация таблиц Supabase...');
+    
+    // Таблица пользователей
+    const { error: usersError } = await supabase
+      .from('users')
+      .select('*')
+      .limit(1);
+      
+    if (usersError && usersError.message.includes('does not exist')) {
+      console.log('📋 Создание таблиц... Запустите SQL из supabase-tables.js');
+    } else {
+      console.log('✅ Таблицы уже существуют');
+    }
+    
+  } catch (error) {
+    console.error('❌ Ошибка инициализации БД:', error);
+  }
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-console.log('✅ Supabase client created');
-
-// Добавляем функцию getSupabase для совместимости
-const getSupabase = () => supabase;
-
-// Функция для тестирования подключения
-const connectDB = async () => {
-    try {
-        const { data, error } = await supabase.from('users').select('count').limit(1);
-        if (error) throw error;
-        console.log('✅ Database connection established');
-        return true;
-    } catch (error) {
-        console.error('❌ Database connection failed:', error.message);
-        return false;
-    }
-};
-
-module.exports = { connectDB, supabase, getSupabase };
+module.exports = { supabase, initDatabase };
