@@ -5,274 +5,633 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Настройки - Чат Система</title>
     <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/light-theme.css" id="theme">
+    <link rel="stylesheet" href="css/modern.css">
+    <link rel="stylesheet" href="css/settings.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .settings-container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .avatar-upload {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .avatar-preview {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin: 0 auto 15px;
-            border: 3px solid var(--primary-color);
-        }
-        .theme-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .theme-option {
-            padding: 15px;
-            border: 2px solid var(--border-color);
-            border-radius: var(--border-radius);
-            cursor: pointer;
-            text-align: center;
-            transition: var(--transition);
-        }
-        .theme-option:hover {
-            border-color: var(--primary-color);
-        }
-        .theme-option.active {
-            border-color: var(--primary-color);
-            background: var(--primary-color);
-            color: white;
-        }
-        .password-strength {
-            height: 5px;
-            background: #eee;
-            border-radius: 5px;
-            margin-top: 5px;
-            overflow: hidden;
-        }
-        .password-strength-bar {
-            height: 100%;
-            transition: width 0.3s ease;
-        }
-        .weak { background: #ff4757; width: 33%; }
-        .medium { background: #ffa502; width: 66%; }
-        .strong { background: #2ed573; width: 100%; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="settings-container">
-        <header class="card-header" style="margin-bottom: 30px;">
-            <h1><i class="fas fa-cog"></i> Настройки</h1>
-            <button class="btn btn-secondary" onclick="goBack()">
-                <i class="fas fa-arrow-left"></i> Назад
-            </button>
+        <!-- Header -->
+        <header class="settings-header glass-effect">
+            <div class="header-content">
+                <button class="btn-back" onclick="settings.goBack()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <h1>Настройки</h1>
+                <div class="header-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="settings.saveAll()">
+                        <i class="fas fa-save"></i> Сохранить все
+                    </button>
+                </div>
+            </div>
         </header>
 
-        <div class="settings-tabs">
-            <button class="tab-btn active" data-tab="profile">Профиль</button>
-            <button class="tab-btn" data-tab="security">Безопасность</button>
-            <button class="tab-btn" data-tab="appearance">Внешний вид</button>
-            <button class="tab-btn" data-tab="notifications">Уведомления</button>
-        </div>
-
-        <!-- Профиль -->
-        <div class="tab-content active" id="profileTab">
-            <div class="card">
-                <h3>Настройки профиля</h3>
-                
-                <div class="avatar-upload">
-                    <img src="images/default-avatar.png" alt="Avatar" class="avatar-preview" id="avatarPreview">
-                    <input type="file" id="avatarInput" accept="image/*" style="display: none;">
-                    <button class="btn btn-secondary" onclick="document.getElementById('avatarInput').click()">
-                        <i class="fas fa-upload"></i> Загрузить аватар
+        <!-- Main Content -->
+        <main class="settings-main">
+            <div class="settings-sidebar">
+                <nav class="settings-nav">
+                    <button class="nav-item active" data-tab="profile">
+                        <i class="fas fa-user"></i>
+                        <span>Профиль</span>
                     </button>
-                    <button class="btn btn-danger" onclick="settings.removeAvatar()">
-                        <i class="fas fa-trash"></i> Удалить аватар
+                    <button class="nav-item" data-tab="security">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Безопасность</span>
                     </button>
-                </div>
-
-                <form id="profileForm">
-                    <div class="form-group">
-                        <label for="username">Имя пользователя</label>
-                        <input type="text" id="username" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" id="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="bio">О себе</label>
-                        <textarea id="bio" rows="4" placeholder="Расскажите о себе..."></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Сохранить изменения
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Безопасность -->
-        <div class="tab-content" id="securityTab">
-            <div class="card">
-                <h3>Безопасность</h3>
-                
-                <form id="passwordForm">
-                    <div class="form-group">
-                        <label for="currentPassword">Текущий пароль</label>
-                        <input type="password" id="currentPassword" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="newPassword">Новый пароль</label>
-                        <input type="password" id="newPassword" required oninput="settings.checkPasswordStrength()">
-                        <div class="password-strength">
-                            <div class="password-strength-bar" id="passwordStrength"></div>
-                        </div>
-                        <small>Пароль должен содержать минимум 6 символов</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="confirmPassword">Подтвердите новый пароль</label>
-                        <input type="password" id="confirmPassword" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-key"></i> Сменить пароль
-                    </button>
-                </form>
-
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
-                    <h4>Сессии</h4>
-                    <div id="sessionsList">
-                        <!-- Список активных сессий -->
-                    </div>
-                    <button class="btn btn-danger" onclick="settings.logoutAllSessions()">
-                        <i class="fas fa-sign-out-alt"></i> Выйти со всех устройств
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Внешний вид -->
-        <div class="tab-content" id="appearanceTab">
-            <div class="card">
-                <h3>Тема оформления</h3>
-                
-                <div class="theme-options">
-                    <div class="theme-option active" data-theme="light">
-                        <i class="fas fa-sun"></i>
-                        <div>Светлая</div>
-                    </div>
-                    <div class="theme-option" data-theme="dark">
-                        <i class="fas fa-moon"></i>
-                        <div>Темная</div>
-                    </div>
-                    <div class="theme-option" data-theme="blue">
+                    <button class="nav-item" data-tab="appearance">
                         <i class="fas fa-palette"></i>
-                        <div>Синяя</div>
+                        <span>Внешний вид</span>
+                    </button>
+                    <button class="nav-item" data-tab="notifications">
+                        <i class="fas fa-bell"></i>
+                        <span>Уведомления</span>
+                    </button>
+                    <button class="nav-item" data-tab="privacy">
+                        <i class="fas fa-lock"></i>
+                        <span>Приватность</span>
+                    </button>
+                    <button class="nav-item" data-tab="account">
+                        <i class="fas fa-cog"></i>
+                        <span>Аккаунт</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="settings-content">
+                <!-- Профиль -->
+                <div class="tab-content active" id="profileTab">
+                    <div class="section">
+                        <h2>Настройки профиля</h2>
+                        <p>Управление вашей персональной информацией</p>
                     </div>
-                    <div class="theme-option" data-theme="green">
-                        <i class="fas fa-leaf"></i>
-                        <div>Зеленая</div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Аватар профиля</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="avatar-section">
+                                <div class="avatar-upload">
+                                    <img src="images/default-avatar.svg" alt="Avatar" class="avatar-lg" id="avatarPreview">
+                                    <div class="avatar-actions">
+                                        <button class="btn btn-primary" onclick="document.getElementById('avatarInput').click()">
+                                            <i class="fas fa-upload"></i> Загрузить фото
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="settings.removeAvatar()">
+                                            <i class="fas fa-trash"></i> Удалить
+                                        </button>
+                                    </div>
+                                    <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="theme-option" data-theme="orange">
-                        <i class="fas fa-fire"></i>
-                        <div>Оранжевая</div>
-                    </div>
-                    <div class="theme-option" data-theme="purple">
-                        <i class="fas fa-gem"></i>
-                        <div>Фиолетовая</div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Основная информация</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="profileForm">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="username">Имя пользователя</label>
+                                        <input type="text" id="username" class="form-input" required>
+                                        <div class="form-hint">От 3 до 20 символов</div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="email">Email адрес</label>
+                                        <input type="email" id="email" class="form-input" required>
+                                        <div class="form-hint">Используется для входа и уведомлений</div>
+                                    </div>
+
+                                    <div class="form-group full-width">
+                                        <label for="bio">О себе</label>
+                                        <textarea id="bio" class="form-input" rows="4" placeholder="Расскажите о себе..."></textarea>
+                                        <div class="form-hint">Максимум 500 символов</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Сохранить изменения
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="autoTheme"> Автоматическая тема (следует за системой)
-                    </label>
+                <!-- Безопасность -->
+                <div class="tab-content" id="securityTab">
+                    <div class="section">
+                        <h2>Безопасность</h2>
+                        <p>Управление паролем и безопасностью аккаунта</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Смена пароля</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="passwordForm">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label for="currentPassword">Текущий пароль</label>
+                                        <input type="password" id="currentPassword" class="form-input" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="newPassword">Новый пароль</label>
+                                        <input type="password" id="newPassword" class="form-input" required oninput="settings.checkPasswordStrength()">
+                                        <div class="password-strength">
+                                            <div class="strength-bar">
+                                                <div class="strength-fill" id="passwordStrength"></div>
+                                            </div>
+                                            <div class="strength-text" id="passwordStrengthText">Слабый</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="confirmPassword">Подтвердите пароль</label>
+                                        <input type="password" id="confirmPassword" class="form-input" required>
+                                    </div>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-key"></i> Сменить пароль
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Активные сессии</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="sessions-list" id="sessionsList">
+                                <!-- Сессии загружаются здесь -->
+                            </div>
+                            <div class="session-actions">
+                                <button class="btn btn-warning" onclick="settings.logoutAllSessions()">
+                                    <i class="fas fa-sign-out-alt"></i> Выйти со всех устройств
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Двухфакторная аутентификация</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="security-feature">
+                                <div class="feature-info">
+                                    <h4>Защитите ваш аккаунт</h4>
+                                    <p>Добавьте дополнительный уровень безопасности с помощью двухфакторной аутентификации</p>
+                                </div>
+                                <div class="feature-action">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="twoFactorAuth">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <h4 style="margin-top: 30px;">Настройки чата</h4>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="showTimestamps"> Показывать время сообщений
-                    </label>
+                <!-- Внешний вид -->
+                <div class="tab-content" id="appearanceTab">
+                    <div class="section">
+                        <h2>Внешний вид</h2>
+                        <p>Настройте внешний вид приложения под свои предпочтения</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Тема оформления</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="theme-selection">
+                                <div class="theme-options">
+                                    <div class="theme-option active" data-theme="light">
+                                        <div class="theme-preview light-theme">
+                                            <div class="preview-header"></div>
+                                            <div class="preview-sidebar"></div>
+                                            <div class="preview-content"></div>
+                                        </div>
+                                        <span>Светлая</span>
+                                    </div>
+
+                                    <div class="theme-option" data-theme="dark">
+                                        <div class="theme-preview dark-theme">
+                                            <div class="preview-header"></div>
+                                            <div class="preview-sidebar"></div>
+                                            <div class="preview-content"></div>
+                                        </div>
+                                        <span>Темная</span>
+                                    </div>
+
+                                    <div class="theme-option" data-theme="blue">
+                                        <div class="theme-preview blue-theme">
+                                            <div class="preview-header"></div>
+                                            <div class="preview-sidebar"></div>
+                                            <div class="preview-content"></div>
+                                        </div>
+                                        <span>Синяя</span>
+                                    </div>
+
+                                    <div class="theme-option" data-theme="purple">
+                                        <div class="theme-preview purple-theme">
+                                            <div class="preview-header"></div>
+                                            <div class="preview-sidebar"></div>
+                                            <div class="preview-content"></div>
+                                        </div>
+                                        <span>Фиолетовая</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="appearance-options">
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="autoTheme" checked>
+                                        <span class="checkmark"></span>
+                                        Автоматическая тема (следует за системой)
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="compactMode">
+                                        <span class="checkmark"></span>
+                                        Компактный режим
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="highContrast">
+                                        <span class="checkmark"></span>
+                                        Высокая контрастность
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Настройки чата</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="chat-options">
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="showTimestamps" checked>
+                                        <span class="checkmark"></span>
+                                        Показывать время сообщений
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="showAvatars" checked>
+                                        <span class="checkmark"></span>
+                                        Показывать аватары
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="messageBubbles" checked>
+                                        <span class="checkmark"></span>
+                                        Пузырьки сообщений
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="enterToSend" checked>
+                                        <span class="checkmark"></span>
+                                        Отправлять сообщение по Enter
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="soundNotifications" checked> Звуковые уведомления
-                    </label>
+
+                <!-- Уведомления -->
+                <div class="tab-content" id="notificationsTab">
+                    <div class="section">
+                        <h2>Уведомления</h2>
+                        <p>Управление уведомлениями и оповещениями</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Типы уведомлений</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="notification-options">
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="emailNotifications" checked>
+                                        <span class="checkmark"></span>
+                                        Email уведомления
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="pushNotifications" checked>
+                                        <span class="checkmark"></span>
+                                        Push уведомления
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="soundNotifications" checked>
+                                        <span class="checkmark"></span>
+                                        Звуковые уведомления
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="desktopNotifications" checked>
+                                        <span class="checkmark"></span>
+                                        Уведомления на рабочем столе
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>События для уведомлений</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="notification-events">
+                                <div class="event-group">
+                                    <h4>Сообщения</h4>
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="newMessageNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Новые сообщения
+                                        </label>
+                                    </div>
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="mentionNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Упоминания
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="event-group">
+                                    <h4>Чаты</h4>
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="chatRequestNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Запросы чата
+                                        </label>
+                                    </div>
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="chatActivityNotifications">
+                                            <span class="checkmark"></span>
+                                            Активность в чатах
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="event-group">
+                                    <h4>Система</h4>
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="systemNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Системные уведомления
+                                        </label>
+                                    </div>
+                                    <div class="option-group">
+                                        <label class="option-label">
+                                            <input type="checkbox" id="updateNotifications" checked>
+                                            <span class="checkmark"></span>
+                                            Обновления системы
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="desktopNotifications" checked> Уведомления на рабочем столе
-                    </label>
+
+                <!-- Приватность -->
+                <div class="tab-content" id="privacyTab">
+                    <div class="section">
+                        <h2>Приватность</h2>
+                        <p>Управление вашими приватными данными и настройками конфиденциальности</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Настройки приватности</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="privacy-options">
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="showOnlineStatus" checked>
+                                        <span class="checkmark"></span>
+                                        Показывать статус онлайн
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="showLastSeen" checked>
+                                        <span class="checkmark"></span>
+                                        Показывать время последнего посещения
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="allowFriendRequests" checked>
+                                        <span class="checkmark"></span>
+                                        Разрешать запросы в друзья
+                                    </label>
+                                </div>
+
+                                <div class="option-group">
+                                    <label class="option-label">
+                                        <input type="checkbox" id="profileVisibility" checked>
+                                        <span class="checkmark"></span>
+                                        Профиль виден другим пользователям
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Блокировки</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="blocked-users" id="blockedUsers">
+                                <!-- Заблокированные пользователи -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Данные аккаунта</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="data-actions">
+                                <button class="btn btn-secondary" onclick="settings.exportData()">
+                                    <i class="fas fa-download"></i> Экспорт данных
+                                </button>
+                                <button class="btn btn-warning" onclick="settings.clearHistory()">
+                                    <i class="fas fa-trash"></i> Очистить историю
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Аккаунт -->
+                <div class="tab-content" id="accountTab">
+                    <div class="section">
+                        <h2>Управление аккаунтом</h2>
+                        <p>Действия с вашим аккаунтом</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Информация об аккаунте</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="account-info">
+                                <div class="info-item">
+                                    <span class="info-label">ID аккаунта:</span>
+                                    <span class="info-value" id="accountId">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Роль:</span>
+                                    <span class="info-value" id="accountRole">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Дата регистрации:</span>
+                                    <span class="info-value" id="accountCreated">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Статус:</span>
+                                    <span class="info-value" id="accountStatus">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card danger-zone">
+                        <div class="card-header">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Опасная зона</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="danger-actions">
+                                <div class="danger-action">
+                                    <div class="action-info">
+                                        <h4>Выйти из аккаунта</h4>
+                                        <p>Завершить текущую сессию и выйти из системы</p>
+                                    </div>
+                                    <button class="btn btn-warning" onclick="settings.logout()">
+                                        <i class="fas fa-sign-out-alt"></i> Выйти
+                                    </button>
+                                </div>
+
+                                <div class="danger-action">
+                                    <div class="action-info">
+                                        <h4>Деактивировать аккаунт</h4>
+                                        <p>Временно отключить ваш аккаунт. Вы сможете восстановить его позже.</p>
+                                    </div>
+                                    <button class="btn btn-warning" onclick="settings.deactivateAccount()">
+                                        <i class="fas fa-user-slash"></i> Деактивировать
+                                    </button>
+                                </div>
+
+                                <div class="danger-action">
+                                    <div class="action-info">
+                                        <h4>Удалить аккаунт</h4>
+                                        <p>Полностью удалить ваш аккаунт и все связанные данные. Это действие необратимо.</p>
+                                    </div>
+                                    <button class="btn btn-danger" onclick="settings.deleteAccount()">
+                                        <i class="fas fa-trash"></i> Удалить аккаунт
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальные окна -->
+    <div class="modal" id="logoutConfirmModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Подтверждение выхода</h3>
+                <button class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите выйти из аккаунта?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="settings.closeLogoutConfirm()">Отмена</button>
+                <button class="btn btn-warning" onclick="settings.confirmLogout()">Выйти</button>
             </div>
         </div>
+    </div>
 
-        <!-- Уведомления -->
-        <div class="tab-content" id="notificationsTab">
-            <div class="card">
-                <h3>Настройки уведомлений</h3>
-                
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="emailNotifications" checked> Email уведомления
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="pushNotifications" checked> Push уведомления
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="newMessageNotifications" checked> Уведомления о новых сообщениях
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="chatRequestNotifications" checked> Уведомления о запросах чата
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="reviewNotifications" checked> Уведомления об отзывах
-                    </label>
-                </div>
-
-                <button class="btn btn-primary" onclick="settings.saveNotificationSettings()">
-                    <i class="fas fa-save"></i> Сохранить настройки
-                </button>
+    <div class="modal" id="deleteAccountModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Удаление аккаунта</h3>
+                <button class="btn-close">&times;</button>
             </div>
-
-            <div class="card" style="margin-top: 20px;">
-                <h3>Технические уведомления</h3>
-                <div id="technicalNotifications">
-                    <!-- Список технических уведомлений -->
+            <div class="modal-body">
+                <p class="warning-text">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Это действие необратимо! Все ваши данные будут удалены без возможности восстановления.
+                </p>
+                <div class="form-group">
+                    <label>Введите ваш пароль для подтверждения:</label>
+                    <input type="password" id="deletePassword" class="form-input" placeholder="Ваш пароль">
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="settings.closeDeleteAccount()">Отмена</button>
+                <button class="btn btn-danger" onclick="settings.confirmDeleteAccount()">Удалить аккаунт</button>
             </div>
         </div>
     </div>
 
     <script src="js/settings.js"></script>
-    <script>
-        function goBack() {
-            const user = JSON.parse(localStorage.getItem('user_data'));
-            if (user) {
-                const rolePages = {
-                    'user': 'chat.html',
-                    'listener': 'chat.html', 
-                    'admin': 'admin.html',
-                    'coowner': 'coowner.html',
-                    'owner': 'owner.html'
-                };
-                window.location.href = rolePages[user.role] || 'chat.html';
-            } else {
-                window.location.href = 'chat.html';
-            }
-        }
-    </script>
 </body>
 </html>
