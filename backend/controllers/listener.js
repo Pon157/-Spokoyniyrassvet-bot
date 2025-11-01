@@ -1,191 +1,148 @@
 const express = require('express');
-const { supabase } = require('../db');
+const { createClient } = require('@supabase/supabase-js');
+const { logAction } = require('../middleware');
+
 const router = express.Router();
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
-// Получение чатов слушателя
-router.get('/chats', async (req, res) => {
-    try {
-        const { data: chats, error } = await supabase
-            .from('chats')
-            .select(`
-                *,
-                participants:users(id, username, avatar, role)
-            `)
-            .contains('participant_ids', [req.user.id])
-            .eq('status', 'active')
-            .order('updated_at', { ascending: false });
-
-        if (error) throw error;
-
-        // Фильтруем участников чтобы показать только пользователей
-        const formattedChats = chats.map(chat => {
-            const userParticipant = chat.participants.find(p => p.role === 'user');
-            return {
-                id: chat.id,
-                user: userParticipant,
-                status: chat.status,
-                created_at: chat.created_at,
-                updated_at: chat.updated_at,
-                unread_count: chat.unread_count || 0
-            };
-        });
-
-        res.json(formattedChats);
-    } catch (error) {
-        console.error('Listener chats error:', error);
-        res.status(500).json({ error: 'Ошибка получения чатов' });
-    }
-});
-
-// Получение моих отзывов
+// Получение отзывов слушателя
 router.get('/reviews', async (req, res) => {
-    try {
-        const { data: reviews, error } = await supabase
-            .from('reviews')
-            .select(`
-                *,
-                user:users(id, username, avatar),
-                chat:chats(id)
-            `)
-            .eq('listener_id', req.user.id)
-            .order('created_at', { ascending: false });
+  try {
+    const listenerId = req.user.id;
 
-        if (error) throw error;
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .select(`
+        *,
+        user:users!reviews_user_id_fkey(username, avatar_url),
+        chat:chats(id)
+      `)
+      .eq('listener_id', listenerId)
+      .order('created_at', { ascending: false });
 
-        // Рассчитываем средний рейтинг
-        const averageRating = reviews.length > 0 
-            ? reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length 
-            : 0;
+    if (error) throw error;
 
-        res.json({
-            reviews: reviews || [],
-            stats: {
-                total_reviews: reviews.length,
-                average_rating: Math.round(averageRating * 10) / 10
-            }
-        });
-    } catch (error) {
-        console.error('Listener reviews error:', error);
-        res.status(500).json({ error: 'Ошибка получения отзывов' });
-    }
+    const formattedReviews = reviews.map(review => ({
+      id: review.id,
+      user_name: review.user?.username,
+      user_avatar: review.user?.avatar_url,
+      rating: review.rating,
+      comment: review.comment,
+      created_at: review.created_at,
+      chat_id: review.chat?.id
+    }));
+
+    res.json({ reviews: formattedReviews });
+  } catch (error) {
+    console.error('Ошибка получения отзывов:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
 // Статистика слушателя
 router.get('/stats', async (req, res) => {
-    try {
-        // Количество активных чатов
-        const { data: activeChats, error: chatsError } = await supabase
-            .from('chats')
-            .select('id', { count: 'exact' })
-            .contains('participant_ids', [req.user.id])
-            .eq('status', 'active');
+  try {
+    const listenerId = req.user.id;
 
-        if (chatsError) throw chatsError;
+    const [
+      reviewsData,
+      chatsData,
+      messagesData,
+      ratingData
+    ] = await Promise.all([
+      // Отзывы
+      supabase
+        .from('reviews')
+        .select('rating')
+        .eq('listener_id', listenerId),
+      
+      // Чаты
+      supabase
+        .from('chats')
+        .select('status, created_at')
+        .eq('listener_id', listenerId),
+      
+      // Сообщения
+      supabase
+        .from('messages')
+        .select('created_at')
+        .eq('sender_id', listenerId)
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+      
+      // Средний рейтинг
+      supabase
+        .from('reviews')
+        .select('rating')
+        .eq('listener_id', listenerId)
+    ]);
 
-        // Количество отзывов за последние 30 дней
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const totalChats = chatsData.data?.length || 0;
+    const activeChats = chatsData.data?.filter(chat => chat.status === 'active').length || 0;
+    const averageRating = ratingData.data?.length > 0 
+      ? ratingData.data.reduce((sum, review) => sum + review.rating, 0) / ratingData.data.length 
+      : 0;
 
-        const { data: recentReviews, error: reviewsError } = await supabase
-            .from('reviews')
-            .select('id', { count: 'exact' })
-            .eq('listener_id', req.user.id)
-            .gte('created_at', thirtyDaysAgo.toISOString());
+    // Активность по дням
+    const activityByDay = {};
+    messagesData.data?.forEach(message => {
+      const date = new Date(message.created_at).toLocaleDateString('ru-RU');
+      activityByDay[date] = (activityByDay[date] || 0) + 1;
+    });
 
-        if (reviewsError) throw reviewsError;
-
-        // Общее количество сообщений
-        const { data: messages, error: messagesError } = await supabase
-            .from('messages')
-            .select('id', { count: 'exact' })
-            .eq('user_id', req.user.id);
-
-        if (messagesError) throw messagesError;
-
-        res.json({
-            active_chats: activeChats.length,
-            recent_reviews: recentReviews.length,
-            total_messages: messages.length,
-            online_since: new Date().toISOString()
-        });
-    } catch (error) {
-        console.error('Listener stats error:', error);
-        res.status(500).json({ error: 'Ошибка получения статистики' });
-    }
+    res.json({
+      stats: {
+        total_reviews: reviewsData.data?.length || 0,
+        total_chats: totalChats,
+        active_chats: activeChats,
+        average_rating: Math.round(averageRating * 10) / 10,
+        weekly_activity: activityByDay,
+        response_time: '5 мин' // Можно рассчитать среднее время ответа
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка получения статистики слушателя:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
-// Обновление профиля слушателя
-router.put('/profile', async (req, res) => {
-    try {
-        const { bio, is_online } = req.body;
-        
-        const updateData = {
-            updated_at: new Date().toISOString()
-        };
+// Доступные чаты для слушателя
+router.get('/available-chats', async (req, res) => {
+  try {
+    const listenerId = req.user.id;
 
-        if (bio !== undefined) updateData.bio = bio;
-        if (is_online !== undefined) updateData.is_online = is_online;
+    const { data: chats, error } = await supabase
+      .from('chats')
+      .select(`
+        *,
+        user:users!chats_user_id_fkey(username, avatar_url, is_online),
+        messages:messages(count),
+        last_message:messages!inner(content, created_at)
+      `)
+      .eq('listener_id', listenerId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
 
-        const { data: user, error } = await supabase
-            .from('users')
-            .update(updateData)
-            .eq('id', req.user.id)
-            .select()
-            .single();
+    if (error) throw error;
 
-        if (error) throw error;
+    const formattedChats = chats.map(chat => ({
+      id: chat.id,
+      user_name: chat.user?.username,
+      user_avatar: chat.user?.avatar_url,
+      user_online: chat.user?.is_online,
+      message_count: chat.messages[0]?.count || 0,
+      last_message: chat.last_message?.[0]?.content,
+      last_message_time: chat.last_message?.[0]?.created_at,
+      created_at: chat.created_at
+    }));
 
-        res.json({
-            success: true,
-            message: 'Профиль успешно обновлен',
-            user: user
-        });
-    } catch (error) {
-        console.error('Update profile error:', error);
-        res.status(500).json({ error: 'Ошибка обновления профиля' });
-    }
-});
-
-// Получение доступных пользователей для чата
-router.get('/available-users', async (req, res) => {
-    try {
-        // Находим пользователей, у которых нет активного чата с этим слушателем
-        const { data: existingChats, error: chatsError } = await supabase
-            .from('chats')
-            .select('participant_ids')
-            .contains('participant_ids', [req.user.id])
-            .eq('status', 'active');
-
-        if (chatsError) throw chatsError;
-
-        const existingUserIds = new Set();
-        existingChats.forEach(chat => {
-            chat.participant_ids.forEach(id => {
-                if (id !== req.user.id) existingUserIds.add(id);
-            });
-        });
-
-        // Получаем пользователей, исключая тех, с кем уже есть чат
-        let query = supabase
-            .from('users')
-            .select('id, username, avatar, last_seen, is_online')
-            .eq('role', 'user')
-            .eq('is_active', true)
-            .eq('is_blocked', false);
-
-        if (existingUserIds.size > 0) {
-            query = query.not('id', 'in', `(${Array.from(existingUserIds).join(',')})`);
-        }
-
-        const { data: users, error } = await query;
-
-        if (error) throw error;
-
-        res.json(users || []);
-    } catch (error) {
-        console.error('Available users error:', error);
-        res.status(500).json({ error: 'Ошибка получения пользователей' });
-    }
+    res.json({ chats: formattedChats });
+  } catch (error) {
+    console.error('Ошибка получения чатов:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
 module.exports = router;
