@@ -1,211 +1,118 @@
 class SocketClient {
-    constructor(chatManager) {
-        this.chatManager = chatManager;
+    constructor() {
         this.socket = null;
         this.isConnected = false;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
-        this.init();
+        this.reconnectInterval = 3000;
     }
 
-    init() {
-        this.connect();
-    }
-
-    connect() {
+    connect(token) {
         try {
-            this.socket = io('http://spokoyniyrassvet.webtm.ru', {
+            this.socket = io({
+                auth: {
+                    token: token
+                },
                 transports: ['websocket', 'polling']
             });
 
-            this.setupEventListeners();
-            this.chatManager.socket = this.socket;
-
+            this.setupEventHandlers();
         } catch (error) {
-            console.error('Socket connection error:', error);
-            this.handleReconnect();
+            console.error('Ошибка подключения WebSocket:', error);
+            this.handleConnectionError();
         }
     }
 
-    setupEventListeners() {
+    setupEventHandlers() {
         this.socket.on('connect', () => {
-            console.log('✅ WebSocket connected');
+            console.log('✅ WebSocket подключен');
             this.isConnected = true;
             this.reconnectAttempts = 0;
-            this.authenticate();
+            this.onConnect();
         });
 
         this.socket.on('disconnect', (reason) => {
-            console.log('❌ WebSocket disconnected:', reason);
+            console.log('❌ WebSocket отключен:', reason);
             this.isConnected = false;
-            this.handleReconnect();
+            this.onDisconnect(reason);
+            
+            if (reason === 'io server disconnect') {
+                // Сервер принудительно отключил, нужно переподключиться
+                this.socket.connect();
+            } else {
+                // Обычное отключение, пытаемся переподключиться
+                this.attemptReconnect();
+            }
         });
 
         this.socket.on('connect_error', (error) => {
-            console.error('WebSocket connection error:', error);
-            this.isConnected = false;
-        });
-
-        this.socket.on('authenticated', (userData) => {
-            console.log('🔑 Socket authenticated for user:', userData.username);
-            this.chatManager.currentUser = userData;
-        });
-
-        this.socket.on('auth_error', (error) => {
-            console.error('Socket auth error:', error);
-            this.chatManager.showMessage('Ошибка аутентификации', 'error');
+            console.error('❌ Ошибка подключения WebSocket:', error);
+            this.handleConnectionError();
         });
 
         this.socket.on('new_message', (message) => {
-            this.handleNewMessage(message);
+            this.onNewMessage(message);
         });
 
         this.socket.on('user_typing', (data) => {
-            this.handleUserTyping(data);
+            this.onUserTyping(data);
         });
 
-        this.socket.on('user_stop_typing', (data) => {
-            this.handleUserStopTyping(data);
+        this.socket.on('user_status_changed', (data) => {
+            this.onUserStatusChanged(data);
         });
 
-        this.socket.on('user_status_change', (data) => {
-            this.handleUserStatusChange(data);
-        });
-
-        this.socket.on('new_notification', (notification) => {
-            this.handleNewNotification(notification);
-        });
-
-        this.socket.on('system_message', (message) => {
-            this.handleSystemMessage(message);
+        this.socket.on('notification', (notification) => {
+            this.onNotification(notification);
         });
 
         this.socket.on('error', (error) => {
-            console.error('Socket error:', error);
-            this.chatManager.showMessage('Ошибка соединения', 'error');
+            console.error('WebSocket ошибка:', error);
+            this.onError(error);
         });
     }
 
-    authenticate() {
-        const token = localStorage.getItem('token');
-        if (token) {
-            this.socket.emit('authenticate', token);
-        }
-    }
-
-    handleNewMessage(message) {
-        // Проверяем, что сообщение относится к текущему чату
-        if (this.chatManager.currentChat && message.chat_id === this.chatManager.currentChat.id) {
-            const messagesContainer = document.getElementById('messagesContainer');
-            const messageElement = this.chatManager.createMessageElement(message);
-            messagesContainer.appendChild(messageElement);
-            this.chatManager.scrollToBottom();
-        }
-        
-        // Обновляем список чатов если нужно
-        this.updateChatsList();
-    }
-
-    handleUserTyping(data) {
-        if (this.chatManager.currentChat && data.chatId === this.chatManager.currentChat.id) {
-            const typingIndicator = document.getElementById('typingIndicator');
-            const typingUser = document.getElementById('typingUser');
-            
-            typingUser.textContent = data.username;
-            typingIndicator.style.display = 'block';
-        }
-    }
-
-    handleUserStopTyping(data) {
-        if (this.chatManager.currentChat && data.chatId === this.chatManager.currentChat.id) {
-            document.getElementById('typingIndicator').style.display = 'none';
-        }
-    }
-
-    handleUserStatusChange(data) {
-        // Обновляем статус пользователя в интерфейсе
-        this.updateUserStatus(data.userId, data.isOnline);
-        
-        // Обновляем список активных пользователей
-        if (this.chatManager.currentUser.role === 'user') {
-            this.chatManager.loadAvailableListeners();
-        }
-        this.chatManager.loadActiveUsers();
-    }
-
-    handleNewNotification(notification) {
-        this.showNotification(notification);
-    }
-
-    handleSystemMessage(message) {
-        this.chatManager.showMessage(message, 'info');
-    }
-
-    updateUserStatus(userId, isOnline) {
-        // Находим элементы с этим пользователем и обновляем статус
-        const userElements = document.querySelectorAll(`[data-user-id="${userId}"]`);
-        userElements.forEach(element => {
-            const statusElement = element.querySelector('.user-status');
-            if (statusElement) {
-                statusElement.className = isOnline ? 'status-online' : 'status-offline';
-                statusElement.textContent = isOnline ? '● онлайн' : '● оффлайн';
-            }
-        });
-    }
-
-    updateChatsList() {
-        // Здесь можно обновить список чатов при новом сообщении
-        console.log('Updating chats list...');
-    }
-
-    showNotification(notification) {
-        // Создаем уведомление в правом верхнем углу
-        const notificationEl = document.createElement('div');
-        notificationEl.className = `message ${notification.type}`;
-        notificationEl.style.position = 'fixed';
-        notificationEl.style.top = '20px';
-        notificationEl.style.right = '20px';
-        notificationEl.style.zIndex = '1001';
-        notificationEl.innerHTML = `
-            <strong>${notification.title}</strong>
-            <p>${notification.message}</p>
-        `;
-
-        document.body.appendChild(notificationEl);
-
-        // Автоматически скрываем через 5 секунд
-        setTimeout(() => {
-            notificationEl.remove();
-        }, 5000);
-    }
-
-    handleReconnect() {
+    attemptReconnect() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            const delay = Math.min(1000 * this.reconnectAttempts, 10000);
-            
-            console.log(`🔄 Attempting reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
+            console.log(`🔄 Попытка переподключения ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
             
             setTimeout(() => {
-                this.connect();
-            }, delay);
+                if (this.socket) {
+                    this.socket.connect();
+                }
+            }, this.reconnectInterval * this.reconnectAttempts);
         } else {
-            console.error('❌ Max reconnection attempts reached');
-            this.chatManager.showMessage('Потеряно соединение с сервером', 'error');
+            console.error('❌ Превышено максимальное количество попыток переподключения');
+            this.onReconnectFailed();
         }
     }
 
-    // Публичные методы для отправки событий
-    sendMessage(chatId, content, messageType = 'text', mediaUrl = null) {
-        if (this.isConnected) {
+    handleConnectionError() {
+        this.isConnected = false;
+        this.onConnectionError();
+    }
+
+    // Методы для отправки событий
+    sendMessage(chatId, content, messageType = 'text', mediaUrl = null, stickerUrl = null) {
+        if (!this.isConnected) {
+            this.onError(new Error('Нет подключения к серверу'));
+            return false;
+        }
+
+        try {
             this.socket.emit('send_message', {
-                chatId,
-                content,
-                messageType,
-                mediaUrl
+                chat_id: chatId,
+                content: content,
+                message_type: messageType,
+                media_url: mediaUrl,
+                sticker_url: stickerUrl
             });
-        } else {
-            console.error('Cannot send message: socket not connected');
+            return true;
+        } catch (error) {
+            console.error('Ошибка отправки сообщения:', error);
+            this.onError(error);
+            return false;
         }
     }
 
@@ -223,25 +130,61 @@ class SocketClient {
 
     startTyping(chatId) {
         if (this.isConnected) {
-            this.socket.emit('typing_start', { chatId });
+            this.socket.emit('typing_start', { chat_id: chatId });
         }
     }
 
     stopTyping(chatId) {
         if (this.isConnected) {
-            this.socket.emit('typing_stop', { chatId });
+            this.socket.emit('typing_stop', { chat_id: chatId });
         }
+    }
+
+    // Колбэки (должны быть переопределены в основном приложении)
+    onConnect() {
+        console.log('WebSocket connected');
+    }
+
+    onDisconnect(reason) {
+        console.log('WebSocket disconnected:', reason);
+    }
+
+    onNewMessage(message) {
+        console.log('New message:', message);
+    }
+
+    onUserTyping(data) {
+        console.log('User typing:', data);
+    }
+
+    onUserStatusChanged(data) {
+        console.log('User status changed:', data);
+    }
+
+    onNotification(notification) {
+        console.log('New notification:', notification);
+    }
+
+    onError(error) {
+        console.error('WebSocket error:', error);
+    }
+
+    onConnectionError() {
+        console.error('WebSocket connection error');
+    }
+
+    onReconnectFailed() {
+        console.error('WebSocket reconnect failed');
     }
 
     disconnect() {
         if (this.socket) {
             this.socket.disconnect();
+            this.socket = null;
+            this.isConnected = false;
         }
     }
 }
 
-// Инициализация после загрузки DOM
-document.addEventListener('DOMContentLoaded', () => {
-    // SocketClient будет инициализирован в chat.js
-    console.log('Socket client module loaded');
-});
+// Глобальный экземпляр клиента WebSocket
+const socketClient = new SocketClient();
