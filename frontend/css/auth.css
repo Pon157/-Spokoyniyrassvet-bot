@@ -7,14 +7,18 @@
     box-sizing: border-box;
 }
 
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
 .auth-container {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    font-family: 'Inter', sans-serif;
 }
 
 /* ===== КОНТЕЙНЕР ФОРМ ===== */
@@ -29,11 +33,11 @@
     border-radius: 16px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
     display: none;
-    animation: slideUp 0.4s ease;
 }
 
 .auth-form.active {
     display: block;
+    animation: slideUp 0.4s ease;
 }
 
 @keyframes slideUp {
@@ -122,6 +126,7 @@
     color: #2d3748;
     font-size: 1rem;
     transition: all 0.3s ease;
+    font-family: inherit;
 }
 
 .input-group input:focus {
@@ -217,6 +222,8 @@
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    font-family: inherit;
+    position: relative;
 }
 
 .btn-primary:hover {
@@ -381,50 +388,4 @@
     .input-group input {
         padding: 14px 14px 14px 44px;
     }
-}
-
-/* ===== ГАРАНТИИ РАБОТОСПОСОБНОСТИ ===== */
-.auth-form {
-    display: none;
-}
-
-.auth-form.active {
-    display: block;
-}
-
-/* Гарантия что все текста видны */
-.auth-header h1,
-.auth-header p,
-.form-header h2,
-.form-header p {
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    position: static !important;
-    transform: none !important;
-}
-
-/* Предотвращение любых наложений */
-.auth-header,
-.form-header {
-    position: relative;
-    z-index: 1;
-}
-
-/* Четкие отступы */
-.auth-header {
-    margin-bottom: 40px;
-}
-
-.form-header {
-    margin-bottom: 32px;
-}
-
-/* Гарантия кликабельности */
-.btn-primary,
-.password-toggle,
-.forgot-password,
-.auth-switch a,
-.checkbox {
-    cursor: pointer;
 }
