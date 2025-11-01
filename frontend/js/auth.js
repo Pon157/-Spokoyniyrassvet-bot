@@ -1,7 +1,7 @@
 \class AuthManager {
     constructor() {
         this.currentUser = null;
-        this.API_BASE = 'https://pon157-git--f288.twc1.net'; // ДОБАВЬ ЭТУ СТРОКУ
+        this.API_BASE = 'spokoyniyrassvet.webtm.ru'; // ДОБАВЬ ЭТУ СТРОКУ
         this.init();
     }
 
