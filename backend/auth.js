@@ -1,133 +1,202 @@
-const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const router = express.Router();
-const { supabase } = require('./db');
 
-// Регистрация через Supabase Auth
-router.post('/register', async (req, res) => {
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+class AuthController {
+  // Регистрация пользователя
+  async register(req, res) {
     try {
-        const { username, email, password, role = 'user' } = req.body;
+      const { username, email, password } = req.body;
 
-        // 1. Создаем пользователя в Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Валидация
+      if (!username || !email || !password) {
+        return res.status(400).json({ error: 'Все поля обязательны' });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Пароль должен быть не менее 6 символов' });
+      }
+
+      // Проверка существующего пользователя
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .or(`email.eq.${email},username.eq.${username}`)
+        .single();
+
+      if (existingUser) {
+        return res.status(400).json({ 
+          error: existingUser.email === email ? 
+            'Email уже используется' : 
+            'Имя пользователя уже занято' 
+        });
+      }
+
+      // Хеширование пароля
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Создание пользователя
+      const { data: user, error: createError } = await supabase
+        .from('users')
+        .insert([
+          {
+            username,
             email,
-            password,
-            options: {
-                data: {
-                    username: username,
-                    role: role
-                }
-            }
-        });
+            password_hash: hashedPassword,
+            role: 'user',
+            avatar_url: null,
+            is_online: false,
+            created_at: new Date().toISOString()
+          }
+        ])
+        .select()
+        .single();
 
-        if (authError) {
-            if (authError.message.includes('already registered')) {
-                return res.status(400).json({ error: 'User already exists' });
-            }
-            return res.status(400).json({ error: authError.message });
+      if (createError) throw createError;
+
+      // Генерация токена
+      const token = jwt.sign(
+        { 
+          userId: user.id, 
+          email: user.email, 
+          role: user.role 
+        },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          avatar_url: user.avatar_url
         }
-
-        // 2. Создаем запись в таблице users
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .insert([{
-                id: authData.user.id,
-                username: username,
-                email: email,
-                role: role,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-
-        if (userError) {
-            // Если ошибка при создании пользователя, удаляем из auth
-            await supabase.auth.admin.deleteUser(authData.user.id);
-            return res.status(400).json({ error: 'Failed to create user profile' });
-        }
-
-        // 3. Генерируем JWT токен
-        const token = jwt.sign(
-            { 
-                userId: authData.user.id, 
-                role: role,
-                email: email
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        res.json({
-            message: 'User registered successfully',
-            token,
-            user: userData
-        });
+      });
 
     } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+      console.error('Registration error:', error);
+      res.status(500).json({ error: 'Ошибка сервера при регистрации' });
     }
-});
+  }
 
-// Логин через Supabase Auth
-router.post('/login', async (req, res) => {
+  // Вход пользователя
+  async login(req, res) {
     try {
-        const { email, password } = req.body;
+      const { email, password } = req.body;
 
-        // 1. Аутентификация через Supabase
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        });
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email и пароль обязательны' });
+      }
 
-        if (authError) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+      // Поиск пользователя
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (userError || !user) {
+        return res.status(401).json({ error: 'Неверный email или пароль' });
+      }
+
+      // Проверка пароля
+      const validPassword = await bcrypt.compare(password, user.password_hash);
+      if (!validPassword) {
+        return res.status(401).json({ error: 'Неверный email или пароль' });
+      }
+
+      // Обновление статуса онлайн
+      await supabase
+        .from('users')
+        .update({ is_online: true, last_seen: new Date().toISOString() })
+        .eq('id', user.id);
+
+      // Генерация токена
+      const token = jwt.sign(
+        { 
+          userId: user.id, 
+          email: user.email, 
+          role: user.role 
+        },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          avatar_url: user.avatar_url
         }
-
-        // 2. Получаем данные пользователя
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', authData.user.id)
-            .single();
-
-        if (userError) {
-            return res.status(500).json({ error: 'User profile not found' });
-        }
-
-        // 3. Генерируем JWT токен
-        const token = jwt.sign(
-            { 
-                userId: authData.user.id, 
-                role: userData.role,
-                email: userData.email
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        res.json({
-            message: 'Login successful',
-            token,
-            user: userData
-        });
+      });
 
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+      console.error('Login error:', error);
+      res.status(500).json({ error: 'Ошибка сервера при входе' });
     }
-});
+  }
 
-// Выход
-router.post('/logout', async (req, res) => {
+  // Выход пользователя
+  async logout(req, res) {
     try {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-        
-        res.json({ message: 'Logged out successfully' });
+      const userId = req.user.userId;
+
+      await supabase
+        .from('users')
+        .update({ is_online: false, last_seen: new Date().toISOString() })
+        .eq('id', userId);
+
+      res.json({ message: 'Успешный выход' });
     } catch (error) {
-        res.status(500).json({ error: 'Logout failed' });
+      console.error('Logout error:', error);
+      res.status(500).json({ error: 'Ошибка при выходе' });
     }
-});
+  }
+
+  // Проверка токена
+  async verify(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, username, email, role, avatar_url, is_online')
+        .eq('id', userId)
+        .single();
+
+      if (error || !user) {
+        return res.status(401).json({ error: 'Пользователь не найден' });
+      }
+
+      res.json({ user });
+    } catch (error) {
+      console.error('Verify error:', error);
+      res.status(500).json({ error: 'Ошибка проверки токена' });
+    }
+  }
+}
+
+const authController = new AuthController();
+
+// Маршруты
+const router = require('express').Router();
+
+router.post('/register', authController.register);
+router.post('/login', authController.login);
+router.post('/logout', authController.logout);
+router.get('/verify', authController.verify);
 
 module.exports = router;
