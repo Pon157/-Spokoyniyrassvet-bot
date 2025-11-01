@@ -1,218 +1,170 @@
-const express = require('express');
 const { supabase } = require('../db');
-const router = express.Router();
+const { authenticateToken } = require('../middleware');
+const bcrypt = require('bcryptjs');
 
-// Получение всех активных слушателей
-router.get('/listeners', async (req, res) => {
+class UsersController {
+  // Получение профиля пользователя
+  async getProfile(req, res) {
     try {
-        const { data: listeners, error } = await supabase
-            .from('users')
-            .select('id, username, avatar, last_seen, is_online, rating, bio, total_reviews')
-            .eq('role', 'listener')
-            .eq('is_active', true)
-            .eq('is_blocked', false)
-            .order('rating', { ascending: false });
+      const userId = req.user.id;
 
-        if (error) throw error;
-        res.json(listeners || []);
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, username, email, role, avatar_url, is_online, last_seen, created_at')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+
+      // Получаем отзывы если пользователь слушатель
+      if (user.role === 'listener') {
+        const { data: reviews } = await supabase
+          .from('reviews')
+          .select('rating, comment, created_at, user:users!reviews_user_id_fkey(username)')
+          .eq('listener_id', userId)
+          .order('created_at', { ascending: false });
+
+        user.reviews = reviews || [];
+      }
+
+      res.json({ user });
+
     } catch (error) {
-        console.error('Listeners error:', error);
-        res.status(500).json({ error: 'Ошибка получения слушателей' });
+      console.error('Get profile error:', error);
+      res.status(500).json({ error: 'Ошибка получения профиля' });
     }
-});
+  }
 
-// Создание отзыва на слушателя
-router.post('/review', async (req, res) => {
+  // Обновление профиля
+  async updateProfile(req, res) {
     try {
-        const { listenerId, chatId, rating, comment } = req.body;
+      const userId = req.user.id;
+      const { username, avatar_url } = req.body;
 
-        // Проверяем существование слушателя
-        const { data: listener, error: listenerError } = await supabase
-            .from('users')
-            .select('id, role')
-            .eq('id', listenerId)
-            .eq('role', 'listener')
-            .single();
+      const updateData = {};
+      if (username) updateData.username = username;
+      if (avatar_url) updateData.avatar_url = avatar_url;
 
-        if (listenerError || !listener) {
-            return res.status(400).json({ error: 'Слушатель не найден' });
-        }
+      const { data: user, error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', userId)
+        .select()
+        .single();
 
-        // Проверяем существование чата
-        const { data: chat, error: chatError } = await supabase
-            .from('chats')
-            .select('id, participant_ids')
-            .eq('id', chatId)
-            .contains('participant_ids', [req.user.id, listenerId])
-            .single();
+      if (error) throw error;
 
-        if (chatError || !chat) {
-            return res.status(400).json({ error: 'Чат не найден или у вас нет доступа' });
-        }
+      res.json({ 
+        message: 'Профиль обновлен',
+        user 
+      });
 
-        // Создаем отзыв
-        const { data: review, error: reviewError } = await supabase
-            .from('reviews')
-            .insert([{
-                listener_id: listenerId,
-                user_id: req.user.id,
-                chat_id: chatId,
-                rating: rating,
-                comment: comment,
-                created_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-
-        if (reviewError) throw reviewError;
-
-        // Обновляем рейтинг слушателя
-        const { data: reviews, error: reviewsError } = await supabase
-            .from('reviews')
-            .select('rating')
-            .eq('listener_id', listenerId);
-
-        if (reviewsError) throw reviewsError;
-
-        const averageRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length;
-        
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({
-                rating: Math.round(averageRating * 10) / 10,
-                total_reviews: reviews.length,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', listenerId);
-
-        if (updateError) throw updateError;
-
-        res.json({ 
-            success: true,
-            message: 'Отзыв успешно оставлен',
-            review: review
-        });
     } catch (error) {
-        console.error('Review error:', error);
-        res.status(500).json({ error: 'Ошибка создания отзыва' });
+      console.error('Update profile error:', error);
+      res.status(500).json({ error: 'Ошибка обновления профиля' });
     }
-});
+  }
 
-// Получение чатов пользователя
-router.get('/chats', async (req, res) => {
+  // Смена пароля
+  async changePassword(req, res) {
     try {
-        const { data: chats, error } = await supabase
-            .from('chats')
-            .select(`
-                *,
-                participants:users(id, username, avatar, role)
-            `)
-            .contains('participant_ids', [req.user.id])
-            .eq('status', 'active')
-            .order('updated_at', { ascending: false });
+      const userId = req.user.id;
+      const { currentPassword, newPassword } = req.body;
 
-        if (error) throw error;
+      // Получаем текущий хеш пароля
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('password_hash')
+        .eq('id', userId)
+        .single();
 
-        // Фильтруем участников чтобы показать только собеседника
-        const formattedChats = chats.map(chat => {
-            const otherParticipant = chat.participants.find(p => p.id !== req.user.id);
-            return {
-                id: chat.id,
-                participant: otherParticipant,
-                status: chat.status,
-                created_at: chat.created_at,
-                updated_at: chat.updated_at
-            };
-        });
+      if (userError) throw userError;
 
-        res.json(formattedChats);
+      // Проверяем текущий пароль
+      const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!validPassword) {
+        return res.status(400).json({ error: 'Неверный текущий пароль' });
+      }
+
+      // Хешируем новый пароль
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Обновляем пароль
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ password_hash: hashedPassword })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      res.json({ message: 'Пароль успешно изменен' });
+
     } catch (error) {
-        console.error('Chats error:', error);
-        res.status(500).json({ error: 'Ошибка получения чатов' });
+      console.error('Change password error:', error);
+      res.status(500).json({ error: 'Ошибка смены пароля' });
     }
-});
+  }
 
-// Создание чата со слушателем
-router.post('/create-chat', async (req, res) => {
+  // Получение уведомлений
+  async getNotifications(req, res) {
     try {
-        const { listenerId } = req.body;
+      const userId = req.user.id;
+      const { unreadOnly = false } = req.query;
 
-        // Проверяем существование слушателя
-        const { data: listener, error: listenerError } = await supabase
-            .from('users')
-            .select('id, role, is_active, is_blocked')
-            .eq('id', listenerId)
-            .eq('role', 'listener')
-            .single();
+      let query = supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-        if (listenerError || !listener) {
-            return res.status(400).json({ error: 'Слушатель не найден' });
-        }
+      if (unreadOnly) {
+        query = query.eq('is_read', false);
+      }
 
-        if (!listener.is_active || listener.is_blocked) {
-            return res.status(400).json({ error: 'Слушатель недоступен' });
-        }
+      const { data: notifications, error } = await query;
 
-        // Проверяем существующий активный чат
-        const { data: existingChats, error: checkError } = await supabase
-            .from('chats')
-            .select('id')
-            .contains('participant_ids', [req.user.id, listenerId])
-            .eq('status', 'active')
-            .limit(1);
+      if (error) throw error;
 
-        if (checkError) throw checkError;
+      res.json({ notifications });
 
-        if (existingChats && existingChats.length > 0) {
-            return res.json({ 
-                chatId: existingChats[0].id,
-                message: 'Чат уже существует'
-            });
-        }
-
-        // Создаем новый чат
-        const { data: newChat, error: createError } = await supabase
-            .from('chats')
-            .insert([{
-                participant_ids: [req.user.id, listenerId],
-                status: 'active',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }])
-            .select()
-            .single();
-
-        if (createError) throw createError;
-
-        res.status(201).json({ 
-            success: true,
-            chatId: newChat.id,
-            message: 'Чат успешно создан'
-        });
     } catch (error) {
-        console.error('Create chat error:', error);
-        res.status(500).json({ error: 'Ошибка создания чата' });
+      console.error('Get notifications error:', error);
+      res.status(500).json({ error: 'Ошибка получения уведомлений' });
     }
-});
+  }
 
-// Получение моих отзывов
-router.get('/my-reviews', async (req, res) => {
+  // Отметка уведомлений как прочитанных
+  async markNotificationsRead(req, res) {
     try {
-        const { data: reviews, error } = await supabase
-            .from('reviews')
-            .select(`
-                *,
-                listener:users(id, username, avatar)
-            `)
-            .eq('user_id', req.user.id)
-            .order('created_at', { ascending: false });
+      const userId = req.user.id;
+      const { notificationIds } = req.body;
 
-        if (error) throw error;
-        res.json(reviews || []);
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', userId)
+        .in('id', notificationIds);
+
+      if (error) throw error;
+
+      res.json({ message: 'Уведомления отмечены как прочитанные' });
+
     } catch (error) {
-        console.error('My reviews error:', error);
-        res.status(500).json({ error: 'Ошибка получения отзывов' });
+      console.error('Mark notifications read error:', error);
+      res.status(500).json({ error: 'Ошибка обновления уведомлений' });
     }
-});
+  }
+}
+
+const usersController = new UsersController();
+
+// Маршруты
+const router = require('express').Router();
+
+router.get('/profile', usersController.getProfile);
+router.put('/profile', usersController.updateProfile);
+router.put('/password', usersController.changePassword);
+router.get('/notifications', usersController.getNotifications);
+router.put('/notifications/read', usersController.markNotificationsRead);
 
 module.exports = router;
