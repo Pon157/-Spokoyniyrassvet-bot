@@ -5,9 +5,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Абсолютные пути для PM2
-const __dirname = path.resolve();
-
 // Импорты маршрутов с абсолютными путями
 const authRoutes = require(path.join(__dirname, 'backend', 'controllers', 'auth'));
 const chatRoutes = require(path.join(__dirname, 'backend', 'controllers', 'chat'));
