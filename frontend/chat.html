@@ -21,7 +21,7 @@
                         <span class="user-role" id="userRole">user</span>
                     </div>
                 </div>
-                <button class="btn btn-sm btn-secondary" onclick="window.location.href='settings.html'">
+                <button class="btn btn-sm btn-secondary" onclick="openSettings()">
                     <i class="fas fa-cog"></i>
                 </button>
             </div>
@@ -189,6 +189,43 @@
     <div id="notificationsContainer"></div>
 
     <script src="/socket.io/socket.io.js"></script>
+    
+    <script>
+    function openSettings() {
+        // Проверяем аутентификацию перед открытием настроек
+        const token = localStorage.getItem('auth_token');
+        const userData = localStorage.getItem('user_data');
+        
+        console.log('🔐 Проверка аутентификации для настроек...');
+        console.log('Токен:', token ? 'есть' : 'нет');
+        console.log('Данные:', userData ? 'есть' : 'нет');
+        
+        if (!token || !userData) {
+            console.error('❌ Нет данных аутентификации, перенаправляем на вход');
+            alert('Требуется авторизация');
+            window.location.href = '/';
+            return;
+        }
+        
+        console.log('✅ Аутентификация пройдена, открываем настройки');
+        window.location.href = 'settings.html';
+    }
+    
+    // Проверяем аутентификацию при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        const token = localStorage.getItem('auth_token');
+        const userData = localStorage.getItem('user_data');
+        
+        if (!token || !userData) {
+            console.log('🔐 Нет данных аутентификации, перенаправляем на вход');
+            window.location.href = '/';
+            return;
+        }
+        
+        console.log('✅ Пользователь аутентифицирован, загружаем чат');
+    });
+    </script>
+    
     <script src="js/app.js"></script>
     <script src="js/chat.js"></script>
 </body>
