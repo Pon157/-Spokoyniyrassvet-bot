@@ -1,7 +1,7 @@
-\class AuthManager {
+class AuthManager {
     constructor() {
         this.currentUser = null;
-        this.API_BASE = 'spokoyniyrassvet.webtm.ru'; // ДОБАВЬ ЭТУ СТРОКУ
+        this.API_BASE = window.location.origin; // ИСПРАВЛЕНО: используем текущий origin
         this.init();
     }
 
@@ -13,39 +13,60 @@
 
     setupEventListeners() {
         // Табы
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.switchTab(e.target.dataset.tab);
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        if (tabButtons.length > 0) {
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    this.switchTab(e.target.dataset.tab);
+                });
             });
-        });
+        }
 
         // Формы
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.login();
-        });
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.login();
+            });
+        }
 
-        document.getElementById('registerForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.register();
-        });
+        if (registerForm) {
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.register();
+            });
+        }
 
         // Тема
-        document.getElementById('themeToggle').addEventListener('click', (e) => {
-            e.stopPropagation();
-            const dropdown = document.getElementById('themeDropdown');
-            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-        });
-
-        document.querySelectorAll('.theme-option').forEach(option => {
-            option.addEventListener('click', (e) => {
-                this.changeTheme(e.target.dataset.theme);
+        const themeToggle = document.getElementById('themeToggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const dropdown = document.getElementById('themeDropdown');
+                if (dropdown) {
+                    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                }
             });
-        });
+        }
+
+        const themeOptions = document.querySelectorAll('.theme-option');
+        if (themeOptions.length > 0) {
+            themeOptions.forEach(option => {
+                option.addEventListener('click', (e) => {
+                    this.changeTheme(e.target.dataset.theme);
+                });
+            });
+        }
 
         // Закрытие dropdown
         document.addEventListener('click', () => {
-            document.getElementById('themeDropdown').style.display = 'none';
+            const dropdown = document.getElementById('themeDropdown');
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
         });
     }
 
@@ -69,9 +90,9 @@
         }
 
         try {
-            console.log('Login attempt:', { email, password }); // ДЛЯ ОТЛАДКИ
+            console.log('Login attempt:', { email }); // Не логируем пароль
             
-            const response = await fetch(`${this.API_BASE}/auth/login`, { // ИСПРАВЬ ЭТУ СТРОКУ
+            const response = await fetch(`${this.API_BASE}/auth/login`, { // ИСПРАВЛЕНО
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -79,7 +100,7 @@
                 body: JSON.stringify({ email, password }),
             });
 
-            console.log('Login response status:', response.status); // ДЛЯ ОТЛАДКИ
+            console.log('Login response status:', response.status);
 
             const data = await response.json();
 
@@ -110,9 +131,9 @@
         }
 
         try {
-            console.log('Register attempt:', { username, email }); // ДЛЯ ОТЛАДКИ
+            console.log('Register attempt:', { username, email });
             
-            const response = await fetch(`${this.API_BASE}/auth/register`, { // ИСПРАВЬ ЭТУ СТРОКУ
+            const response = await fetch(`${this.API_BASE}/auth/register`, { // ИСПРАВЛЕНО
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -120,7 +141,7 @@
                 body: JSON.stringify({ username, email, password }),
             });
 
-            console.log('Register response status:', response.status); // ДЛЯ ОТЛАДКИ
+            console.log('Register response status:', response.status);
 
             const data = await response.json();
 
@@ -148,9 +169,9 @@
 
     redirectToApp(role) {
         if (['admin', 'coowner', 'owner'].includes(role)) {
-            window.location.href = `${this.API_BASE}/admin`; // ИСПРАВЬ ЭТУ СТРОКУ
+            window.location.href = `${this.API_BASE}/admin.html`; // ИСПРАВЛЕНО
         } else {
-            window.location.href = `${this.API_BASE}/chat`; // ИСПРАВЬ ЭТУ СТРОКУ
+            window.location.href = `${this.API_BASE}/chat.html`; // ИСПРАВЛЕНО
         }
     }
 
@@ -159,15 +180,28 @@
         const user = localStorage.getItem('user');
         
         if (token && user) {
-            this.currentUser = JSON.parse(user);
-            this.redirectToApp(this.currentUser.role);
+            try {
+                this.currentUser = JSON.parse(user);
+                this.redirectToApp(this.currentUser.role);
+            } catch (e) {
+                console.error('Error parsing user data:', e);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
         }
     }
 
     changeTheme(theme) {
-        document.getElementById('theme-style').href = `${this.API_BASE}/css/${theme}-theme.css`; // ИСПРАВЬ ЭТУ СТРОКУ
+        const themeStyle = document.getElementById('theme-style');
+        if (themeStyle) {
+            themeStyle.href = `css/${theme}-theme.css`; // ИСПРАВЛЕНО
+        }
         localStorage.setItem('theme', theme);
-        document.getElementById('themeDropdown').style.display = 'none';
+        
+        const dropdown = document.getElementById('themeDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
     }
 
     loadTheme() {
@@ -177,16 +211,19 @@
 
     showMessage(text, type) {
         const messageEl = document.getElementById('message');
-        messageEl.textContent = text;
-        messageEl.className = `message ${type}`;
-        
-        setTimeout(() => {
-            messageEl.textContent = '';
-            messageEl.className = 'message';
-        }, 5000);
+        if (messageEl) {
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            
+            setTimeout(() => {
+                messageEl.textContent = '';
+                messageEl.className = 'message';
+            }, 5000);
+        }
     }
 }
 
+// Инициализация когда DOM готов
 document.addEventListener('DOMContentLoaded', () => {
     new AuthManager();
 });
