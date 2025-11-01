@@ -389,3 +389,74 @@ body {
         padding: 14px 14px 14px 44px;
     }
 }
+
+/* ===== ИСПРАВЛЕНИЕ ДЛЯ ПАНЕЛИ АДМИНИСТРАЦИИ ===== */
+
+/* Гарантия правильного растяжения контейнера */
+.auth-container {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-forms-container {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.auth-form {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Исправление для разных экранов */
+@media (max-width: 480px) {
+    .auth-container {
+        padding: 10px;
+    }
+    
+    .auth-form {
+        margin: 0;
+        border-radius: 12px;
+    }
+}
+
+/* Гарантия что форма не выходит за границы */
+.auth-form {
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Исправление для очень маленьких экранов */
+@media (max-width: 320px) {
+    .auth-form {
+        padding: 20px 16px;
+        margin: 0 5px;
+    }
+    
+    .input-group input {
+        padding: 12px 12px 12px 40px;
+        font-size: 16px; /* Предотвращает zoom на iOS */
+    }
+}
+
+/* Гарантия что фон покрывает весь экран */
+body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) fixed;
+    background-size: cover;
+}
+
+/* Исправление для высоты */
+html, body {
+    height: 100%;
+}
+
+.auth-container {
+    min-height: 100vh;
+    height: auto;
+}
