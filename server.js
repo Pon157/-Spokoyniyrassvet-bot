@@ -10,13 +10,32 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 
-// Инициализация Supabase
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+// Проверяем environment variables
+console.log('🔧 Проверка environment variables...');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Установлен' : '❌ Отсутствует');
+console.log('SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? '✅ Установлен' : '❌ Отсутствует');
 
-console.log('✅ Supabase инициализирован');
+// Проверяем наличие обязательных переменных
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+  console.error('❌ КРИТИЧЕСКАЯ ОШИБКА: Отсутствуют Supabase environment variables');
+  console.error('Пожалуйста, установите:');
+  console.error('SUPABASE_URL=ваш_supabase_url');
+  console.error('SUPABASE_SERVICE_KEY=ваш_service_key');
+  process.exit(1);
+}
+
+// Инициализация Supabase с проверкой
+let supabase;
+try {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+  );
+  console.log('✅ Supabase инициализирован');
+} catch (error) {
+  console.error('❌ Ошибка инициализации Supabase:', error.message);
+  process.exit(1);
+}
 
 // Настройка CORS
 const io = socketIo(server, {
@@ -552,6 +571,6 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📁 Working directory: ${__dirname}`);
   console.log(`🌐 DOMAIN: spokoyniyrassvet.webtm.ru`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || 'production'}`);
-  console.log(`📊 Supabase: ${process.env.SUPABASE_URL ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
+  console.log(`📊 Supabase: CONFIGURED`);
   console.log(`✅ SERVER READY - Telegram auth system operational!`);
 });
