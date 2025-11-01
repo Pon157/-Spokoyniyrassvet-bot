@@ -6,57 +6,107 @@ class SettingsManager {
     }
 
     async init() {
-        await this.checkAuth();
-        this.loadUserData();
-        this.setupAllEventListeners();
-        this.loadSettings();
-        this.loadSessions();
-        this.loadNotifications();
-        this.loadAccountInfo();
+        console.log('🚀 Инициализация панели настроек...');
+        
+        try {
+            await this.checkAuth();
+            this.loadUserData();
+            this.setupAllEventListeners();
+            await this.loadSettings();
+            await this.loadSessions();
+            await this.loadNotifications();
+            this.loadAccountInfo();
+            
+            console.log('✅ Панель настроек готова');
+        } catch (error) {
+            console.error('❌ Ошибка инициализации:', error);
+            this.showNotification('Ошибка загрузки настроек', 'error');
+        }
     }
 
     async checkAuth() {
         const token = localStorage.getItem('chat_token');
         const userData = localStorage.getItem('user_data');
 
+        console.log('🔐 Проверка аутентификации...');
+        console.log('Токен:', token ? 'есть' : 'нет');
+        console.log('Данные:', userData ? 'есть' : 'нет');
+
         if (!token || !userData) {
-            window.location.href = '/';
+            console.error('❌ Нет данных аутентификации');
+            this.redirectToLogin();
             return;
         }
 
         try {
+            // Парсим данные пользователя из localStorage
+            this.currentUser = JSON.parse(userData);
+            
+            // Проверяем токен через API
             const response = await fetch('/auth/verify', {
+                method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
             });
 
-            if (!response.ok) {
-                throw new Error('Невалидный токен');
-            }
+            console.log('📡 Ответ сервера:', response.status);
 
-            const data = await response.json();
-            this.currentUser = data.user;
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Пользователь верифицирован:', data.user);
+                this.currentUser = data.user;
+                // Обновляем данные в localStorage
+                localStorage.setItem('user_data', JSON.stringify(data.user));
+            } else {
+                console.warn('⚠️ Токен невалиден, пробуем использовать данные из localStorage');
+                // Продолжаем с данными из localStorage
+            }
             
         } catch (error) {
-            console.error('Ошибка аутентификации:', error);
-            this.logout();
+            console.error('❌ Ошибка проверки аутентификации:', error);
+            // Если API недоступен, используем данные из localStorage
+            if (!this.currentUser) {
+                this.redirectToLogin();
+            }
         }
     }
 
-    loadUserData() {
-        if (!this.currentUser) return;
+    redirectToLogin() {
+        console.log('🔒 Перенаправление на страницу входа...');
+        this.showNotification('Требуется авторизация', 'error');
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 2000);
+    }
 
-        document.getElementById('username').value = this.currentUser.username || '';
-        document.getElementById('email').value = this.currentUser.email || '';
-        document.getElementById('bio').value = this.currentUser.bio || '';
+    loadUserData() {
+        if (!this.currentUser) {
+            console.error('❌ Нет данных пользователя');
+            return;
+        }
+
+        console.log('👤 Загрузка данных пользователя:', this.currentUser);
+
+        // Устанавливаем значения в форму
+        const usernameInput = document.getElementById('username');
+        const emailInput = document.getElementById('email');
+        const bioInput = document.getElementById('bio');
+        const avatarPreview = document.getElementById('avatarPreview');
+
+        if (usernameInput) usernameInput.value = this.currentUser.username || '';
+        if (emailInput) emailInput.value = this.currentUser.email || '';
+        if (bioInput) bioInput.value = this.currentUser.bio || '';
         
-        if (this.currentUser.avatar_url) {
-            document.getElementById('avatarPreview').src = this.currentUser.avatar_url;
+        if (avatarPreview && this.currentUser.avatar_url) {
+            avatarPreview.src = this.currentUser.avatar_url;
         }
     }
 
     setupAllEventListeners() {
+        console.log('🔧 Настройка обработчиков событий...');
+
         // Навигация по табам
         document.querySelectorAll('.nav-item').forEach(tab => {
             tab.addEventListener('click', (e) => {
@@ -65,27 +115,39 @@ class SettingsManager {
         });
 
         // Загрузка аватара
-        document.getElementById('avatarInput').addEventListener('change', (e) => {
-            this.handleAvatarUpload(e.target.files[0]);
-        });
+        const avatarInput = document.getElementById('avatarInput');
+        if (avatarInput) {
+            avatarInput.addEventListener('change', (e) => {
+                this.handleAvatarUpload(e.target.files[0]);
+            });
+        }
 
         // Сохранение профиля
-        document.getElementById('profileForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveProfile();
-        });
+        const profileForm = document.getElementById('profileForm');
+        if (profileForm) {
+            profileForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveProfile();
+            });
+        }
 
         // Смена пароля
-        document.getElementById('passwordForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.changePassword();
-        });
+        const passwordForm = document.getElementById('passwordForm');
+        if (passwordForm) {
+            passwordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.changePassword();
+            });
+        }
 
         // Сохранение настроек уведомлений
-        document.getElementById('notificationForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveNotificationSettings();
-        });
+        const notificationForm = document.getElementById('notificationForm');
+        if (notificationForm) {
+            notificationForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveNotificationSettings();
+            });
+        }
 
         // Выбор темы
         document.querySelectorAll('.theme-option').forEach(option => {
@@ -95,9 +157,12 @@ class SettingsManager {
         });
 
         // Автоматическая тема
-        document.getElementById('autoTheme').addEventListener('change', (e) => {
-            this.toggleAutoTheme(e.target.checked);
-        });
+        const autoTheme = document.getElementById('autoTheme');
+        if (autoTheme) {
+            autoTheme.addEventListener('change', (e) => {
+                this.toggleAutoTheme(e.target.checked);
+            });
+        }
 
         // Показать/скрыть пароль
         document.querySelectorAll('.toggle-password').forEach(toggle => {
@@ -107,15 +172,18 @@ class SettingsManager {
         });
 
         // Проверка силы пароля
-        document.getElementById('newPassword').addEventListener('input', () => {
-            this.checkPasswordStrength();
-        });
+        const newPasswordInput = document.getElementById('newPassword');
+        if (newPasswordInput) {
+            newPasswordInput.addEventListener('input', () => {
+                this.checkPasswordStrength();
+            });
+        }
 
-        // Общие настройки
-        this.setupGeneralSettingsListeners();
+        // Дополнительные обработчики
+        this.setupAdditionalListeners();
     }
 
-    setupGeneralSettingsListeners() {
+    setupAdditionalListeners() {
         // Настройки чата
         ['showTimestamps', 'showAvatars', 'messageBubbles', 'enterToSend'].forEach(setting => {
             const element = document.getElementById(setting);
@@ -156,6 +224,8 @@ class SettingsManager {
     }
 
     switchTab(tabName) {
+        console.log('📁 Переключение на вкладку:', tabName);
+
         // Обновляем активную навигацию
         document.querySelectorAll('.nav-item').forEach(tab => {
             tab.classList.remove('active');
@@ -176,6 +246,8 @@ class SettingsManager {
     async handleAvatarUpload(file) {
         if (!file) return;
 
+        console.log('🖼️ Загрузка аватара:', file.name);
+
         // Проверка типа файла
         if (!file.type.startsWith('image/')) {
             this.showNotification('Пожалуйста, выберите изображение', 'error');
@@ -192,19 +264,24 @@ class SettingsManager {
             const formData = new FormData();
             formData.append('avatar', file);
 
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/upload-avatar', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: formData
             });
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('✅ Аватар загружен:', data.avatar_url);
                 
                 // Обновляем аватар предпросмотра
-                document.getElementById('avatarPreview').src = data.avatar_url;
+                const avatarPreview = document.getElementById('avatarPreview');
+                if (avatarPreview) {
+                    avatarPreview.src = data.avatar_url;
+                }
                 
                 // Обновляем данные пользователя
                 this.currentUser.avatar_url = data.avatar_url;
@@ -212,11 +289,12 @@ class SettingsManager {
                 
                 this.showNotification('Аватар успешно обновлен', 'success');
             } else {
-                throw new Error('Ошибка загрузки аватара');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка загрузки аватара');
             }
         } catch (error) {
-            console.error('Ошибка загрузки аватара:', error);
-            this.showNotification('Ошибка загрузки аватара', 'error');
+            console.error('❌ Ошибка загрузки аватара:', error);
+            this.showNotification(error.message, 'error');
         }
     }
 
@@ -226,17 +304,23 @@ class SettingsManager {
         }
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/remove-avatar', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
 
             if (response.ok) {
+                console.log('✅ Аватар удален');
+                
                 // Возвращаем аватар по умолчанию
-                document.getElementById('avatarPreview').src = 'images/default-avatar.svg';
+                const avatarPreview = document.getElementById('avatarPreview');
+                if (avatarPreview) {
+                    avatarPreview.src = 'images/default-avatar.svg';
+                }
                 
                 // Обновляем данные пользователя
                 this.currentUser.avatar_url = null;
@@ -247,7 +331,7 @@ class SettingsManager {
                 throw new Error('Ошибка удаления аватара');
             }
         } catch (error) {
-            console.error('Ошибка удаления аватара:', error);
+            console.error('❌ Ошибка удаления аватара:', error);
             this.showNotification('Ошибка удаления аватара', 'error');
         }
     }
@@ -268,10 +352,11 @@ class SettingsManager {
         }
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/update-profile', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -283,6 +368,7 @@ class SettingsManager {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('✅ Профиль обновлен:', data.user);
                 
                 // Обновляем данные пользователя
                 this.currentUser = data.user;
@@ -294,7 +380,7 @@ class SettingsManager {
                 throw new Error(errorData.error || 'Ошибка обновления профиля');
             }
         } catch (error) {
-            console.error('Ошибка обновления профиля:', error);
+            console.error('❌ Ошибка обновления профиля:', error);
             this.showNotification(error.message, 'error');
         }
     }
@@ -320,10 +406,11 @@ class SettingsManager {
         }
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/change-password', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -333,6 +420,7 @@ class SettingsManager {
             });
 
             if (response.ok) {
+                console.log('✅ Пароль изменен');
                 this.showNotification('Пароль успешно изменен', 'success');
                 document.getElementById('passwordForm').reset();
                 this.resetPasswordStrength();
@@ -341,7 +429,7 @@ class SettingsManager {
                 throw new Error(errorData.error || 'Ошибка смены пароля');
             }
         } catch (error) {
-            console.error('Ошибка смены пароля:', error);
+            console.error('❌ Ошибка смены пароля:', error);
             this.showNotification(error.message, 'error');
         }
     }
@@ -405,11 +493,17 @@ class SettingsManager {
     }
 
     selectTheme(themeName) {
+        console.log('🎨 Выбор темы:', themeName);
+
         // Обновляем активную тему
         document.querySelectorAll('.theme-option').forEach(option => {
             option.classList.remove('active');
         });
-        document.querySelector(`[data-theme="${themeName}"]`).classList.add('active');
+        
+        const selectedTheme = document.querySelector(`[data-theme="${themeName}"]`);
+        if (selectedTheme) {
+            selectedTheme.classList.add('active');
+        }
         
         // Применяем тему
         const themeLink = document.getElementById('theme');
@@ -454,9 +548,10 @@ class SettingsManager {
 
     async loadSettings() {
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/settings', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
@@ -464,13 +559,36 @@ class SettingsManager {
                 const data = await response.json();
                 this.settings = data.settings || {};
                 this.applySettings();
+                console.log('✅ Настройки загружены:', this.settings);
+            } else {
+                console.warn('⚠️ Не удалось загрузить настройки, используем по умолчанию');
+                this.loadDefaultSettings();
             }
         } catch (error) {
-            console.error('Ошибка загрузки настроек:', error);
+            console.error('❌ Ошибка загрузки настроек:', error);
+            this.loadDefaultSettings();
         }
     }
 
+    loadDefaultSettings() {
+        this.settings = {
+            theme: 'light',
+            autoTheme: false,
+            showTimestamps: true,
+            soundNotifications: true,
+            desktopNotifications: true,
+            showAvatars: true,
+            messageBubbles: true,
+            enterToSend: true,
+            compactMode: false,
+            highContrast: false
+        };
+        this.applySettings();
+    }
+
     applySettings() {
+        console.log('⚙️ Применение настроек:', this.settings);
+
         // Применяем тему
         if (this.settings.theme) {
             const themeOption = document.querySelector(`[data-theme="${this.settings.theme}"]`);
@@ -498,16 +616,17 @@ class SettingsManager {
     setCheckboxValue(id, value) {
         const element = document.getElementById(id);
         if (element && value !== undefined) {
-            element.checked = value;
+            element.checked = Boolean(value);
         }
     }
 
     async saveSettings() {
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/settings', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -515,11 +634,13 @@ class SettingsManager {
                 })
             });
 
-            if (!response.ok) {
-                throw new Error('Ошибка сохранения настроек');
+            if (response.ok) {
+                console.log('✅ Настройки сохранены');
+            } else {
+                console.error('❌ Ошибка сохранения настроек');
             }
         } catch (error) {
-            console.error('Ошибка сохранения настроек:', error);
+            console.error('❌ Ошибка сохранения настроек:', error);
         }
     }
 
@@ -570,10 +691,11 @@ class SettingsManager {
         };
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/notification-settings', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(settings)
@@ -585,17 +707,18 @@ class SettingsManager {
                 throw new Error('Ошибка сохранения настроек уведомлений');
             }
         } catch (error) {
-            console.error('Ошибка сохранения настроек уведомлений:', error);
+            console.error('❌ Ошибка сохранения настроек уведомлений:', error);
             this.showNotification('Ошибка сохранения настроек', 'error');
         }
     }
 
     async toggleTwoFactorAuth(enabled) {
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/toggle-2fa', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ enabled })
@@ -610,7 +733,7 @@ class SettingsManager {
                 throw new Error('Ошибка изменения настроек 2FA');
             }
         } catch (error) {
-            console.error('Ошибка изменения 2FA:', error);
+            console.error('❌ Ошибка изменения 2FA:', error);
             this.showNotification('Ошибка изменения настроек', 'error');
             // Возвращаем чекбокс в исходное состояние
             document.getElementById('twoFactorAuth').checked = !enabled;
@@ -619,18 +742,24 @@ class SettingsManager {
 
     async loadSessions() {
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/sessions', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
             if (response.ok) {
                 const data = await response.json();
                 this.renderSessions(data.sessions);
+                console.log('✅ Сессии загружены');
+            } else {
+                console.warn('⚠️ Не удалось загрузить сессии');
+                this.renderSessions([]);
             }
         } catch (error) {
-            console.error('Ошибка загрузки сессий:', error);
+            console.error('❌ Ошибка загрузки сессий:', error);
+            this.renderSessions([]);
         }
     }
 
@@ -639,6 +768,11 @@ class SettingsManager {
         if (!container) return;
 
         container.innerHTML = '';
+
+        if (sessions.length === 0) {
+            container.innerHTML = '<p>Нет активных сессий</p>';
+            return;
+        }
 
         sessions.forEach(session => {
             const sessionElement = document.createElement('div');
@@ -669,10 +803,11 @@ class SettingsManager {
         }
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/logout-session', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ session_id: sessionId })
@@ -685,7 +820,7 @@ class SettingsManager {
                 throw new Error('Ошибка завершения сессии');
             }
         } catch (error) {
-            console.error('Ошибка завершения сессии:', error);
+            console.error('❌ Ошибка завершения сессии:', error);
             this.showNotification('Ошибка завершения сессии', 'error');
         }
     }
@@ -696,10 +831,11 @@ class SettingsManager {
         }
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/logout-all-sessions', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
@@ -712,25 +848,31 @@ class SettingsManager {
                 throw new Error('Ошибка выхода со всех устройств');
             }
         } catch (error) {
-            console.error('Ошибка выхода со всех устройств:', error);
+            console.error('❌ Ошибка выхода со всех устройств:', error);
             this.showNotification('Ошибка выхода со всех устройств', 'error');
         }
     }
 
     async loadNotifications() {
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/notifications', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
             if (response.ok) {
                 const data = await response.json();
                 this.renderNotifications(data.notifications);
+                console.log('✅ Уведомления загружены');
+            } else {
+                console.warn('⚠️ Не удалось загрузить уведомления');
+                this.renderNotifications([]);
             }
         } catch (error) {
-            console.error('Ошибка загрузки уведомлений:', error);
+            console.error('❌ Ошибка загрузки уведомлений:', error);
+            this.renderNotifications([]);
         }
     }
 
@@ -771,10 +913,11 @@ class SettingsManager {
 
     async markNotificationAsRead(notificationId) {
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/mark-notification-read', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ notification_id: notificationId })
@@ -784,16 +927,17 @@ class SettingsManager {
                 this.loadNotifications();
             }
         } catch (error) {
-            console.error('Ошибка отметки уведомления:', error);
+            console.error('❌ Ошибка отметки уведомления:', error);
         }
     }
 
     async deleteNotification(notificationId) {
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/delete-notification', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ notification_id: notificationId })
@@ -804,7 +948,7 @@ class SettingsManager {
                 this.showNotification('Уведомление удалено', 'success');
             }
         } catch (error) {
-            console.error('Ошибка удаления уведомления:', error);
+            console.error('❌ Ошибка удаления уведомления:', error);
             this.showNotification('Ошибка удаления уведомления', 'error');
         }
     }
@@ -821,9 +965,10 @@ class SettingsManager {
 
     async exportData() {
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/export-data', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
@@ -846,7 +991,7 @@ class SettingsManager {
                 throw new Error('Ошибка экспорта данных');
             }
         } catch (error) {
-            console.error('Ошибка экспорта данных:', error);
+            console.error('❌ Ошибка экспорта данных:', error);
             this.showNotification('Ошибка экспорта данных', 'error');
         }
     }
@@ -857,10 +1002,11 @@ class SettingsManager {
         }
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/clear-history', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
@@ -870,7 +1016,7 @@ class SettingsManager {
                 throw new Error('Ошибка очистки истории');
             }
         } catch (error) {
-            console.error('Ошибка очистки истории:', error);
+            console.error('❌ Ошибка очистки истории:', error);
             this.showNotification('Ошибка очистки истории', 'error');
         }
     }
@@ -881,10 +1027,11 @@ class SettingsManager {
         }
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/deactivate-account', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
@@ -897,7 +1044,7 @@ class SettingsManager {
                 throw new Error('Ошибка деактивации аккаунта');
             }
         } catch (error) {
-            console.error('Ошибка деактивации аккаунта:', error);
+            console.error('❌ Ошибка деактивации аккаунта:', error);
             this.showNotification('Ошибка деактивации аккаунта', 'error');
         }
     }
@@ -932,10 +1079,11 @@ class SettingsManager {
         }
 
         try {
+            const token = localStorage.getItem('chat_token');
             const response = await fetch('/user/delete-account', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('chat_token')}`,
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ password })
@@ -951,7 +1099,7 @@ class SettingsManager {
                 throw new Error(errorData.error || 'Ошибка удаления аккаунта');
             }
         } catch (error) {
-            console.error('Ошибка удаления аккаунта:', error);
+            console.error('❌ Ошибка удаления аккаунта:', error);
             this.showNotification(error.message, 'error');
         }
     }
@@ -987,7 +1135,14 @@ class SettingsManager {
 
     showNotification(message, type = 'info') {
         const container = document.getElementById('notificationContainer');
-        if (!container) return;
+        if (!container) {
+            // Создаем контейнер если его нет
+            const newContainer = document.createElement('div');
+            newContainer.id = 'notificationContainer';
+            newContainer.className = 'notification-container';
+            document.body.appendChild(newContainer);
+            container = newContainer;
+        }
 
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -1020,14 +1175,26 @@ class SettingsManager {
     }
 
     logout() {
+        console.log('🚪 Выход из системы...');
         localStorage.removeItem('chat_token');
         localStorage.removeItem('user_data');
         window.location.href = '/';
     }
 }
 
-// Добавьте этот CSS для уведомлений в settings.css
+// Добавляем стили для уведомлений
 const notificationStyles = `
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 400px;
+}
+
 .notification {
     display: flex;
     align-items: center;
@@ -1085,7 +1252,7 @@ const notificationStyles = `
 }
 `;
 
-// Добавляем стили для уведомлений
+// Добавляем стили в документ
 const styleSheet = document.createElement('style');
 styleSheet.textContent = notificationStyles;
 document.head.appendChild(styleSheet);
