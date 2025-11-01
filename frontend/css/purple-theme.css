@@ -1,44 +1,18 @@
 :root {
-    --primary-color: #8b5cf6;
-    --primary-dark: #7c3aed;
-    --primary-light: #a78bfa;
-    --secondary-color: #6d28d9;
-    --accent-color: #c4b5fd;
-    --background-color: #faf5ff;
-    --surface-color: #ffffff;
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --text-muted: #9ca3af;
-    --border-color: #e5e7eb;
-    --shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.1), 0 2px 4px -1px rgba(139, 92, 246, 0.06);
-    --gradient: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-}
-
-body {
-    background: var(--background-color);
-    color: var(--text-primary);
-}
-
-.btn-primary {
-    background: var(--gradient);
-    border: none;
-}
-
-.btn-primary:hover {
-    background: var(--primary-dark);
-}
-
-.sidebar {
-    background: linear-gradient(180deg, var(--surface-color) 0%, #fdf4ff 100%);
-    border-right: 1px solid var(--border-color);
-}
-
-.message-item.own {
-    background: var(--gradient);
-    color: white;
-}
-
-.stat-card {
-    background: var(--surface-color);
-    border-left: 4px solid var(--primary-color);
+    --primary-color: #7b1fa2;
+    --secondary-color: #9c27b0;
+    --success-color: #388e3c;
+    --danger-color: #d32f2f;
+    --warning-color: #f57c00;
+    --info-color: #00796b;
+    --light-color: #f3e5f5;
+    --dark-color: #4a148c;
+    --bg-color: #f3e5f5;
+    --text-color: #4a148c;
+    --border-color: #ce93d8;
+    --sidebar-bg: #e1bee7;
+    --chat-bg: #f3e5f5;
+    --message-bg: #e1bee7;
+    --message-own-bg: #7b1fa2;
+    --message-own-text: #ffffff;
 }
