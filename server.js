@@ -78,13 +78,13 @@ app.use((req, res, next) => {
 
 // Импорт маршрутов
 try {
-  const authRoutes = require('./controllers/auth');
-  const userRoutes = require('./controllers/user');
-  const chatRoutes = require('./controllers/chat');
-  const adminRoutes = require('./controllers/admin');
-  const ownerRoutes = require('./controllers/owner');
-  const coownerRoutes = require('./controllers/coowner');
-  const listenerRoutes = require('./controllers/listener');
+  const authRoutes = require('./backend/auth');
+  const userRoutes = require('./backend/controllers/user');
+  const chatRoutes = require('./backend/controllers/chat');
+  const adminRoutes = require('./backend/controllers/admin');
+  const ownerRoutes = require('./backend/controllers/owner');
+  const coownerRoutes = require('./backend/controllers/coowner');
+  const listenerRoutes = require('./backend/controllers/listener');
 
   // Подключение middleware
   const { authenticateToken, requireRole } = require('./middleware');
