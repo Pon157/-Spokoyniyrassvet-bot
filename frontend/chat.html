@@ -3,202 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чат Система - Общение</title>
-    <link rel="stylesheet" href="/css/common.css">
-    <link rel="stylesheet" href="/css/light-theme.css" id="theme-style">
+    <title>Чат Система - Чат</title>
+    <link rel="stylesheet" href="css/common.css">
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="container">
-                <h1 class="logo">💬 Чат</h1>
-                <div class="header-actions">
-                    <span id="userWelcome">Пользователь</span>
-                    <button class="btn btn-outline" onclick="openSettings()">⚙️ Настройки</button>
-                    <button class="btn btn-outline" onclick="logout()">🚪 Выйти</button>
+    <div class="chat-header">
+        <div class="chat-logo">💬 ЧатСистема</div>
+        <div>
+            <span id="username">Пользователь</span>
+            <button class="btn btn-primary" onclick="logout()" style="margin-left: 1rem;">Выйти</button>
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <div class="chat-sidebar">
+            <h3>Управление чатом</h3>
+            <p>Добро пожаловать!</p>
+            <button class="btn btn-primary" onclick="startChat()" style="width: 100%; margin-top: 1rem;">
+                Начать новый чат
+            </button>
+        </div>
+        
+        <div class="chat-main">
+            <div class="messages-container" id="messagesContainer">
+                <div class="welcome-message">
+                    <h2>Добро пожаловать в чат!</h2>
+                    <p>Начните общение, нажав кнопку "Начать новый чат"</p>
                 </div>
             </div>
-        </header>
-
-        <main class="chat-container">
-            <aside class="chat-sidebar">
-                <div class="sidebar-section">
-                    <h3>Мой чат</h3>
-                    <div class="chat-info">
-                        <p>Статус: <span class="status-online">● онлайн</span></p>
-                        <button class="btn btn-primary btn-full" onclick="startChat()">Начать чат</button>
-                    </div>
-                </div>
-            </aside>
-
-            <div class="chat-main">
-                <div class="messages-container" id="messagesContainer">
-                    <div class="welcome-message">
-                        <h2>Добро пожаловать в чат!</h2>
-                        <p>Начните общение, нажав кнопку "Начать чат"</p>
-                    </div>
-                </div>
-
-                <div class="message-input-container">
-                    <form class="message-input-form" id="messageForm">
-                        <input type="text" id="messageInput" class="message-input" placeholder="Введите сообщение..." disabled>
-                        <button type="submit" class="btn btn-primary" disabled>Отправить</button>
-                    </form>
-                </div>
+            <div class="message-input-container">
+                <input type="text" class="message-input" id="messageInput" placeholder="Введите сообщение..." disabled>
+                <button class="send-btn" onclick="sendMessage()" disabled>Отправить</button>
             </div>
-        </main>
-
-        <div id="message" class="message"></div>
+        </div>
     </div>
 
     <script>
-        class ChatManager {
-            constructor() {
-                this.currentUser = null;
-                this.init();
-            }
-
-            async init() {
-                await this.checkAuth();
-                this.setupEventListeners();
-                this.loadUserData();
-            }
-
-            async checkAuth() {
-                const token = localStorage.getItem('token');
-                const user = localStorage.getItem('user');
-
-                if (!token || !user) {
-                    window.location.href = '/';
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/auth/verify', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-
-                    if (!response.ok) {
-                        throw new Error('Not authenticated');
-                    }
-
-                    const data = await response.json();
-                    this.currentUser = data.user;
-                } catch (error) {
-                    this.logout();
-                }
-            }
-
-            setupEventListeners() {
-                document.getElementById('messageForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.sendMessage();
-                });
-            }
-
-            loadUserData() {
-                const user = JSON.parse(localStorage.getItem('user') || '{}');
-                document.getElementById('userWelcome').textContent = user.username || 'Пользователь';
-            }
-
-            async startChat() {
-                try {
-                    const response = await fetch('/chat/create', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        this.enableChat();
-                        this.showMessage('Чат создан!', 'success');
-                    }
-                } catch (error) {
-                    this.showMessage('Ошибка создания чата', 'error');
-                }
-            }
-
-            enableChat() {
-                document.getElementById('messageInput').disabled = false;
-                document.querySelector('button[type="submit"]').disabled = false;
-                document.querySelector('.welcome-message').style.display = 'none';
-            }
-
-            async sendMessage() {
-                const input = document.getElementById('messageInput');
-                const content = input.value.trim();
-
-                if (!content) return;
-
-                try {
-                    const response = await fetch('/chat/message', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            chatId: 'test-chat',
-                            content: content
-                        })
-                    });
-
-                    if (response.ok) {
-                        input.value = '';
-                        this.addMessage(content, true);
-                    }
-                } catch (error) {
-                    this.showMessage('Ошибка отправки', 'error');
-                }
-            }
-
-            addMessage(content, isOwn = false) {
-                const container = document.getElementById('messagesContainer');
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message-item ${isOwn ? 'own' : 'other'}`;
-                messageDiv.innerHTML = `
-                    <div class="message-header">
-                        <span class="message-sender">${isOwn ? 'Вы' : 'Слушатель'}</span>
-                        <span class="message-time">${new Date().toLocaleTimeString()}</span>
-                    </div>
-                    <div class="message-text">${content}</div>
-                `;
-                container.appendChild(messageDiv);
-                container.scrollTop = container.scrollHeight;
-            }
-
-            showMessage(text, type) {
-                const messageEl = document.getElementById('message');
-                messageEl.textContent = text;
-                messageEl.className = `message ${type}`;
-                setTimeout(() => messageEl.textContent = '', 5000);
-            }
-
-            logout() {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                window.location.href = '/';
-            }
-        }
-
-        // Глобальные функции
-        function openSettings() {
-            window.location.href = '/settings.html';
-        }
-
+        // Загрузка пользователя
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('username').textContent = user.username || 'Пользователь';
+        
         function logout() {
-            chatManager.logout();
+            localStorage.clear();
+            window.location.href = '/';
         }
-
+        
         function startChat() {
-            chatManager.startChat();
+            document.getElementById('messageInput').disabled = false;
+            document.querySelector('.send-btn').disabled = false;
+            document.querySelector('.welcome-message').style.display = 'none';
+            addMessage('Чат начат! Вы можете отправлять сообщения.', 'other');
         }
-
-        // Инициализация
-        const chatManager = new ChatManager();
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text) return;
+            
+            addMessage(text, 'own');
+            input.value = '';
+            
+            // Имитация ответа
+            setTimeout(() => {
+                addMessage('Это тестовый ответ от системы. Чат работает!', 'other');
+            }, 1000);
+        }
+        
+        function addMessage(text, type) {
+            const messagesDiv = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message-item message-${type}`;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
     </script>
 </body>
 </html>
