@@ -25,7 +25,8 @@ class SettingsManager {
     }
 
     async checkAuth() {
-        const token = localStorage.getItem('chat_token');
+        // ИСПРАВЛЕНО: правильное название токена
+        const token = localStorage.getItem('auth_token');
         const userData = localStorage.getItem('user_data');
 
         console.log('🔐 Проверка аутентификации...');
@@ -264,7 +265,8 @@ class SettingsManager {
             const formData = new FormData();
             formData.append('avatar', file);
 
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/upload-avatar', {
                 method: 'POST',
                 headers: {
@@ -304,7 +306,8 @@ class SettingsManager {
         }
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/remove-avatar', {
                 method: 'POST',
                 headers: {
@@ -352,7 +355,8 @@ class SettingsManager {
         }
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/update-profile', {
                 method: 'POST',
                 headers: {
@@ -406,7 +410,8 @@ class SettingsManager {
         }
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/change-password', {
                 method: 'POST',
                 headers: {
@@ -548,7 +553,8 @@ class SettingsManager {
 
     async loadSettings() {
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/settings', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -622,7 +628,8 @@ class SettingsManager {
 
     async saveSettings() {
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/settings', {
                 method: 'POST',
                 headers: {
@@ -691,7 +698,8 @@ class SettingsManager {
         };
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/notification-settings', {
                 method: 'POST',
                 headers: {
@@ -714,7 +722,8 @@ class SettingsManager {
 
     async toggleTwoFactorAuth(enabled) {
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/toggle-2fa', {
                 method: 'POST',
                 headers: {
@@ -742,7 +751,8 @@ class SettingsManager {
 
     async loadSessions() {
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/sessions', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -803,7 +813,8 @@ class SettingsManager {
         }
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/logout-session', {
                 method: 'POST',
                 headers: {
@@ -831,7 +842,8 @@ class SettingsManager {
         }
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/logout-all-sessions', {
                 method: 'POST',
                 headers: {
@@ -855,7 +867,8 @@ class SettingsManager {
 
     async loadNotifications() {
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/notifications', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -913,7 +926,8 @@ class SettingsManager {
 
     async markNotificationAsRead(notificationId) {
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/mark-notification-read', {
                 method: 'POST',
                 headers: {
@@ -933,7 +947,8 @@ class SettingsManager {
 
     async deleteNotification(notificationId) {
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/delete-notification', {
                 method: 'POST',
                 headers: {
@@ -965,7 +980,8 @@ class SettingsManager {
 
     async exportData() {
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/export-data', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -1002,7 +1018,8 @@ class SettingsManager {
         }
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/clear-history', {
                 method: 'POST',
                 headers: {
@@ -1027,7 +1044,8 @@ class SettingsManager {
         }
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/deactivate-account', {
                 method: 'POST',
                 headers: {
@@ -1079,7 +1097,8 @@ class SettingsManager {
         }
 
         try {
-            const token = localStorage.getItem('chat_token');
+            // ИСПРАВЛЕНО: правильное название токена
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/user/delete-account', {
                 method: 'POST',
                 headers: {
@@ -1176,7 +1195,7 @@ class SettingsManager {
 
     logout() {
         console.log('🚪 Выход из системы...');
-        localStorage.removeItem('chat_token');
+        localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
         window.location.href = '/';
     }
