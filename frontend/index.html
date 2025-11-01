@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Чат Система - Вход</title>
-    <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/light-theme.css" id="theme-style">
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/light-theme.css" id="theme-style">
 </head>
 <body>
     <div class="app-container">
@@ -57,7 +57,6 @@
                                 <div class="form-group">
                                     <label for="regUsername">Имя пользователя</label>
                                     <input type="text" id="regUsername" required placeholder="Придумайте имя">
-                                    <small class="form-hint">Будет видно другим пользователям</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="regEmail">Email</label>
@@ -78,37 +77,8 @@
 
                     <div class="auth-sidebar">
                         <div class="system-info">
-                            <h3>Система уровней доступа</h3>
-                            <div class="levels-list">
-                                <div class="level-item">
-                                    <span class="level-icon">👤</span>
-                                    <div class="level-info">
-                                        <strong>Пользователь</strong>
-                                        <span>Общение, отзывы</span>
-                                    </div>
-                                </div>
-                                <div class="level-item">
-                                    <span class="level-icon">👂</span>
-                                    <div class="level-info">
-                                        <strong>Слушатель</strong>
-                                        <span>Помощь пользователям</span>
-                                    </div>
-                                </div>
-                                <div class="level-item">
-                                    <span class="level-icon">🛠️</span>
-                                    <div class="level-info">
-                                        <strong>Администратор</strong>
-                                        <span>Управление системой</span>
-                                    </div>
-                                </div>
-                                <div class="level-item">
-                                    <span class="level-icon">👑</span>
-                                    <div class="level-info">
-                                        <strong>Владелец</strong>
-                                        <span>Полный контроль</span>
-                                    </div>
-                                </div>
-                            </div>
+                            <h3>О системе</h3>
+                            <p>Безопасное общение с системой ролей и модерацией</p>
                         </div>
                     </div>
                 </div>
@@ -118,6 +88,6 @@
         <div id="message" class="message"></div>
     </div>
 
-    <script src="js/auth.js"></script>
+    <script src="/js/auth.js"></script>
 </body>
 </html>
