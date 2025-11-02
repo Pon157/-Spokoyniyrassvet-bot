@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="css/settings.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Загрузка темы по умолчанию -->
+    <link rel="stylesheet" href="css/light-theme.css" id="default-theme">
 </head>
 <body>
     <div class="settings-container">
@@ -117,7 +120,7 @@
 
                             <div class="form-group">
                                 <label class="form-label">Новый пароль</label>
-                                <input type="password" id="newPassword" class="form-input" required minlength="6" oninput="settings.checkPasswordStrength()">
+                                <input type="password" id="newPassword" class="form-input" required minlength="6">
                                 <div class="password-strength">
                                     <div class="strength-bar">
                                         <div class="strength-fill" id="passwordStrength"></div>
@@ -160,6 +163,50 @@
                                 <i class="fas fa-palette fa-2x"></i>
                                 <div>Синяя</div>
                             </div>
+                            <div class="theme-option" data-theme="green">
+                                <i class="fas fa-leaf fa-2x"></i>
+                                <div>Зеленая</div>
+                            </div>
+                            <div class="theme-option" data-theme="orange">
+                                <i class="fas fa-fire fa-2x"></i>
+                                <div>Оранжевая</div>
+                            </div>
+                            <div class="theme-option" data-theme="purple">
+                                <i class="fas fa-gem fa-2x"></i>
+                                <div>Фиолетовая</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="focus-card">
+                        <h3>Настройки шрифта</h3>
+                        <div class="form-group">
+                            <label class="form-label">Семейство шрифтов</label>
+                            <select id="fontFamily" class="form-input">
+                                <option value="Inter">Inter</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Helvetica">Helvetica</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Verdana">Verdana</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Размер шрифта: <span id="fontSizeValue">14</span>px</label>
+                            <input type="range" id="fontSize" class="form-range" min="12" max="24" value="14">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Насыщенность шрифта</label>
+                            <select id="fontWeight" class="form-input">
+                                <option value="300">Тонкий (300)</option>
+                                <option value="400">Обычный (400)</option>
+                                <option value="500">Средний (500)</option>
+                                <option value="600">Полужирный (600)</option>
+                                <option value="700">Жирный (700)</option>
+                            </select>
                         </div>
                     </div>
 
@@ -192,6 +239,17 @@
                     <div class="focus-card">
                         <h2>Уведомления</h2>
                         <p>Управление уведомлениями и оповещениями</p>
+                    </div>
+
+                    <div class="focus-card">
+                        <h3>Разрешения</h3>
+                        <div class="settings-options">
+                            <label class="modern-checkbox">
+                                <input type="checkbox" id="enableNotifications">
+                                <span class="checkbox-visual"></span>
+                                <span>Включить уведомления в браузере</span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="focus-card">
@@ -244,6 +302,24 @@
                         <p>Действия с вашим аккаунтом</p>
                     </div>
 
+                    <div class="focus-card">
+                        <h3>Информация об аккаунте</h3>
+                        <div class="account-info">
+                            <div class="info-item">
+                                <span class="info-label">ID аккаунта:</span>
+                                <span class="info-value" id="accountId">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Роль:</span>
+                                <span class="info-value" id="accountRole">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Дата создания:</span>
+                                <span class="info-value" id="accountCreated">-</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="critical-actions">
                         <div class="critical-header">
                             <h3><i class="fas fa-exclamation-circle"></i> Важные действия</h3>
@@ -264,7 +340,7 @@
                                     <h4>Удалить аккаунт</h4>
                                     <p>Полностью удалить аккаунт и все данные</p>
                                 </div>
-                                <button class="liquid-btn" style="background: var(--danger)" onclick="settings.showDeleteConfirm()">
+                                <button class="liquid-btn danger-btn" onclick="settings.showDeleteConfirm()">
                                     <i class="fas fa-trash"></i> Удалить
                                 </button>
                             </div>
