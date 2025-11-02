@@ -12,41 +12,34 @@ class AuthManager {
     }
 
     bindEvents() {
-        // Форма входа
         document.getElementById('loginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleLogin();
         });
 
-        // Форма регистрации
         document.getElementById('registerForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleRegister();
         });
 
-        // Форма восстановления пароля
         document.getElementById('forgotPasswordForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleForgotPassword();
         });
 
-        // Переключение между формами
         document.getElementById('switchBtn').addEventListener('click', () => {
             this.switchForms();
         });
 
-        // Ссылка "Забыли пароль"
         document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
             e.preventDefault();
             this.showForm('forgotPassword');
         });
 
-        // Кнопка "Назад к входу"
         document.getElementById('backToLogin').addEventListener('click', () => {
             this.showForm('login');
         });
 
-        // Переключение видимости пароля
         document.getElementById('toggleLoginPassword').addEventListener('click', () => {
             this.togglePassword('loginPassword', 'toggleLoginPassword');
         });
@@ -55,10 +48,8 @@ class AuthManager {
             this.togglePassword('registerPassword', 'toggleRegisterPassword');
         });
 
-        // Условия использования
         this.setupTermsModal();
 
-        // Enter key support
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const activeForm = document.querySelector('.auth-form.active');
@@ -110,7 +101,6 @@ class AuthManager {
             });
         }
 
-        // Закрытие модального окна при клике вне его
         window.addEventListener('click', (e) => {
             const modal = document.getElementById('termsModal');
             if (e.target === modal) {
@@ -124,7 +114,6 @@ class AuthManager {
         const password = document.getElementById('loginPassword').value;
         const rememberMe = document.getElementById('rememberMe').checked;
 
-        // Валидация
         if (!username) {
             this.showNotification('Пожалуйста, введите имя пользователя или Telegram', 'error');
             return;
@@ -154,7 +143,6 @@ class AuthManager {
             if (data.success) {
                 this.showNotification('Успешный вход! Перенаправление...', 'success');
                 
-                // Сохраняем данные - ИСПРАВЛЕНО: используем auth_token
                 localStorage.setItem('auth_token', data.token);
                 localStorage.setItem('user_data', JSON.stringify(data.user));
                 
@@ -184,7 +172,6 @@ class AuthManager {
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
 
-        // Валидация
         if (!username || username.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
             return;
@@ -300,7 +287,6 @@ class AuthManager {
             this.currentForm = formType;
         }
 
-        // Обновляем текст переключателя
         const switchText = document.getElementById('switchText');
         const switchBtn = document.getElementById('switchBtn');
         
@@ -421,7 +407,6 @@ class AuthManager {
             }
         }, 5000);
 
-        // Добавляем стили если их еще нет
         if (!document.getElementById('notificationStyles')) {
             const style = document.createElement('style');
             style.id = 'notificationStyles';
@@ -470,7 +455,6 @@ class AuthManager {
         
         this.showNotification(`Добро пожаловать, ${user.username}! Ваша роль: ${roleNames[role]}`, 'success');
         
-        // Перенаправление по роли
         setTimeout(() => {
             switch(user.role) {
                 case 'owner':
@@ -504,9 +488,9 @@ class AuthManager {
             return;
         }
 
-        // Если уже на странице аутентификации - не перенаправляем
+        // Если уже на главной странице - не перенаправляем
         if (window.location.pathname === '/' || window.location.pathname.includes('index.html')) {
-            console.log('✅ Уже на странице аутентификации, перенаправление не нужно');
+            console.log('✅ Уже на главной странице, перенаправление не нужно');
             return;
         }
 
@@ -524,13 +508,11 @@ class AuthManager {
                 this.redirectUser(data.user);
             } else {
                 console.log('❌ Токен невалиден:', data.error);
-                // Очищаем невалидный токен
                 localStorage.removeItem('auth_token');
                 localStorage.removeItem('user_data');
             }
         } catch (error) {
             console.error('Auth check error:', error);
-            // Очищаем невалидный токен
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
         }
@@ -549,9 +531,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('🔄 Пользователь уже авторизован, проверяем страницу...');
         const currentPage = window.location.pathname;
         
-        // Если на странице аутентификации, но пользователь авторизован - перенаправляем
+        // Если на главной странице, но пользователь авторизован - перенаправляем
         if (currentPage === '/' || currentPage.includes('index.html')) {
-            console.log('📍 На странице аутентификации, но пользователь авторизован - перенаправляем');
+            console.log('📍 На главной странице, но пользователь авторизован - перенаправляем');
             window.authManager.redirectUser(JSON.parse(userData));
         }
     }
