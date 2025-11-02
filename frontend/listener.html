@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Слушатель - Общение и поддержка</title>
+    <title>Слушатель - Спокойный рассвет</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/modern.css">
     <link rel="stylesheet" href="css/light-theme.css" id="theme-css">
@@ -14,22 +14,22 @@
         <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <h1 class="logo">Обшение и поддержка</h1>
+                <h1 class="logo">Спокойный рассвет</h1>
                 <span class="user-role">Слушатель</span>
             </div>
             <div class="header-center">
-                <div class="online-status" id="onlineStatus">
+                <div class="online-status online" id="onlineStatus">
                     <span class="status-dot"></span>
                     <span class="status-text">Онлайн</span>
                 </div>
             </div>
             <div class="header-right">
                 <button class="btn-icon" id="notificationsBtn">
-                    <span class="icon-bell"></span>
+                    <span class="icon-bell">🔔</span>
                     <span class="notification-badge hidden" id="notificationBadge">0</span>
                 </button>
                 <button class="btn-icon" id="settingsBtn">
-                    <span class="icon-settings"></span>
+                    <span class="icon-settings">⚙️</span>
                 </button>
                 <button class="btn-primary" id="logoutBtn">Выйти</button>
             </div>
@@ -43,6 +43,7 @@
                     <button class="nav-item active" data-tab="user-chat">
                         <span class="nav-icon">💬</span>
                         <span class="nav-text">Чат с пользователями</span>
+                        <span class="nav-badge hidden" id="userChatsBadge">0</span>
                     </button>
                     <button class="nav-item" data-tab="listener-chat">
                         <span class="nav-icon">👥</span>
@@ -57,6 +58,17 @@
                         <span class="nav-text">Статистика</span>
                     </button>
                 </nav>
+                
+                <!-- User Profile -->
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <img src="/images/default-avatar.svg" alt="Аватар" id="userAvatar">
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name" id="userName">Слушатель</div>
+                        <div class="user-status" id="userStatus">Онлайн</div>
+                    </div>
+                </div>
             </aside>
 
             <!-- Content Area -->
@@ -67,11 +79,14 @@
                         <div class="chat-header">
                             <h2>Чат с пользователями</h2>
                             <div class="chat-controls">
-                                <button class="btn-secondary" id="refreshChats">Обновить</button>
+                                <button class="btn-secondary" id="refreshChats">
+                                    <span class="icon-refresh">🔄</span>
+                                    Обновить
+                                </button>
                             </div>
                         </div>
                         <div class="chats-list" id="chatsList">
-                            <!-- Список чатов будет загружен здесь -->
+                            <div class="loading-state">Загрузка чатов...</div>
                         </div>
                     </div>
                 </div>
@@ -81,16 +96,32 @@
                     <div class="chat-container">
                         <div class="chat-header">
                             <h2>Чат с слушателями</h2>
+                            <div class="chat-controls">
+                                <button class="btn-secondary" id="refreshListeners">
+                                    <span class="icon-refresh">🔄</span>
+                                    Обновить список
+                                </button>
+                            </div>
                         </div>
                         <div class="listener-chat-interface">
                             <div class="online-listeners">
                                 <h3>Онлайн слушатели</h3>
                                 <div class="listeners-list" id="listenersList">
-                                    <!-- Список слушателей будет здесь -->
+                                    <div class="loading-state">Загрузка слушателей...</div>
                                 </div>
                             </div>
-                            <div class="chat-messages" id="listenerChatMessages">
-                                <!-- Сообщения между слушателями -->
+                            <div class="chat-messages-container">
+                                <div class="chat-messages" id="listenerChatMessages">
+                                    <div class="empty-state">
+                                        <p>Выберите слушателя для начала общения</p>
+                                    </div>
+                                </div>
+                                <div class="message-input-container hidden" id="listenerMessageInput">
+                                    <div class="message-input">
+                                        <input type="text" placeholder="Введите сообщение..." id="listenerMessageText">
+                                        <button class="btn-primary" id="sendListenerMessage">Отправить</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -99,19 +130,21 @@
                 <!-- Reviews Tab -->
                 <div class="tab-content" id="reviews">
                     <div class="reviews-container">
-                        <h2>Мои отзывы</h2>
-                        <div class="reviews-stats">
-                            <div class="stat-card">
-                                <span class="stat-value" id="avgRating">4.8</span>
-                                <span class="stat-label">Средний рейтинг</span>
-                            </div>
-                            <div class="stat-card">
-                                <span class="stat-value" id="totalReviews">24</span>
-                                <span class="stat-label">Всего отзывов</span>
+                        <div class="reviews-header">
+                            <h2>Мои отзывы</h2>
+                            <div class="reviews-stats">
+                                <div class="stat-card">
+                                    <span class="stat-value" id="avgRating">0.0</span>
+                                    <span class="stat-label">Средний рейтинг</span>
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-value" id="totalReviews">0</span>
+                                    <span class="stat-label">Всего отзывов</span>
+                                </div>
                             </div>
                         </div>
                         <div class="reviews-list" id="reviewsList">
-                            <!-- Список отзывов будет здесь -->
+                            <div class="loading-state">Загрузка отзывов...</div>
                         </div>
                     </div>
                 </div>
@@ -122,24 +155,29 @@
                         <h2>Моя статистика</h2>
                         <div class="stats-grid">
                             <div class="stat-card large">
-                                <span class="stat-value" id="totalSessions">156</span>
+                                <span class="stat-value" id="totalSessions">0</span>
                                 <span class="stat-label">Всего сессий</span>
                             </div>
                             <div class="stat-card large">
-                                <span class="stat-value" id="avgSessionTime">45</span>
+                                <span class="stat-value" id="avgSessionTime">0</span>
                                 <span class="stat-label">Среднее время (мин)</span>
                             </div>
                             <div class="stat-card large">
-                                <span class="stat-value" id="activeChats">3</span>
+                                <span class="stat-value" id="activeChats">0</span>
                                 <span class="stat-label">Активные чаты</span>
                             </div>
                             <div class="stat-card large">
-                                <span class="stat-value" id="helpfulness">92%</span>
+                                <span class="stat-value" id="helpfulness">0%</span>
                                 <span class="stat-label">Полезность</span>
                             </div>
                         </div>
-                        <div class="charts-container">
-                            <canvas id="sessionsChart" width="400" height="200"></canvas>
+                        <div class="stats-charts">
+                            <div class="chart-container">
+                                <h3>Активность за неделю</h3>
+                                <div class="activity-chart" id="activityChart">
+                                    <!-- График будет здесь -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -154,19 +192,21 @@
             <button class="btn-icon" id="closeNotifications">✕</button>
         </div>
         <div class="notifications-list" id="notificationsList">
-            <!-- Уведомления будут здесь -->
+            <div class="empty-state">Нет уведомлений</div>
         </div>
     </div>
 
-    <!-- Modals -->
-    <div class="modal hidden" id="settingsModal">
-        <div class="modal-content">
+    <!-- Chat Modal -->
+    <div class="modal hidden" id="chatModal">
+        <div class="modal-content large">
             <div class="modal-header">
-                <h3>Настройки аккаунта</h3>
+                <h3 id="chatModalTitle">Чат с пользователем</h3>
                 <button class="btn-icon close-modal">✕</button>
             </div>
             <div class="modal-body">
-                <!-- Настройки будут загружены из settings.js -->
+                <div class="chat-interface" id="chatInterface">
+                    <!-- Чат будет загружен здесь -->
+                </div>
             </div>
         </div>
     </div>
