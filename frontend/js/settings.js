@@ -3,6 +3,7 @@ class SettingsManager {
         this.currentUser = null;
         this.settings = {};
         this.isAuthenticated = false;
+        this.apiBase = '/api'; // Базовый путь для API
         this.init();
     }
 
@@ -32,7 +33,7 @@ class SettingsManager {
             console.error('❌ Ошибка инициализации:', error);
             if (!this.isAuthenticated) {
                 this.showNotification('Требуется авторизация', 'error');
-                setTimeout(() => window.location.href = '/login.html', 2000);
+                setTimeout(() => window.location.href = '/auth.html', 2000);
             } else {
                 this.showNotification('Ошибка загрузки настроек', 'error');
             }
@@ -53,8 +54,8 @@ class SettingsManager {
             this.currentUser = JSON.parse(userData);
             console.log('👤 Текущий пользователь:', this.currentUser);
             
-            // Проверяем токен через API
-            const response = await fetch('/api/auth/verify', {
+            // Проверяем токен через API (аналогично твоей системе)
+            const response = await fetch(`${this.apiBase}/auth/verify`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -70,9 +71,15 @@ class SettingsManager {
             const result = await response.json();
             console.log('🔑 Результат проверки токена:', result);
             
-            if (result.valid) {
+            if (result.success && result.valid) {
                 this.isAuthenticated = true;
                 console.log('✅ Аутентификация успешна');
+                
+                // Обновляем данные пользователя
+                if (result.user) {
+                    this.currentUser = result.user;
+                    localStorage.setItem('user_data', JSON.stringify(result.user));
+                }
             } else {
                 throw new Error('Токен невалиден');
             }
@@ -80,13 +87,13 @@ class SettingsManager {
             console.error('❌ Ошибка аутентификации:', error);
             this.isAuthenticated = false;
             
-            // Очищаем невалидные данные
+            // Очищаем невалидные данные (как в твоей системе)
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
             
             this.showNotification('Сессия истекла. Пожалуйста, войдите снова.', 'error');
             setTimeout(() => {
-                window.location.href = '/login.html';
+                window.location.href = '/auth.html';
             }, 2000);
             throw error;
         }
@@ -124,7 +131,7 @@ class SettingsManager {
         } catch (error) {
             console.error('❌ Ошибка запроса:', error);
             
-            // Если ошибка аутентификации, перенаправляем на логин
+            // Если ошибка аутентификации, перенаправляем на auth.html
             if (error.message.includes('Authentication') || error.message.includes('401')) {
                 this.handleUnauthorized();
             }
@@ -139,7 +146,7 @@ class SettingsManager {
         localStorage.removeItem('user_data');
         this.showNotification('Сессия истекла', 'error');
         setTimeout(() => {
-            window.location.href = '/login.html';
+            window.location.href = '/auth.html';
         }, 2000);
     }
 
@@ -160,6 +167,12 @@ class SettingsManager {
         
         if (avatarPreview && this.currentUser.avatar_url) {
             avatarPreview.src = this.currentUser.avatar_url + '?t=' + Date.now();
+        }
+
+        // Загружаем Telegram username если есть
+        const telegramInput = document.getElementById('telegram');
+        if (telegramInput && this.currentUser.telegram_username) {
+            telegramInput.value = this.currentUser.telegram_username;
         }
     }
 
@@ -296,6 +309,7 @@ class SettingsManager {
 
         const username = document.getElementById('username').value.trim();
         const bio = document.getElementById('bio').value.trim();
+        const telegram = document.getElementById('telegram')?.value.trim() || '';
 
         if (!username) {
             this.showNotification('Имя пользователя обязательно', 'error');
@@ -307,12 +321,18 @@ class SettingsManager {
             return;
         }
 
+        if (telegram && !telegram.startsWith('@')) {
+            this.showNotification('Telegram username должен начинаться с @', 'error');
+            return;
+        }
+
         try {
-            const result = await this.makeRequest('/api/user/update-profile', {
+            const result = await this.makeRequest(`${this.apiBase}/user/update-profile`, {
                 method: 'POST',
                 body: JSON.stringify({ 
                     username, 
                     bio,
+                    telegram_username: telegram,
                     user_id: this.currentUser.id 
                 })
             });
@@ -321,6 +341,7 @@ class SettingsManager {
                 // Обновляем данные пользователя
                 this.currentUser.username = username;
                 this.currentUser.bio = bio;
+                this.currentUser.telegram_username = telegram;
                 localStorage.setItem('user_data', JSON.stringify(this.currentUser));
                 this.showNotification('Профиль успешно обновлен', 'success');
             } else {
@@ -358,7 +379,7 @@ class SettingsManager {
         }
 
         try {
-            const result = await this.makeRequest('/api/user/change-password', {
+            const result = await this.makeRequest(`${this.apiBase}/user/change-password`, {
                 method: 'POST',
                 body: JSON.stringify({
                     current_password: currentPassword,
@@ -481,7 +502,7 @@ class SettingsManager {
         };
 
         try {
-            const result = await this.makeRequest('/api/user/settings', {
+            const result = await this.makeRequest(`${this.apiBase}/user/settings`, {
                 method: 'POST',
                 body: JSON.stringify({ 
                     settings,
@@ -501,7 +522,7 @@ class SettingsManager {
         if (!this.isAuthenticated) return;
 
         try {
-            const result = await this.makeRequest(`/api/user/settings?user_id=${this.currentUser.id}`);
+            const result = await this.makeRequest(`${this.apiBase}/user/settings?user_id=${this.currentUser.id}`);
             
             if (result.success && result.settings) {
                 this.settings = result.settings;
@@ -581,7 +602,281 @@ class SettingsManager {
         }
     }
 
-    // ... остальные методы остаются такими же, но с проверкой this.isAuthenticated
+    async handleAvatarUpload(file) {
+        if (!this.isAuthenticated) return;
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Пожалуйста, выберите изображение', 'error');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            this.showNotification('Размер файла не должен превышать 5MB', 'error');
+            return;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('avatar', file);
+            formData.append('user_id', this.currentUser.id);
+
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`${this.apiBase}/user/upload-avatar`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                document.getElementById('avatarPreview').src = result.avatar_url + '?t=' + Date.now();
+                this.currentUser.avatar_url = result.avatar_url;
+                localStorage.setItem('user_data', JSON.stringify(this.currentUser));
+                this.showNotification('Аватар успешно обновлен', 'success');
+            } else {
+                throw new Error(result.error || 'Неизвестная ошибка');
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки аватара:', error);
+            this.showNotification(error.message || 'Ошибка загрузки аватара', 'error');
+        }
+    }
+
+    async removeAvatar() {
+        if (!this.isAuthenticated) return;
+        if (!confirm('Вы уверены, что хотите удалить аватар?')) return;
+
+        try {
+            const result = await this.makeRequest(`${this.apiBase}/user/remove-avatar`, {
+                method: 'POST',
+                body: JSON.stringify({ user_id: this.currentUser.id })
+            });
+
+            if (result.success) {
+                document.getElementById('avatarPreview').src = 'images/default-avatar.svg';
+                this.currentUser.avatar_url = null;
+                localStorage.setItem('user_data', JSON.stringify(this.currentUser));
+                this.showNotification('Аватар удален', 'success');
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка удаления аватара:', error);
+            this.showNotification(error.message || 'Ошибка удаления аватара', 'error');
+        }
+    }
+
+    async toggleNotificationPermission(enabled) {
+        if (!this.isAuthenticated) return;
+
+        if (enabled) {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                
+                if (permission === 'granted') {
+                    this.showNotification('Уведомления включены', 'success');
+                    
+                    // Создаем тестовое уведомление
+                    if (this.settings.pushNotifications) {
+                        new Notification('Спокойный рассвет', {
+                            body: 'Уведомления успешно включены!',
+                            icon: '/images/logo.png'
+                        });
+                    }
+                    
+                    // Настраиваем push-уведомления
+                    await this.setupPushNotifications();
+                } else {
+                    this.showNotification('Разрешите уведомления в настройках браузера', 'warning');
+                    document.getElementById('enableNotifications').checked = false;
+                }
+            } else {
+                this.showNotification('Ваш браузер не поддерживает уведомления', 'warning');
+                document.getElementById('enableNotifications').checked = false;
+            }
+        }
+        
+        this.settings.enableNotifications = enabled;
+        this.saveSettings();
+    }
+
+    async setupPushNotifications() {
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            try {
+                // Регистрируем Service Worker
+                const registration = await navigator.serviceWorker.register('/sw.js');
+                console.log('✅ Service Worker зарегистрирован');
+
+                // Подписываем на push-уведомления
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: this.urlBase64ToUint8Array('YOUR_VAPID_PUBLIC_KEY_HERE')
+                });
+
+                // Отправляем подписку на сервер
+                await this.savePushSubscription(subscription);
+                
+            } catch (error) {
+                console.error('❌ Ошибка настройки push-уведомлений:', error);
+            }
+        }
+    }
+
+    urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    async savePushSubscription(subscription) {
+        try {
+            await this.makeRequest(`${this.apiBase}/user/push-subscription`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    subscription,
+                    user_id: this.currentUser.id
+                })
+            });
+        } catch (error) {
+            console.error('❌ Ошибка сохранения подписки:', error);
+        }
+    }
+
+    checkPasswordStrength() {
+        const password = document.getElementById('newPassword').value;
+        const strengthFill = document.getElementById('passwordStrength');
+        const strengthText = document.getElementById('passwordStrengthText');
+        
+        if (!password) {
+            strengthFill.style.width = '0%';
+            strengthText.textContent = 'Введите пароль';
+            strengthText.style.color = 'var(--text-secondary)';
+            return;
+        }
+        
+        let strength = 0;
+        if (password.length >= 6) strength++;
+        if (password.length >= 8) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+        
+        if (strength <= 2) {
+            strengthFill.style.width = '33%';
+            strengthFill.style.background = '#ef4444';
+            strengthText.textContent = 'Слабый';
+            strengthText.style.color = '#ef4444';
+        } else if (strength <= 4) {
+            strengthFill.style.width = '66%';
+            strengthFill.style.background = '#f59e0b';
+            strengthText.textContent = 'Средний';
+            strengthText.style.color = '#f59e0b';
+        } else {
+            strengthFill.style.width = '100%';
+            strengthFill.style.background = '#10b981';
+            strengthText.textContent = 'Сильный';
+            strengthText.style.color = '#10b981';
+        }
+    }
+
+    resetPasswordStrength() {
+        const strengthFill = document.getElementById('passwordStrength');
+        const strengthText = document.getElementById('passwordStrengthText');
+        
+        strengthFill.style.width = '0%';
+        strengthText.textContent = 'Введите пароль';
+        strengthText.style.color = 'var(--text-secondary)';
+    }
+
+    loadAccountInfo() {
+        if (!this.currentUser || !this.isAuthenticated) return;
+
+        const accountId = document.getElementById('accountId');
+        const accountRole = document.getElementById('accountRole');
+        const accountCreated = document.getElementById('accountCreated');
+        const accountTelegram = document.getElementById('accountTelegram');
+
+        if (accountId) accountId.textContent = this.currentUser.id || '-';
+        if (accountRole) accountRole.textContent = this.getRoleName(this.currentUser.role);
+        if (accountCreated) accountCreated.textContent = this.currentUser.created_at ? 
+            new Date(this.currentUser.created_at).toLocaleDateString('ru-RU') : '-';
+        if (accountTelegram) accountTelegram.textContent = this.currentUser.telegram_username || 'Не указан';
+    }
+
+    getRoleName(role) {
+        const roles = {
+            'user': 'Пользователь',
+            'listener': 'Слушатель',
+            'coowner': 'Совладелец', 
+            'admin': 'Администратор',
+            'owner': 'Владелец'
+        };
+        return roles[role] || role;
+    }
+
+    getThemeName(theme) {
+        const themes = {
+            'light': 'Светлая',
+            'dark': 'Темная',
+            'blue': 'Синяя',
+            'green': 'Зеленая',
+            'orange': 'Оранжевая',
+            'purple': 'Фиолетовая'
+        };
+        return themes[theme] || theme;
+    }
+
+    showDeleteConfirm() {
+        if (!this.isAuthenticated) return;
+        
+        if (confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.')) {
+            this.deleteAccount();
+        }
+    }
+
+    async deleteAccount() {
+        if (!this.isAuthenticated) return;
+
+        const password = prompt('Введите ваш пароль для подтверждения:');
+        if (!password) return;
+
+        try {
+            const result = await this.makeRequest(`${this.apiBase}/user/delete-account`, {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    password,
+                    user_id: this.currentUser.id 
+                })
+            });
+
+            if (result.success) {
+                this.showNotification('Аккаунт удален', 'success');
+                setTimeout(() => this.logout(), 2000);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка удаления аккаунта:', error);
+            this.showNotification(error.message || 'Ошибка удаления аккаунта', 'error');
+        }
+    }
 
     showNotification(message, type = 'info') {
         // Удаляем предыдущие уведомления
@@ -630,7 +925,24 @@ class SettingsManager {
     }
 
     goBack() {
-        window.history.back();
+        // Возвращаем на соответствующую страницу по роли (как в твоей системе)
+        const role = this.currentUser?.role || 'user';
+        switch(role) {
+            case 'owner':
+                window.location.href = '/owner.html';
+                break;
+            case 'admin':
+                window.location.href = '/admin.html';
+                break;
+            case 'coowner':
+                window.location.href = '/coowner.html';
+                break;
+            case 'listener':
+                window.location.href = '/listener.html';
+                break;
+            default:
+                window.location.href = '/chat.html';
+        }
     }
 
     logout() {
@@ -638,7 +950,7 @@ class SettingsManager {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
         localStorage.removeItem('selected-theme');
-        window.location.href = '/login.html';
+        window.location.href = '/auth.html';
     }
 }
 
