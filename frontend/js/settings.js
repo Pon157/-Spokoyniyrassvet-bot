@@ -1,3 +1,8 @@
+<script src="js/push-manager.js"></script>
+<script src="js/telegram-notifications.js"></script>
+<script src="sw.js"></script>
+<script src="js/settings.js"></script>
+
 // Temporary mock for demonstration
 window.mockAPI = {
     async verifyToken(token) {
