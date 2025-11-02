@@ -245,3 +245,176 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log('   👑 admin / admin');
     console.log('   🎧 listener / listener');
 });
+// ==================== LISTENER ROUTES ====================
+
+// Получение чатов слушателя
+app.get('/api/listener/chats', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) return res.json({ success: false, error: 'Нет токена' });
+
+        // Мок данные для демонстрации
+        const mockChats = [
+            {
+                id: '1',
+                user_name: 'Анна Петрова',
+                user_avatar: '/images/default-avatar.svg',
+                status: 'active',
+                unread_count: 2,
+                last_message: 'Спасибо за помощь! Стало значительно легче.',
+                last_message_time: new Date().toISOString(),
+                created_at: new Date(Date.now() - 3600000).toISOString()
+            },
+            {
+                id: '2',
+                user_name: 'Иван Сидоров',
+                user_avatar: '/images/default-avatar.svg',
+                status: 'active', 
+                unread_count: 0,
+                last_message: 'Можете помочь с тревогой?',
+                last_message_time: new Date(Date.now() - 7200000).toISOString(),
+                created_at: new Date(Date.now() - 10800000).toISOString()
+            },
+            {
+                id: '3',
+                user_name: 'Мария Козлова',
+                user_avatar: '/images/default-avatar.svg',
+                status: 'waiting',
+                unread_count: 1,
+                last_message: 'Здравствуйте, нужна ваша поддержка',
+                last_message_time: new Date(Date.now() - 1800000).toISOString(),
+                created_at: new Date(Date.now() - 1800000).toISOString()
+            }
+        ];
+
+        res.json({ success: true, chats: mockChats });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    }
+});
+
+// Получение отзывов слушателя
+app.get('/api/listener/reviews', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) return res.json({ success: false, error: 'Нет токена' });
+
+        // Мок данные для демонстрации
+        const mockReviews = {
+            reviews: [
+                {
+                    id: '1',
+                    user_name: 'Анна Петрова',
+                    rating: 5,
+                    comment: 'Очень помогли разобраться в ситуации, благодарю за профессиональный подход и поддержку!',
+                    created_at: new Date(Date.now() - 86400000).toISOString()
+                },
+                {
+                    id: '2',
+                    user_name: 'Иван Сидоров',
+                    rating: 4,
+                    comment: 'Спасибо за помощь в сложный момент. Очень внимательный и отзывчивый специалист.',
+                    created_at: new Date(Date.now() - 172800000).toISOString()
+                },
+                {
+                    id: '3', 
+                    user_name: 'Елена Васильева',
+                    rating: 5,
+                    comment: 'Лучший слушатель! Очень тонко чувствует состояние и дает практические советы.',
+                    created_at: new Date(Date.now() - 259200000).toISOString()
+                }
+            ],
+            averageRating: 4.7,
+            totalReviews: 3
+        };
+
+        res.json({ success: true, ...mockReviews });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    }
+});
+
+// Статистика слушателя
+app.get('/api/listener/statistics', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) return res.json({ success: false, error: 'Нет токена' });
+
+        // Мок данные для демонстрации
+        const mockStats = {
+            totalSessions: 24,
+            activeChats: 3,
+            averageRating: 4.7,
+            helpfulness: 92,
+            weeklyActivity: {
+                '01.01': 5,
+                '02.01': 8,
+                '03.01': 12,
+                '04.01': 6,
+                '05.01': 9,
+                '06.01': 11,
+                '07.01': 7
+            }
+        };
+
+        res.json({ success: true, ...mockStats });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    }
+});
+
+// Онлайн слушатели
+app.get('/api/listener/online-listeners', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) return res.json({ success: false, error: 'Нет токена' });
+
+        // Мок данные для демонстрации
+        const mockListeners = [
+            {
+                id: '2',
+                name: 'Анна Слушатель',
+                avatar: '/images/default-avatar.svg',
+                is_online: true,
+                bio: 'Психолог с 5-летним опытом работы с тревожными расстройствами',
+                rating: 4.8
+            },
+            {
+                id: '3',
+                name: 'Максим Помощник',
+                avatar: '/images/default-avatar.svg',
+                is_online: true,
+                bio: 'Специалист по кризисным ситуациям и работе со стрессом',
+                rating: 4.9
+            },
+            {
+                id: '4',
+                name: 'Ольга Консультант',
+                avatar: '/images/default-avatar.svg', 
+                is_online: false,
+                bio: 'Когнитивно-поведенческая терапия, работа с самооценкой',
+                rating: 4.7
+            }
+        ];
+
+        res.json({ success: true, listeners: mockListeners });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    }
+});
+
+// Обновление статуса слушателя
+app.post('/api/listener/status', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token) return res.json({ success: false, error: 'Нет токена' });
+
+        const { online } = req.body;
+
+        // В мок версии просто возвращаем успех
+        res.json({ success: true, online });
+
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    }
+});
