@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Слушатель - Общение и поддержка</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/modern.css">
+    <link rel="stylesheet" href="css/light-theme.css" id="theme-css">
+    <link rel="stylesheet" href="css/listener.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="logo">Обшение и поддержка</h1>
+                <span class="user-role">Слушатель</span>
+            </div>
+            <div class="header-center">
+                <div class="online-status" id="onlineStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Онлайн</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn-icon" id="notificationsBtn">
+                    <span class="icon-bell"></span>
+                    <span class="notification-badge hidden" id="notificationBadge">0</span>
+                </button>
+                <button class="btn-icon" id="settingsBtn">
+                    <span class="icon-settings"></span>
+                </button>
+                <button class="btn-primary" id="logoutBtn">Выйти</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav class="sidebar-nav">
+                    <button class="nav-item active" data-tab="user-chat">
+                        <span class="nav-icon">💬</span>
+                        <span class="nav-text">Чат с пользователями</span>
+                    </button>
+                    <button class="nav-item" data-tab="listener-chat">
+                        <span class="nav-icon">👥</span>
+                        <span class="nav-text">Чат с слушателями</span>
+                    </button>
+                    <button class="nav-item" data-tab="reviews">
+                        <span class="nav-icon">⭐</span>
+                        <span class="nav-text">Мои отзывы</span>
+                    </button>
+                    <button class="nav-item" data-tab="statistics">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">Статистика</span>
+                    </button>
+                </nav>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- User Chat Tab -->
+                <div class="tab-content active" id="user-chat">
+                    <div class="chat-container">
+                        <div class="chat-header">
+                            <h2>Чат с пользователями</h2>
+                            <div class="chat-controls">
+                                <button class="btn-secondary" id="refreshChats">Обновить</button>
+                            </div>
+                        </div>
+                        <div class="chats-list" id="chatsList">
+                            <!-- Список чатов будет загружен здесь -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Listener Chat Tab -->
+                <div class="tab-content" id="listener-chat">
+                    <div class="chat-container">
+                        <div class="chat-header">
+                            <h2>Чат с слушателями</h2>
+                        </div>
+                        <div class="listener-chat-interface">
+                            <div class="online-listeners">
+                                <h3>Онлайн слушатели</h3>
+                                <div class="listeners-list" id="listenersList">
+                                    <!-- Список слушателей будет здесь -->
+                                </div>
+                            </div>
+                            <div class="chat-messages" id="listenerChatMessages">
+                                <!-- Сообщения между слушателями -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reviews Tab -->
+                <div class="tab-content" id="reviews">
+                    <div class="reviews-container">
+                        <h2>Мои отзывы</h2>
+                        <div class="reviews-stats">
+                            <div class="stat-card">
+                                <span class="stat-value" id="avgRating">4.8</span>
+                                <span class="stat-label">Средний рейтинг</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-value" id="totalReviews">24</span>
+                                <span class="stat-label">Всего отзывов</span>
+                            </div>
+                        </div>
+                        <div class="reviews-list" id="reviewsList">
+                            <!-- Список отзывов будет здесь -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Tab -->
+                <div class="tab-content" id="statistics">
+                    <div class="statistics-container">
+                        <h2>Моя статистика</h2>
+                        <div class="stats-grid">
+                            <div class="stat-card large">
+                                <span class="stat-value" id="totalSessions">156</span>
+                                <span class="stat-label">Всего сессий</span>
+                            </div>
+                            <div class="stat-card large">
+                                <span class="stat-value" id="avgSessionTime">45</span>
+                                <span class="stat-label">Среднее время (мин)</span>
+                            </div>
+                            <div class="stat-card large">
+                                <span class="stat-value" id="activeChats">3</span>
+                                <span class="stat-label">Активные чаты</span>
+                            </div>
+                            <div class="stat-card large">
+                                <span class="stat-value" id="helpfulness">92%</span>
+                                <span class="stat-label">Полезность</span>
+                            </div>
+                        </div>
+                        <div class="charts-container">
+                            <canvas id="sessionsChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Notifications Panel -->
+    <div class="notifications-panel hidden" id="notificationsPanel">
+        <div class="notifications-header">
+            <h3>Уведомления</h3>
+            <button class="btn-icon" id="closeNotifications">✕</button>
+        </div>
+        <div class="notifications-list" id="notificationsList">
+            <!-- Уведомления будут здесь -->
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal hidden" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Настройки аккаунта</h3>
+                <button class="btn-icon close-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Настройки будут загружены из settings.js -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/socket-client.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/listener.js"></script>
+</body>
+</html>
