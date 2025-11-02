@@ -8,12 +8,14 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Данные пользователя:', userData ? 'есть' : 'нет');
     console.log('Текущая страница:', window.location.pathname);
     
+    // Если нет токена - перенаправляем на главную
     if (!token || !userData) {
         console.log('❌ Нет аутентификации, перенаправляем на главную');
         window.location.href = '/';
         return;
     }
     
+    // ЕСЛИ УЖЕ ЕСТЬ ПРИЛОЖЕНИЕ - НЕ СОЗДАВАЙ ЕЩЕ РАЗ
     if (window.app) {
         console.log('✅ Приложение уже инициализировано');
         return;
@@ -23,6 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const user = JSON.parse(userData);
         console.log('✅ Пользователь аутентифицирован:', user.username);
         
+        // Инициализируем приложение чата
         window.app = new ChatApp();
         
     } catch (error) {
@@ -49,6 +52,7 @@ class ChatApp {
             'owner': ['*']
         };
         
+        // Получаем данные пользователя из localStorage
         const userData = localStorage.getItem('user_data');
         if (userData) {
             this.currentUser = JSON.parse(userData);
@@ -60,12 +64,14 @@ class ChatApp {
     async init() {
         console.log('🚀 Инициализация чата для:', this.currentUser.username, 'Роль:', this.currentUser.role);
         
+        // Проверяем аутентификацию через API
         const isAuthenticated = await this.verifyAuth();
         if (!isAuthenticated) {
             this.logout();
             return;
         }
         
+        // Проверяем, что пользователь на правильной странице
         if (!this.isOnCorrectPage()) {
             this.redirectToCorrectPage();
             return;
@@ -76,6 +82,7 @@ class ChatApp {
         this.setupEventListeners();
         this.loadStickers();
         
+        // Загружаем функции в зависимости от роли
         this.loadRoleSpecificFeatures();
     }
 
@@ -144,6 +151,9 @@ class ChatApp {
 
         this.socket.on('connect', () => {
             console.log('✅ WebSocket подключен');
+            
+            // Аутентифицируем сокет
+            this.socket.emit('authenticate', { token: token });
         });
 
         this.socket.on('disconnect', () => {
@@ -156,6 +166,7 @@ class ChatApp {
             this.logout();
         });
 
+        // Обработчики событий WebSocket
         this.socket.on('authenticated', (data) => {
             console.log('✅ WebSocket аутентифицирован');
         });
@@ -172,20 +183,21 @@ class ChatApp {
             this.updateUserStatus(data);
         });
 
-        this.socket.on('notification', (notification) => {
-            this.handleSystemNotification(notification);
+        this.socket.on('message_sent', (data) => {
+            console.log('✅ Сообщение доставлено на сервер');
         });
     }
 
     loadUserData() {
+        // Обновляем интерфейс пользователя
         const usernameElement = document.getElementById('username');
         const userRoleElement = document.getElementById('userRole');
         const userAvatarElement = document.getElementById('userAvatar');
         
         if (usernameElement) usernameElement.textContent = this.currentUser.username;
         if (userRoleElement) userRoleElement.textContent = this.getRoleDisplayName(this.currentUser.role);
-        if (userAvatarElement && this.currentUser.avatar_url) {
-            userAvatarElement.src = this.currentUser.avatar_url;
+        if (userAvatarElement) {
+            userAvatarElement.src = this.currentUser.avatar_url || '/images/default-avatar.svg';
         }
 
         this.loadChats();
@@ -193,12 +205,14 @@ class ChatApp {
     }
 
     setupEventListeners() {
+        // Навигация по табам
         document.querySelectorAll('.sidebar-tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 this.switchSidebarTab(e.target.dataset.tab);
             });
         });
 
+        // Кнопка настроек
         const settingsBtn = document.getElementById('settingsBtn');
         if (settingsBtn) {
             settingsBtn.addEventListener('click', () => {
@@ -206,6 +220,7 @@ class ChatApp {
             });
         }
 
+        // Новый чат
         const newChatBtn = document.getElementById('newChatBtn');
         if (newChatBtn) {
             newChatBtn.addEventListener('click', () => {
@@ -213,6 +228,7 @@ class ChatApp {
             });
         }
 
+        // Поиск
         const chatSearch = document.getElementById('chatSearch');
         if (chatSearch) {
             chatSearch.addEventListener('input', (e) => {
@@ -227,10 +243,19 @@ class ChatApp {
             });
         }
 
+        // Закрытие чата
         const closeChatBtn = document.getElementById('closeChatBtn');
         if (closeChatBtn) {
             closeChatBtn.addEventListener('click', () => {
                 this.closeCurrentChat();
+            });
+        }
+
+        // Кнопка "Начать чат" в заглушке
+        const startChatBtn = document.getElementById('startChatBtn');
+        if (startChatBtn) {
+            startChatBtn.addEventListener('click', () => {
+                this.createNewChat();
             });
         }
     }
@@ -260,28 +285,21 @@ class ChatApp {
         console.log('🎧 Загрузка функций слушателя');
         this.showListenerFeatures();
         this.loadReviews();
-        this.setupListenerModeration();
     }
 
     loadAdminFeatures() {
         console.log('⚡ Загрузка функций администратора');
         this.showAdminFeatures();
-        this.loadModerationTools();
-        this.loadSystemStats();
     }
 
     loadCoownerFeatures() {
         console.log('👑 Загрузка функций совладельца');
         this.showCoownerFeatures();
-        this.loadFinancialData();
-        this.loadBusinessAnalytics();
     }
 
     loadOwnerFeatures() {
         console.log('💎 Загрузка функций владельца');
         this.showOwnerFeatures();
-        this.loadFullSystemAccess();
-        this.loadOwnerDashboard();
     }
 
     loadUserFeatures() {
@@ -300,32 +318,17 @@ class ChatApp {
 
     showAdminFeatures() {
         const adminTab = document.getElementById('adminTab');
-        const moderationTab = document.getElementById('moderationTab');
-        
         if (adminTab) adminTab.style.display = 'flex';
-        if (moderationTab) moderationTab.style.display = 'flex';
-        
-        this.loadModerationTools();
     }
 
     showCoownerFeatures() {
         const coownerTab = document.getElementById('coownerTab');
-        const financialTab = document.getElementById('financialTab');
-        
         if (coownerTab) coownerTab.style.display = 'flex';
-        if (financialTab) financialTab.style.display = 'flex';
-        
-        this.loadFinancialData();
     }
 
     showOwnerFeatures() {
         const ownerTab = document.getElementById('ownerTab');
-        const systemTab = document.getElementById('systemTab');
-        
         if (ownerTab) ownerTab.style.display = 'flex';
-        if (systemTab) systemTab.style.display = 'flex';
-        
-        this.loadFullSystemAccess();
     }
 
     switchSidebarTab(tabName) {
@@ -443,7 +446,7 @@ class ChatApp {
         const div = document.createElement('div');
         div.className = `chat-item ${chat.unread_count > 0 ? 'unread' : ''}`;
         div.innerHTML = `
-            <img src="${chat.partner_avatar || 'images/default-avatar.png'}" class="avatar">
+            <img src="${chat.partner_avatar || '/images/default-avatar.svg'}" class="avatar">
             <div class="chat-info">
                 <div class="chat-header">
                     <span class="chat-name">${chat.partner_name || 'Пользователь'}</span>
@@ -482,7 +485,7 @@ class ChatApp {
         const div = document.createElement('div');
         div.className = 'listener-item';
         div.innerHTML = `
-            <img src="${listener.avatar_url || 'images/default-avatar.png'}" class="avatar">
+            <img src="${listener.avatar_url || '/images/default-avatar.svg'}" class="avatar">
             <div class="listener-info">
                 <div class="listener-name">${listener.username}</div>
                 <div class="listener-status ${listener.is_online ? 'online' : 'offline'}">
@@ -573,7 +576,7 @@ class ChatApp {
         const partnerStatus = document.getElementById('partnerStatus');
         
         if (partnerName) partnerName.textContent = chat.partner_name || 'Пользователь';
-        if (partnerAvatar) partnerAvatar.src = chat.partner_avatar || 'images/default-avatar.png';
+        if (partnerAvatar) partnerAvatar.src = chat.partner_avatar || '/images/default-avatar.svg';
         if (partnerStatus) partnerStatus.textContent = chat.partner_online ? 'online' : 'offline';
         
         if (this.socket) {
@@ -662,6 +665,7 @@ class ChatApp {
                 this.scrollToBottom();
             }
         } else {
+            // Обновляем список чатов
             this.loadChats();
         }
     }
@@ -681,6 +685,7 @@ class ChatApp {
     }
 
     updateUserStatus(data) {
+        // Обновляем статус в активном чате
         if (this.currentChat && 
             (this.currentChat.partner_id === data.user_id || 
              this.currentChat.user_id === data.user_id)) {
@@ -690,16 +695,9 @@ class ChatApp {
             }
         }
         
+        // Обновляем статус в списках
         this.loadChats();
         this.loadListeners();
-    }
-
-    handleSystemNotification(notification) {
-        this.showNotification(notification.message, notification.type || 'info');
-        
-        if (notification.action === 'refresh_chats') {
-            this.loadChats();
-        }
     }
 
     async createNewChat() {
@@ -719,6 +717,9 @@ class ChatApp {
                 this.chats.unshift(data.chat);
                 this.renderChats();
                 this.selectChat(data.chat);
+                this.showNotification('Новый чат создан', 'success');
+            } else {
+                throw new Error('Ошибка создания чата');
             }
         } catch (error) {
             console.error('Ошибка создания чата:', error);
@@ -743,6 +744,9 @@ class ChatApp {
                 this.chats.unshift(data.chat);
                 this.renderChats();
                 this.selectChat(data.chat);
+                this.showNotification('Чат со слушателем создан', 'success');
+            } else {
+                throw new Error('Ошибка создания чата');
             }
         } catch (error) {
             console.error('Ошибка создания чата:', error);
@@ -773,6 +777,8 @@ class ChatApp {
                 sticker_url: stickerUrl,
                 message_type: 'sticker'
             });
+            
+            this.showNotification('Стикер отправлен', 'success');
         } catch (error) {
             console.error('Ошибка отправки стикера:', error);
             this.showNotification('Ошибка отправки стикера', 'error');
@@ -797,6 +803,7 @@ class ChatApp {
         return userPermissions.includes(permission) || userPermissions.includes('*');
     }
 
+    // Вспомогательные методы
     formatTime(dateString) {
         if (!dateString) return '';
         
@@ -845,6 +852,7 @@ class ChatApp {
     }
 
     showNotification(message, type = 'info') {
+        // Создаем контейнер для уведомлений если его нет
         let container = document.getElementById('notificationsContainer');
         if (!container) {
             container = document.createElement('div');
@@ -869,13 +877,16 @@ class ChatApp {
             color: white;
             background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3'};
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            animation: slideInRight 0.3s ease;
         `;
         notification.textContent = message;
 
         container.appendChild(notification);
 
         setTimeout(() => {
-            notification.remove();
+            if (notification.parentNode) {
+                notification.remove();
+            }
         }, 3000);
     }
 
@@ -886,35 +897,6 @@ class ChatApp {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
         window.location.href = '/';
-    }
-
-    // Методы для расширенной функциональности (заглушки)
-    setupListenerModeration() {
-        console.log('⚙️ Настройка модерации для слушателя');
-    }
-
-    loadModerationTools() {
-        console.log('🛠 Загрузка инструментов модерации');
-    }
-
-    loadSystemStats() {
-        console.log('📊 Загрузка статистики системы');
-    }
-
-    loadFinancialData() {
-        console.log('💰 Загрузка финансовых данных');
-    }
-
-    loadBusinessAnalytics() {
-        console.log('📈 Загрузка бизнес-аналитики');
-    }
-
-    loadFullSystemAccess() {
-        console.log('🔓 Загрузка полного доступа к системе');
-    }
-
-    loadOwnerDashboard() {
-        console.log('🎛 Загрузка дашборда владельца');
     }
 
     filterChats(query) {
