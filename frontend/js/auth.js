@@ -3,43 +3,58 @@ class AuthManager {
     constructor() {
         this.currentForm = 'login';
         this.apiBase = '/auth';
+        this.roleHierarchy = {
+            'user': 1,
+            'listener': 2, 
+            'coowner': 3,
+            'admin': 4,
+            'owner': 5
+        };
         this.init();
     }
 
     init() {
         this.bindEvents();
         this.checkAuthState();
+        this.setupTermsModal();
     }
 
     bindEvents() {
+        // Форма входа
         document.getElementById('loginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleLogin();
         });
 
+        // Форма регистрации
         document.getElementById('registerForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleRegister();
         });
 
+        // Форма восстановления пароля
         document.getElementById('forgotPasswordForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleForgotPassword();
         });
 
+        // Переключение между формами
         document.getElementById('switchBtn').addEventListener('click', () => {
             this.switchForms();
         });
 
+        // Ссылка "Забыли пароль"
         document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
             e.preventDefault();
             this.showForm('forgotPassword');
         });
 
+        // Кнопка "Назад к входу"
         document.getElementById('backToLogin').addEventListener('click', () => {
             this.showForm('login');
         });
 
+        // Переключение видимости пароля
         document.getElementById('toggleLoginPassword').addEventListener('click', () => {
             this.togglePassword('loginPassword', 'toggleLoginPassword');
         });
@@ -48,8 +63,7 @@ class AuthManager {
             this.togglePassword('registerPassword', 'toggleRegisterPassword');
         });
 
-        this.setupTermsModal();
-
+        // Enter key support
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const activeForm = document.querySelector('.auth-form.active');
@@ -89,7 +103,9 @@ class AuthManager {
 
         if (modalAcceptTerms) {
             modalAcceptTerms.addEventListener('change', () => {
-                acceptTermsBtn.disabled = !modalAcceptTerms.checked;
+                if (acceptTermsBtn) {
+                    acceptTermsBtn.disabled = !modalAcceptTerms.checked;
+                }
             });
         }
 
@@ -456,23 +472,43 @@ class AuthManager {
         this.showNotification(`Добро пожаловать, ${user.username}! Ваша роль: ${roleNames[role]}`, 'success');
         
         setTimeout(() => {
-            switch(user.role) {
-                case 'owner':
-                    window.location.href = '/owner.html';
-                    break;
-                case 'admin':
-                    window.location.href = '/admin.html';
-                    break;
-                case 'coowner':
-                    window.location.href = '/coowner.html';
-                    break;
-                case 'listener':
-                    window.location.href = '/listener.html';
-                    break;
-                default:
-                    window.location.href = '/chat.html';
-            }
+            this.navigateByRole(user);
         }, 2000);
+    }
+
+    navigateByRole(user) {
+        const role = user.role || 'user';
+        const routes = {
+            'owner': '/owner.html',
+            'admin': '/admin.html',
+            'coowner': '/coowner.html',
+            'listener': '/listener.html',
+            'user': '/chat.html'
+        };
+
+        const targetPage = routes[role] || '/chat.html';
+        const currentPage = window.location.pathname;
+        
+        if (currentPage === targetPage || currentPage.includes(targetPage.replace('/', ''))) {
+            console.log(`✅ Уже на правильной странице для роли ${role}`);
+            return;
+        }
+
+        console.log(`🔄 Перенаправление ${user.username} (${role}) на ${targetPage}`);
+        window.location.href = targetPage;
+    }
+
+    hasPermission(user, requiredRole) {
+        const userLevel = this.roleHierarchy[user.role] || 0;
+        const requiredLevel = this.roleHierarchy[requiredRole] || 0;
+        return userLevel >= requiredLevel;
+    }
+
+    getAvailableRoles(user) {
+        const userLevel = this.roleHierarchy[user.role] || 0;
+        return Object.keys(this.roleHierarchy).filter(role => 
+            this.roleHierarchy[role] <= userLevel
+        );
     }
 
     async checkAuthState() {
@@ -480,15 +516,12 @@ class AuthManager {
         const userData = localStorage.getItem('user_data');
         
         console.log('🔄 Проверка состояния аутентификации...');
-        console.log('Токен:', token ? 'есть' : 'нет');
-        console.log('Текущая страница:', window.location.pathname);
         
         if (!token || !userData) {
             console.log('❌ Нет данных аутентификации');
             return;
         }
 
-        // Если уже на главной странице - не перенаправляем
         if (window.location.pathname === '/' || window.location.pathname.includes('index.html')) {
             console.log('✅ Уже на главной странице, перенаправление не нужно');
             return;
@@ -505,7 +538,7 @@ class AuthManager {
             
             if (data.success) {
                 console.log('✅ Пользователь аутентифицирован, перенаправляем...');
-                this.redirectUser(data.user);
+                this.navigateByRole(data.user);
             } else {
                 console.log('❌ Токен невалиден:', data.error);
                 localStorage.removeItem('auth_token');
@@ -523,7 +556,6 @@ class AuthManager {
 document.addEventListener('DOMContentLoaded', function() {
     window.authManager = new AuthManager();
     
-    // Проверяем, если пользователь уже авторизован, перенаправляем
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user_data');
     
@@ -531,10 +563,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('🔄 Пользователь уже авторизован, проверяем страницу...');
         const currentPage = window.location.pathname;
         
-        // Если на главной странице, но пользователь авторизован - перенаправляем
         if (currentPage === '/' || currentPage.includes('index.html')) {
             console.log('📍 На главной странице, но пользователь авторизован - перенаправляем');
-            window.authManager.redirectUser(JSON.parse(userData));
+            window.authManager.navigateByRole(JSON.parse(userData));
         }
     }
 });
