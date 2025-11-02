@@ -1,3 +1,59 @@
+// Temporary mock auth verification
+window.mockAuth = {
+    async verifyToken(token) {
+        // Имитируем успешную проверку токена
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const userData = localStorage.getItem('user_data');
+        if (!userData) {
+            return { success: false, valid: false };
+        }
+        
+        return {
+            success: true,
+            valid: true,
+            user: JSON.parse(userData)
+        };
+    }
+};
+
+// Переопределяем fetch для auth проверки
+const originalFetch = window.fetch;
+window.fetch = async function(url, options = {}) {
+    // Mock для проверки аутентификации
+    if (url === '/api/auth/verify' || url.includes('/auth/verify')) {
+        const token = options.headers?.Authorization?.replace('Bearer ', '');
+        const result = await mockAuth.verifyToken(token);
+        return new Response(JSON.stringify(result), { status: 200 });
+    }
+    
+    // Mock для других API endpoints если нужно
+    if (url.includes('/api/user/settings') && options.method === 'GET') {
+        const settings = localStorage.getItem('user_settings');
+        return new Response(JSON.stringify({ 
+            success: true, 
+            settings: settings ? JSON.parse(settings) : null 
+        }), { status: 200 });
+    }
+    
+    if (url.includes('/api/user/settings') && options.method === 'POST') {
+        const data = JSON.parse(options.body);
+        localStorage.setItem('user_settings', JSON.stringify(data.settings));
+        return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }
+    
+    // Для остальных запросов используем оригинальный fetch
+    return originalFetch(url, options);
+};
+
+// ========== НАЧАЛО КЛАССА SettingsManager ==========
+class SettingsManager {
+    constructor() {
+        this.currentUser = null;
+        this.settings = {};
+        this.isAuthenticated = false;
+        this.init();
+    }
 class SettingsManager {
     constructor() {
         this.currentUser = null;
