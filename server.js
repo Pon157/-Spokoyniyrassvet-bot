@@ -1,449 +1,247 @@
-// Auth functionality with Telegram username
-class AuthManager {
-    constructor() {
-        this.currentForm = 'login';
-        this.apiBase = '/auth';
-        this.init();
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const { Server } = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
     }
+});
 
-    init() {
-        this.bindEvents();
-        this.checkAuthState();
-    }
+const PORT = process.env.PORT || 10001;
 
-    bindEvents() {
-        // Форма входа
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleLogin();
-        });
+// Middleware
+app.use(express.json());
+app.use(express.static('frontend'));
 
-        // Форма регистрации
-        document.getElementById('registerForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleRegister();
-        });
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Сервер работает!',
+        timestamp: new Date().toISOString()
+    });
+});
 
-        // Форма восстановления пароля
-        document.getElementById('forgotPasswordForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleForgotPassword();
-        });
-
-        // Переключение между формами
-        document.getElementById('switchBtn').addEventListener('click', () => {
-            this.switchForms();
-        });
-
-        // Ссылка "Забыли пароль"
-        document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.showForm('forgotPassword');
-        });
-
-        // Кнопка "Назад к входу"
-        document.getElementById('backToLogin').addEventListener('click', () => {
-            this.showForm('login');
-        });
-
-        // Переключение видимости пароля
-        document.getElementById('toggleLoginPassword').addEventListener('click', () => {
-            this.togglePassword('loginPassword', 'toggleLoginPassword');
-        });
-
-        document.getElementById('toggleRegisterPassword').addEventListener('click', () => {
-            this.togglePassword('registerPassword', 'toggleRegisterPassword');
-        });
-
-        // Enter key support
-        document.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const activeForm = document.querySelector('.auth-form.active');
-                if (activeForm) {
-                    const submitBtn = activeForm.querySelector('button[type="submit"]');
-                    if (submitBtn) submitBtn.click();
-                }
-            }
-        });
-    }
-
-    async handleLogin() {
-        const username = document.getElementById('loginUsername').value;
-        const password = document.getElementById('loginPassword').value;
-        const rememberMe = document.getElementById('rememberMe').checked;
-
-        // Валидация
-        if (!username) {
-            this.showNotification('Пожалуйста, введите имя пользователя или Telegram', 'error');
-            return;
-        }
-
-        if (!password) {
-            this.showNotification('Пожалуйста, введите пароль', 'error');
-            return;
-        }
-
-        this.setLoading('loginBtn', true);
-
-        try {
-            const response = await fetch(`${this.apiBase}/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    username: username,
-                    password: password
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                this.showNotification('Успешный вход! Перенаправление...', 'success');
-                
-                // Сохраняем данные
-                localStorage.setItem('auth_token', data.token);
-                localStorage.setItem('user_data', JSON.stringify(data.user));
-                
-                if (rememberMe) {
-                    localStorage.setItem('remember_me', 'true');
-                }
-
-                setTimeout(() => {
-                    this.redirectUser(data.user);
-                }, 1500);
-
-            } else {
-                this.showNotification(data.error || 'Ошибка входа', 'error');
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
-        } finally {
-            this.setLoading('loginBtn', false);
-        }
-    }
-
-    async handleRegister() {
-        const username = document.getElementById('registerUsername').value;
-        const telegram = document.getElementById('registerTelegram').value;
-        const password = document.getElementById('registerPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-        const acceptTerms = document.getElementById('acceptTerms').checked;
-
-        // Валидация
-        if (!username || username.length < 2) {
-            this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
-            return;
-        }
-
-        if (!telegram || !telegram.startsWith('@')) {
-            this.showNotification('Telegram username должен начинаться с @', 'error');
-            return;
-        }
-
-        if (password.length < 6) {
-            this.showNotification('Пароль должен содержать минимум 6 символов', 'error');
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            this.showNotification('Пароли не совпадают', 'error');
-            return;
-        }
-
-        if (!acceptTerms) {
-            this.showNotification('Необходимо согласие с условиями использования', 'error');
-            return;
-        }
-
-        this.setLoading('registerBtn', true);
-
-        try {
-            const response = await fetch(`${this.apiBase}/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    username: username,
-                    telegram_username: telegram,
-                    password: password,
-                    confirmPassword: confirmPassword
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                this.showNotification('Регистрация успешна! Вы можете войти.', 'success');
-                
-                setTimeout(() => {
-                    this.showForm('login');
-                    document.getElementById('registerForm').reset();
-                }, 2000);
-
-            } else {
-                this.showNotification(data.error || 'Ошибка регистрации', 'error');
-            }
-        } catch (error) {
-            console.error('Register error:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
-        } finally {
-            this.setLoading('registerBtn', false);
-        }
-    }
-
-    async handleForgotPassword() {
-        const telegram = document.getElementById('forgotTelegram').value;
-
-        if (!telegram || !telegram.startsWith('@')) {
-            this.showNotification('Введите корректный Telegram username (начинается с @)', 'error');
-            return;
-        }
-
-        this.setLoading('forgotBtn', true);
-
-        try {
-            const response = await fetch(`${this.apiBase}/forgot-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    telegram_username: telegram
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                this.showNotification('Ожидайте, в течение дня вам напишут в личные сообщения Telegram с вашим паролем', 'success');
-                
-                setTimeout(() => {
-                    this.showForm('login');
-                    document.getElementById('forgotPasswordForm').reset();
-                }, 3000);
-
-            } else {
-                this.showNotification(data.error || 'Ошибка восстановления пароля', 'error');
-            }
-        } catch (error) {
-            console.error('Forgot password error:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
-        } finally {
-            this.setLoading('forgotBtn', false);
-        }
-    }
-
-    showForm(formType) {
-        document.querySelectorAll('.auth-form').forEach(form => {
-            form.classList.remove('active');
-        });
-
-        const targetForm = document.getElementById(formType + 'Form');
-        if (targetForm) {
-            targetForm.classList.add('active');
-            this.currentForm = formType;
-        }
-
-        if (formType === 'login') {
-            document.getElementById('switchText').textContent = 'Нет аккаунта?';
-            document.getElementById('switchBtn').textContent = 'Создать аккаунт';
-        } else if (formType === 'register') {
-            document.getElementById('switchText').textContent = 'Уже есть аккаунт?';
-            document.getElementById('switchBtn').textContent = 'Войти';
-        }
-
-        window.scrollTo(0, 0);
-    }
-
-    switchForms() {
-        if (this.currentForm === 'login') {
-            this.showForm('register');
-        } else {
-            this.showForm('login');
-        }
-    }
-
-    togglePassword(inputId, buttonId) {
-        const input = document.getElementById(inputId);
-        const toggleBtn = document.getElementById(buttonId);
-        const icon = toggleBtn.querySelector('i');
+// Аутентификация
+app.post('/auth/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
         
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.className = 'fas fa-eye-slash';
-        } else {
-            input.type = 'password';
-            icon.className = 'fas fa-eye';
-        }
-    }
-
-    setLoading(buttonId, isLoading) {
-        const button = document.getElementById(buttonId);
-        if (!button) return;
-
-        if (isLoading) {
-            button.disabled = true;
-            button.classList.add('loading');
-        } else {
-            button.disabled = false;
-            button.classList.remove('loading');
-        }
-    }
-
-    showNotification(message, type = 'success') {
-        let container = document.getElementById('notificationsContainer');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'notificationsContainer';
-            container.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 10000;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            `;
-            document.body.appendChild(container);
-        }
-
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.style.cssText = `
-            padding: 16px 20px;
-            border-radius: 12px;
-            color: white;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            animation: slideInRight 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 300px;
-            max-width: 400px;
-        `;
-
-        const icon = document.createElement('i');
-        icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
-        notification.appendChild(icon);
-
-        const messageEl = document.createElement('span');
-        messageEl.textContent = message;
-        notification.appendChild(messageEl);
-
-        container.appendChild(notification);
-
-        setTimeout(() => {
-            notification.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 300);
-        }, 5000);
-
-        if (!document.getElementById('notificationStyles')) {
-            const style = document.createElement('style');
-            style.id = 'notificationStyles';
-            style.textContent = `
-                @keyframes slideInRight {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                @keyframes slideOutRight {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                }
-                .notification.success {
-                    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-                }
-                .notification.error {
-                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                }
-            `;
-            document.head.appendChild(style);
-        }
-    }
-
-    redirectUser(user) {
-        const role = user?.role || 'user';
+        console.log('🔐 Попытка входа:', username);
         
-        const roleNames = {
-            'user': 'Пользователь',
-            'listener': 'Слушатель', 
-            'coowner': 'Совладелец',
-            'admin': 'Администратор',
-            'owner': 'Владелец'
+        if (!username || !password) {
+            return res.json({ success: false, error: 'Заполните все поля' });
+        }
+
+        // Тестовые пользователи
+        const testUsers = [
+            { username: 'test', password: 'test', role: 'user' },
+            { username: 'admin', password: 'admin', role: 'admin' },
+            { username: 'listener', password: 'listener', role: 'listener' },
+            { username: 'vitechek', password: '123', role: 'user' }
+        ];
+
+        const user = testUsers.find(u => u.username === username && u.password === password);
+        
+        if (user) {
+            return res.json({
+                success: true,
+                token: `${username}-token`,
+                user: {
+                    id: username === 'vitechek' ? '1' : '2',
+                    username: username,
+                    role: user.role,
+                    avatar_url: '/images/default-avatar.svg',
+                    bio: 'Добро пожаловать в чат!'
+                }
+            });
+        }
+
+        res.json({ success: false, error: 'Неверные данные' });
+
+    } catch (error) {
+        res.json({ success: false, error: 'Ошибка входа' });
+    }
+});
+
+app.get('/auth/verify', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        
+        if (!token) return res.json({ success: false, error: 'Нет токена' });
+
+        // Простая проверка токена
+        if (token.includes('-token')) {
+            const username = token.replace('-token', '');
+            
+            return res.json({
+                success: true,
+                user: {
+                    id: '1',
+                    username: username,
+                    role: username === 'admin' ? 'admin' : 'user',
+                    avatar_url: '/images/default-avatar.svg',
+                    bio: 'Добро пожаловать в чат!'
+                }
+            });
+        }
+
+        res.json({ success: false, error: 'Неверный токен' });
+
+    } catch (error) {
+        res.json({ success: false, error: 'Ошибка проверки' });
+    }
+});
+
+// Chat endpoints
+app.get('/chat/chats', async (req, res) => {
+    try {
+        const mockChats = [
+            {
+                id: '1',
+                partner_name: 'Анна Слушатель',
+                partner_avatar: '/images/default-avatar.svg',
+                partner_online: true,
+                last_message: 'Привет! Как твои дела?',
+                last_message_time: new Date().toISOString(),
+                unread_count: 2
+            },
+            {
+                id: '2', 
+                partner_name: 'Максим Помощник',
+                partner_avatar: '/images/default-avatar.svg',
+                partner_online: false,
+                last_message: 'Спасибо за обращение!',
+                last_message_time: new Date(Date.now() - 3600000).toISOString(),
+                unread_count: 0
+            }
+        ];
+
+        res.json({ success: true, chats: mockChats });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    }
+});
+
+app.get('/chat/listeners', async (req, res) => {
+    try {
+        const mockListeners = [
+            {
+                id: '1',
+                username: 'Анна Слушатель',
+                avatar_url: '/images/default-avatar.svg',
+                is_online: true,
+                avg_rating: 4.8,
+                reviews_count: 24
+            },
+            {
+                id: '2',
+                username: 'Максим Помощник', 
+                avatar_url: '/images/default-avatar.svg',
+                is_online: false,
+                avg_rating: 4.9,
+                reviews_count: 31
+            }
+        ];
+
+        res.json({ success: true, listeners: mockListeners });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Ошибка сервера' });
+    }
+});
+
+app.get('/chat/stickers', async (req, res) => {
+    const stickers = [
+        { id: 1, name: 'Like', url: '/images/default-avatar.svg', category: 'reactions' },
+        { id: 2, name: 'Heart', url: '/images/default-avatar.svg', category: 'reactions' },
+        { id: 3, name: 'Laugh', url: '/images/default-avatar.svg', category: 'reactions' }
+    ];
+    res.json({ success: true, stickers });
+});
+
+app.post('/chat/create', async (req, res) => {
+    try {
+        const newChat = {
+            id: Date.now().toString(),
+            partner_name: 'Новый слушатель',
+            partner_avatar: '/images/default-avatar.svg',
+            partner_online: true,
+            last_message: 'Чат начат',
+            last_message_time: new Date().toISOString(),
+            unread_count: 0
         };
-        
-        this.showNotification(`Добро пожаловать, ${user.username}! Ваша роль: ${roleNames[role]}`, 'success');
-        
-        // Перенаправление по роли
-        setTimeout(() => {
-            switch(user.role) {
-                case 'owner':
-                    window.location.href = '/owner.html';
-                    break;
-                case 'admin':
-                    window.location.href = '/admin.html';
-                    break;
-                case 'coowner':
-                    window.location.href = '/coowner.html';
-                    break;
-                case 'listener':
-                    window.location.href = '/listener.html';
-                    break;
-                default:
-                    window.location.href = '/chat.html';
-            }
-        }, 2000);
+
+        res.json({ success: true, chat: newChat });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Ошибка создания чата' });
     }
+});
 
-    async checkAuthState() {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-            try {
-                const response = await fetch(`${this.apiBase}/verify`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+// WebSocket с простой аутентификацией
+io.on('connection', (socket) => {
+    console.log('🔌 Новое WebSocket подключение:', socket.id);
 
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.redirectUser(data.user);
-                } else {
-                    // Очищаем невалидный токен
-                    localStorage.removeItem('auth_token');
-                    localStorage.removeItem('user_data');
-                }
-            } catch (error) {
-                console.error('Auth check error:', error);
-                // Очищаем невалидный токен
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('user_data');
+    socket.on('authenticate', (data) => {
+        console.log('🔐 Аутентификация WebSocket:', data);
+        socket.emit('authenticated', { success: true });
+    });
+
+    socket.on('send_message', (data) => {
+        console.log('💬 Новое сообщение:', data);
+        
+        const mockMessage = {
+            id: Date.now().toString(),
+            chat_id: data.chat_id,
+            sender_id: 'current-user',
+            content: data.content,
+            message_type: data.message_type || 'text',
+            created_at: new Date().toISOString(),
+            sender: {
+                username: 'Вы',
+                avatar_url: '/images/default-avatar.svg'
             }
-        }
-    }
-}
+        };
 
-// Initialize auth manager when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    window.authManager = new AuthManager();
+        // Эмитируем обратно тому же пользователю (имитация отправки)
+        socket.emit('new_message', mockMessage);
+        socket.emit('message_sent', { success: true });
+    });
+
+    socket.on('join_chat', (chatId) => {
+        console.log('📨 Присоединение к чату:', chatId);
+        socket.join(`chat:${chatId}`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('🔌 Отключение:', socket.id);
+    });
+});
+
+// Статические файлы
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+});
+
+app.get('/chat.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend', 'chat.html'));
+});
+
+app.get('/settings.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend', 'settings.html'));
+});
+
+// Запуск сервера
+server.listen(PORT, '0.0.0.0', () => {
+    console.log('🎉 СЕРВЕР ЗАПУЩЕН!');
+    console.log(`📍 Порт: ${PORT}`);
+    console.log('🔑 Тестовые пользователи:');
+    console.log('   👤 vitechek / 123');
+    console.log('   👤 test / test');
+    console.log('   👑 admin / admin');
+    console.log('   🎧 listener / listener');
 });
