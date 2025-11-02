@@ -3,7 +3,7 @@ class SettingsManager {
         this.currentUser = null;
         this.settings = {};
         this.isAuthenticated = false;
-        this.apiBase = '/api'; // Базовый путь для API
+        this.apiBase = '/api';
         this.init();
     }
 
@@ -11,17 +11,14 @@ class SettingsManager {
         console.log('🎯 Инициализация настроек...');
         
         try {
-            // Сначала проверяем аутентификацию
             await this.checkAuth();
             
-            // Если аутентификация успешна, загружаем остальные данные
             if (this.isAuthenticated) {
                 this.loadUserData();
                 this.setupAllEventListeners();
                 await this.loadSettings();
                 this.loadAccountInfo();
                 
-                // Применяем сохраненную тему из localStorage
                 const savedTheme = localStorage.getItem('selected-theme');
                 if (savedTheme) {
                     this.selectTheme(savedTheme, false);
@@ -33,7 +30,7 @@ class SettingsManager {
             console.error('❌ Ошибка инициализации:', error);
             if (!this.isAuthenticated) {
                 this.showNotification('Требуется авторизация', 'error');
-                setTimeout(() => window.location.href = '/auth.html', 2000);
+                setTimeout(() => window.location.href = '/index.html', 2000);
             } else {
                 this.showNotification('Ошибка загрузки настроек', 'error');
             }
@@ -54,7 +51,6 @@ class SettingsManager {
             this.currentUser = JSON.parse(userData);
             console.log('👤 Текущий пользователь:', this.currentUser);
             
-            // Проверяем токен через API (аналогично твоей системе)
             const response = await fetch(`${this.apiBase}/auth/verify`, {
                 method: 'POST',
                 headers: {
@@ -75,7 +71,6 @@ class SettingsManager {
                 this.isAuthenticated = true;
                 console.log('✅ Аутентификация успешна');
                 
-                // Обновляем данные пользователя
                 if (result.user) {
                     this.currentUser = result.user;
                     localStorage.setItem('user_data', JSON.stringify(result.user));
@@ -87,20 +82,18 @@ class SettingsManager {
             console.error('❌ Ошибка аутентификации:', error);
             this.isAuthenticated = false;
             
-            // Очищаем невалидные данные (как в твоей системе)
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
             
             this.showNotification('Сессия истекла. Пожалуйста, войдите снова.', 'error');
             setTimeout(() => {
-                window.location.href = '/auth.html';
+                window.location.href = '/index.html';
             }, 2000);
             throw error;
         }
     }
 
     async makeRequest(url, options = {}) {
-        // Проверяем аутентификацию перед каждым запросом
         if (!this.isAuthenticated) {
             throw new Error('Not authenticated');
         }
@@ -117,7 +110,6 @@ class SettingsManager {
             
             const response = await fetch(url, { ...defaultOptions, ...options });
             
-            // Если получили 401 Unauthorized, разлогиниваем пользователя
             if (response.status === 401) {
                 this.handleUnauthorized();
                 throw new Error('Authentication required');
@@ -131,7 +123,6 @@ class SettingsManager {
         } catch (error) {
             console.error('❌ Ошибка запроса:', error);
             
-            // Если ошибка аутентификации, перенаправляем на auth.html
             if (error.message.includes('Authentication') || error.message.includes('401')) {
                 this.handleUnauthorized();
             }
@@ -146,7 +137,7 @@ class SettingsManager {
         localStorage.removeItem('user_data');
         this.showNotification('Сессия истекла', 'error');
         setTimeout(() => {
-            window.location.href = '/auth.html';
+            window.location.href = '/index.html';
         }, 2000);
     }
 
@@ -169,7 +160,6 @@ class SettingsManager {
             avatarPreview.src = this.currentUser.avatar_url + '?t=' + Date.now();
         }
 
-        // Загружаем Telegram username если есть
         const telegramInput = document.getElementById('telegram');
         if (telegramInput && this.currentUser.telegram_username) {
             telegramInput.value = this.currentUser.telegram_username;
@@ -177,7 +167,6 @@ class SettingsManager {
     }
 
     setupAllEventListeners() {
-        // Навигация
         document.querySelectorAll('.nav-item').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -187,7 +176,6 @@ class SettingsManager {
             });
         });
 
-        // Формы - добавляем проверку аутентификации
         const profileForm = document.getElementById('profileForm');
         if (profileForm) {
             profileForm.addEventListener('submit', (e) => {
@@ -212,7 +200,6 @@ class SettingsManager {
             });
         }
 
-        // Темы
         document.querySelectorAll('.theme-option').forEach(option => {
             option.addEventListener('click', (e) => {
                 if (this.isAuthenticated) {
@@ -221,7 +208,6 @@ class SettingsManager {
             });
         });
 
-        // Настройки шрифтов
         const fontFamily = document.getElementById('fontFamily');
         const fontSize = document.getElementById('fontSize');
         const fontWeight = document.getElementById('fontWeight');
@@ -248,14 +234,12 @@ class SettingsManager {
             });
         }
 
-        // Чекбоксы
         document.querySelectorAll('.modern-checkbox input').forEach(checkbox => {
             checkbox.addEventListener('change', () => {
                 if (this.isAuthenticated) this.saveSettings();
             });
         });
 
-        // Аватар
         const avatarInput = document.getElementById('avatarInput');
         if (avatarInput) {
             avatarInput.addEventListener('change', (e) => {
@@ -265,7 +249,6 @@ class SettingsManager {
             });
         }
 
-        // Уведомления
         const enableNotifications = document.getElementById('enableNotifications');
         if (enableNotifications) {
             enableNotifications.addEventListener('change', (e) => {
@@ -275,7 +258,6 @@ class SettingsManager {
             });
         }
 
-        // Сила пароля
         const newPassword = document.getElementById('newPassword');
         if (newPassword) {
             newPassword.addEventListener('input', () => {
@@ -338,7 +320,6 @@ class SettingsManager {
             });
 
             if (result.success) {
-                // Обновляем данные пользователя
                 this.currentUser.username = username;
                 this.currentUser.bio = bio;
                 this.currentUser.telegram_username = telegram;
@@ -413,10 +394,8 @@ class SettingsManager {
             themeElement.classList.add('active');
         }
 
-        // Применяем тему
         this.applyTheme(themeName);
 
-        // Сохраняем настройки
         this.settings.theme = themeName;
         this.saveSettings();
         
@@ -426,26 +405,19 @@ class SettingsManager {
     }
 
     applyTheme(themeName) {
-        // Удаляем предыдущую тему
         const existingTheme = document.getElementById('dynamic-theme');
         if (existingTheme) {
             existingTheme.remove();
         }
 
-        // Создаем новую тему
         const themeLink = document.createElement('link');
         themeLink.id = 'dynamic-theme';
         themeLink.rel = 'stylesheet';
-        
-        // Правильный путь к темам
         themeLink.href = `css/${themeName}-theme.css`;
         
         document.head.appendChild(themeLink);
 
-        // Сохраняем в localStorage для persistence
         localStorage.setItem('selected-theme', themeName);
-        
-        // Применяем настройки шрифта к новой теме
         this.applyFontSettings();
     }
 
@@ -462,12 +434,10 @@ class SettingsManager {
         const fontSizeValue = fontSize.value + 'px';
         const fontWeightValue = fontWeight.value;
 
-        // Применяем настройки шрифта
         document.documentElement.style.setProperty('--font-family', fontFamilyValue);
         document.documentElement.style.setProperty('--font-size-base', fontSizeValue);
         document.documentElement.style.setProperty('--font-weight', fontWeightValue);
 
-        // Сохраняем настройки
         this.settings.fontFamily = fontFamilyValue;
         this.settings.fontSize = fontSizeValue;
         this.settings.fontWeight = fontWeightValue;
@@ -558,7 +528,6 @@ class SettingsManager {
     applySettings() {
         if (!this.isAuthenticated) return;
 
-        // Применяем настройки к интерфейсу
         const showTimestamps = document.getElementById('showTimestamps');
         const showAvatars = document.getElementById('showAvatars');
         const compactMode = document.getElementById('compactMode');
@@ -577,7 +546,6 @@ class SettingsManager {
         if (profileVisibility) profileVisibility.checked = this.settings.profileVisibility !== false;
         if (enableNotifications) enableNotifications.checked = this.settings.enableNotifications || false;
 
-        // Применяем настройки шрифтов
         const fontFamily = document.getElementById('fontFamily');
         const fontSize = document.getElementById('fontSize');
         const fontWeight = document.getElementById('fontWeight');
@@ -588,11 +556,9 @@ class SettingsManager {
         if (fontWeight) fontWeight.value = this.settings.fontWeight || '400';
         if (fontSizeValue) fontSizeValue.textContent = fontSize ? fontSize.value : '14';
 
-        // Применяем тему
         const themeToApply = this.settings.theme || 'light';
         this.applyTheme(themeToApply);
 
-        // Выбираем активную тему в интерфейсе
         document.querySelectorAll('.theme-option').forEach(option => {
             option.classList.remove('active');
         });
@@ -684,7 +650,6 @@ class SettingsManager {
                 if (permission === 'granted') {
                     this.showNotification('Уведомления включены', 'success');
                     
-                    // Создаем тестовое уведомление
                     if (this.settings.pushNotifications) {
                         new Notification('Спокойный рассвет', {
                             body: 'Уведомления успешно включены!',
@@ -692,7 +657,6 @@ class SettingsManager {
                         });
                     }
                     
-                    // Настраиваем push-уведомления
                     await this.setupPushNotifications();
                 } else {
                     this.showNotification('Разрешите уведомления в настройках браузера', 'warning');
@@ -711,17 +675,14 @@ class SettingsManager {
     async setupPushNotifications() {
         if ('serviceWorker' in navigator && 'PushManager' in window) {
             try {
-                // Регистрируем Service Worker
                 const registration = await navigator.serviceWorker.register('/sw.js');
                 console.log('✅ Service Worker зарегистрирован');
 
-                // Подписываем на push-уведомления
                 const subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: this.urlBase64ToUint8Array('YOUR_VAPID_PUBLIC_KEY_HERE')
                 });
 
-                // Отправляем подписку на сервер
                 await this.savePushSubscription(subscription);
                 
             } catch (error) {
@@ -879,7 +840,6 @@ class SettingsManager {
     }
 
     showNotification(message, type = 'info') {
-        // Удаляем предыдущие уведомления
         document.querySelectorAll('.notification').forEach(notification => {
             notification.remove();
         });
@@ -925,7 +885,6 @@ class SettingsManager {
     }
 
     goBack() {
-        // Возвращаем на соответствующую страницу по роли (как в твоей системе)
         const role = this.currentUser?.role || 'user';
         switch(role) {
             case 'owner':
@@ -950,11 +909,10 @@ class SettingsManager {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
         localStorage.removeItem('selected-theme');
-        window.location.href = '/auth.html';
+        window.location.href = '/index.html';
     }
 }
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     window.settings = new SettingsManager();
 });
