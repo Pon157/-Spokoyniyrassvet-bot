@@ -1,65 +1,123 @@
-// Temporary mock auth verification
-window.mockAuth = {
+// Temporary mock for demonstration
+window.mockAPI = {
     async verifyToken(token) {
-        // Имитируем успешную проверку токена
         await new Promise(resolve => setTimeout(resolve, 100));
-        
         const userData = localStorage.getItem('user_data');
-        if (!userData) {
-            return { success: false, valid: false };
-        }
+        if (!userData) return { success: false, valid: false };
         
         return {
             success: true,
             valid: true,
             user: JSON.parse(userData)
         };
+    },
+
+    async updateProfile(data) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+        const updatedUser = { ...userData, ...data };
+        localStorage.setItem('user_data', JSON.stringify(updatedUser));
+        return { success: true, user: updatedUser };
+    },
+
+    async changePassword(data) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return { success: true };
+    },
+
+    async saveSettings(data) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        localStorage.setItem('user_settings', JSON.stringify(data.settings));
+        return { success: true };
+    },
+
+    async loadSettings(userId) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const settings = localStorage.getItem('user_settings');
+        return { 
+            success: true, 
+            settings: settings ? JSON.parse(settings) : null 
+        };
+    },
+
+    async uploadAvatar(formData) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Имитируем загрузку аватара - создаем data URL
+        return new Promise((resolve) => {
+            const file = formData.get('avatar');
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                resolve({
+                    success: true,
+                    avatar_url: e.target.result
+                });
+            };
+            reader.readAsDataURL(file);
+        });
     }
 };
 
-// Переопределяем fetch для auth проверки
+// Mock fetch for API calls
 const originalFetch = window.fetch;
 window.fetch = async function(url, options = {}) {
-    // Mock для проверки аутентификации
-    if (url === '/api/auth/verify' || url.includes('/auth/verify')) {
+    console.log('🔧 Mock fetch:', url, options.method);
+    
+    // Auth verification
+    if (url.includes('/auth/verify')) {
         const token = options.headers?.Authorization?.replace('Bearer ', '');
-        const result = await mockAuth.verifyToken(token);
+        const result = await mockAPI.verifyToken(token);
         return new Response(JSON.stringify(result), { status: 200 });
     }
     
-    // Mock для других API endpoints если нужно
-    if (url.includes('/api/user/settings') && options.method === 'GET') {
-        const settings = localStorage.getItem('user_settings');
-        return new Response(JSON.stringify({ 
-            success: true, 
-            settings: settings ? JSON.parse(settings) : null 
-        }), { status: 200 });
+    // Update profile
+    if (url.includes('/user/update-profile') && options.method === 'POST') {
+        const data = JSON.parse(options.body);
+        const result = await mockAPI.updateProfile(data);
+        return new Response(JSON.stringify(result), { status: 200 });
     }
     
-    if (url.includes('/api/user/settings') && options.method === 'POST') {
+    // Change password
+    if (url.includes('/user/change-password') && options.method === 'POST') {
         const data = JSON.parse(options.body);
-        localStorage.setItem('user_settings', JSON.stringify(data.settings));
+        const result = await mockAPI.changePassword(data);
+        return new Response(JSON.stringify(result), { status: 200 });
+    }
+    
+    // Save settings
+    if (url.includes('/user/settings') && options.method === 'POST') {
+        const data = JSON.parse(options.body);
+        const result = await mockAPI.saveSettings(data);
+        return new Response(JSON.stringify(result), { status: 200 });
+    }
+    
+    // Load settings
+    if (url.includes('/user/settings') && options.method === 'GET') {
+        const urlObj = new URL(url, 'http://localhost');
+        const userId = urlObj.searchParams.get('user_id');
+        const result = await mockAPI.loadSettings(userId);
+        return new Response(JSON.stringify(result), { status: 200 });
+    }
+    
+    // Upload avatar
+    if (url.includes('/user/upload-avatar') && options.method === 'POST') {
+        const formData = options.body;
+        const result = await mockAPI.uploadAvatar(formData);
+        return new Response(JSON.stringify(result), { status: 200 });
+    }
+    
+    // Remove avatar
+    if (url.includes('/user/remove-avatar') && options.method === 'POST') {
         return new Response(JSON.stringify({ success: true }), { status: 200 });
     }
     
-    // Для остальных запросов используем оригинальный fetch
     return originalFetch(url, options);
 };
 
-// ========== НАЧАЛО КЛАССА SettingsManager ==========
 class SettingsManager {
     constructor() {
         this.currentUser = null;
         this.settings = {};
         this.isAuthenticated = false;
-        this.init();
-    }
-class SettingsManager {
-    constructor() {
-        this.currentUser = null;
-        this.settings = {};
-        this.isAuthenticated = false;
-        this.apiBase = '/api';
         this.init();
     }
 
@@ -67,7 +125,7 @@ class SettingsManager {
         console.log('🎯 Инициализация настроек...');
         
         try {
-            await this.checkAuth();
+            await this.simpleCheckAuth();
             
             if (this.isAuthenticated) {
                 this.loadUserData();
@@ -84,67 +142,33 @@ class SettingsManager {
             }
         } catch (error) {
             console.error('❌ Ошибка инициализации:', error);
-            if (!this.isAuthenticated) {
-                this.showNotification('Требуется авторизация', 'error');
-                setTimeout(() => window.location.href = '/index.html', 2000);
-            } else {
-                this.showNotification('Ошибка загрузки настроек', 'error');
-            }
         }
     }
 
-    async checkAuth() {
+    async simpleCheckAuth() {
         const token = localStorage.getItem('auth_token');
         const userData = localStorage.getItem('user_data');
 
+        console.log('🔐 Проверка аутентификации...');
+
         if (!token || !userData) {
-            console.log('🔐 Нет данных аутентификации');
+            console.log('❌ Нет данных аутентификации');
             this.isAuthenticated = false;
+            this.showNotification('Требуется авторизация', 'error');
+            setTimeout(() => window.location.href = '/index.html', 2000);
             throw new Error('Not authenticated');
         }
 
         try {
             this.currentUser = JSON.parse(userData);
-            console.log('👤 Текущий пользователь:', this.currentUser);
+            this.isAuthenticated = true;
+            console.log('✅ Аутентификация пройдена:', this.currentUser.username);
             
-            const response = await fetch(`${this.apiBase}/auth/verify`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ token })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-            console.log('🔑 Результат проверки токена:', result);
-            
-            if (result.success && result.valid) {
-                this.isAuthenticated = true;
-                console.log('✅ Аутентификация успешна');
-                
-                if (result.user) {
-                    this.currentUser = result.user;
-                    localStorage.setItem('user_data', JSON.stringify(result.user));
-                }
-            } else {
-                throw new Error('Токен невалиден');
-            }
         } catch (error) {
-            console.error('❌ Ошибка аутентификации:', error);
+            console.error('❌ Ошибка проверки аутентификации:', error);
             this.isAuthenticated = false;
-            
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user_data');
-            
-            this.showNotification('Сессия истекла. Пожалуйста, войдите снова.', 'error');
-            setTimeout(() => {
-                window.location.href = '/index.html';
-            }, 2000);
+            this.showNotification('Ошибка аутентификации', 'error');
+            setTimeout(() => window.location.href = '/index.html', 2000);
             throw error;
         }
     }
@@ -164,7 +188,14 @@ class SettingsManager {
                 }
             };
             
-            const response = await fetch(url, { ...defaultOptions, ...options });
+            const finalOptions = { ...defaultOptions, ...options };
+            
+            // Для FormData убираем Content-Type
+            if (options.body instanceof FormData) {
+                delete finalOptions.headers['Content-Type'];
+            }
+            
+            const response = await fetch(url, finalOptions);
             
             if (response.status === 401) {
                 this.handleUnauthorized();
@@ -178,11 +209,6 @@ class SettingsManager {
             return await response.json();
         } catch (error) {
             console.error('❌ Ошибка запроса:', error);
-            
-            if (error.message.includes('Authentication') || error.message.includes('401')) {
-                this.handleUnauthorized();
-            }
-            
             throw error;
         }
     }
@@ -192,139 +218,136 @@ class SettingsManager {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
         this.showNotification('Сессия истекла', 'error');
-        setTimeout(() => {
-            window.location.href = '/index.html';
-        }, 2000);
+        setTimeout(() => window.location.href = '/index.html', 2000);
     }
 
     loadUserData() {
         if (!this.currentUser || !this.isAuthenticated) return;
 
+        console.log('👤 Загрузка данных пользователя:', this.currentUser);
+
+        // Устанавливаем значения в форму
         const usernameInput = document.getElementById('username');
         const bioInput = document.getElementById('bio');
         const avatarPreview = document.getElementById('avatarPreview');
-
-        if (usernameInput) {
-            usernameInput.value = this.currentUser.username || '';
-        }
-        
-        if (bioInput) {
-            bioInput.value = this.currentUser.bio || '';
-        }
-        
-        if (avatarPreview && this.currentUser.avatar_url) {
-            avatarPreview.src = this.currentUser.avatar_url + '?t=' + Date.now();
-        }
-
         const telegramInput = document.getElementById('telegram');
-        if (telegramInput && this.currentUser.telegram_username) {
-            telegramInput.value = this.currentUser.telegram_username;
+
+        if (usernameInput) usernameInput.value = this.currentUser.username || '';
+        if (bioInput) bioInput.value = this.currentUser.bio || '';
+        if (telegramInput) telegramInput.value = this.currentUser.telegram_username || '';
+        
+        if (avatarPreview) {
+            avatarPreview.src = this.currentUser.avatar_url || 'images/default-avatar.svg';
         }
     }
 
     setupAllEventListeners() {
+        console.log('🔧 Настройка обработчиков событий...');
+        
+        // Навигация
         document.querySelectorAll('.nav-item').forEach(tab => {
             tab.addEventListener('click', (e) => {
                 e.preventDefault();
-                if (this.isAuthenticated) {
-                    this.switchTab(e.currentTarget.dataset.tab);
-                }
+                this.switchTab(e.currentTarget.dataset.tab);
             });
         });
 
+        // Форма профиля
         const profileForm = document.getElementById('profileForm');
         if (profileForm) {
             profileForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                if (this.isAuthenticated) {
-                    this.saveProfile();
-                } else {
-                    this.showNotification('Требуется авторизация', 'error');
-                }
+                this.saveProfile();
             });
         }
 
+        // Форма смены пароля
         const passwordForm = document.getElementById('passwordForm');
         if (passwordForm) {
             passwordForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                if (this.isAuthenticated) {
-                    this.changePassword();
-                } else {
-                    this.showNotification('Требуется авторизация', 'error');
-                }
+                this.changePassword();
             });
         }
 
+        // Выбор темы
         document.querySelectorAll('.theme-option').forEach(option => {
             option.addEventListener('click', (e) => {
-                if (this.isAuthenticated) {
-                    this.selectTheme(e.currentTarget.dataset.theme, true);
-                }
+                this.selectTheme(e.currentTarget.dataset.theme, true);
             });
         });
 
+        // Настройки шрифтов
         const fontFamily = document.getElementById('fontFamily');
         const fontSize = document.getElementById('fontSize');
         const fontWeight = document.getElementById('fontWeight');
 
         if (fontFamily) {
-            fontFamily.addEventListener('change', () => {
-                if (this.isAuthenticated) this.applyFontSettings();
-            });
+            fontFamily.addEventListener('change', () => this.applyFontSettings());
         }
-
         if (fontSize) {
             fontSize.addEventListener('input', (e) => {
-                const fontSizeValue = document.getElementById('fontSizeValue');
-                if (fontSizeValue) {
-                    fontSizeValue.textContent = e.target.value;
-                }
-                if (this.isAuthenticated) this.applyFontSettings();
+                document.getElementById('fontSizeValue').textContent = e.target.value;
+                this.applyFontSettings();
             });
         }
-
         if (fontWeight) {
-            fontWeight.addEventListener('change', () => {
-                if (this.isAuthenticated) this.applyFontSettings();
-            });
+            fontWeight.addEventListener('change', () => this.applyFontSettings());
         }
 
+        // Чекбоксы
         document.querySelectorAll('.modern-checkbox input').forEach(checkbox => {
-            checkbox.addEventListener('change', () => {
-                if (this.isAuthenticated) this.saveSettings();
-            });
+            checkbox.addEventListener('change', () => this.saveSettings());
         });
 
+        // Загрузка аватара
         const avatarInput = document.getElementById('avatarInput');
         if (avatarInput) {
             avatarInput.addEventListener('change', (e) => {
-                if (this.isAuthenticated && e.target.files[0]) {
+                if (e.target.files[0]) {
                     this.handleAvatarUpload(e.target.files[0]);
                 }
             });
         }
 
+        // Уведомления
         const enableNotifications = document.getElementById('enableNotifications');
         if (enableNotifications) {
             enableNotifications.addEventListener('change', (e) => {
-                if (this.isAuthenticated) {
-                    this.toggleNotificationPermission(e.target.checked);
-                }
+                this.toggleNotificationPermission(e.target.checked);
             });
         }
 
+        // Сила пароля
         const newPassword = document.getElementById('newPassword');
         if (newPassword) {
-            newPassword.addEventListener('input', () => {
-                this.checkPasswordStrength();
-            });
+            newPassword.addEventListener('input', () => this.checkPasswordStrength());
         }
+
+        // Кнопка удаления аватара
+        const removeAvatarBtn = document.querySelector('[onclick="settings.removeAvatar()"]');
+        if (removeAvatarBtn) {
+            removeAvatarBtn.addEventListener('click', () => this.removeAvatar());
+        }
+
+        // Кнопка сохранения всех настроек
+        const saveAllBtn = document.querySelector('.liquid-btn[onclick="settings.saveAll()"]');
+        if (saveAllBtn) {
+            saveAllBtn.addEventListener('click', () => this.saveAll());
+        }
+
+        // Кнопка назад
+        const backBtn = document.querySelector('.btn-back');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => this.goBack());
+        }
+
+        console.log('✅ Все обработчики событий настроены');
     }
 
     switchTab(tabName) {
-        if (!this.isAuthenticated) return;
-
+        console.log('📁 Переключение на вкладку:', tabName);
+        
         document.querySelectorAll('.nav-item').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -340,11 +363,8 @@ class SettingsManager {
     }
 
     async saveProfile() {
-        if (!this.isAuthenticated) {
-            this.showNotification('Требуется авторизация', 'error');
-            return;
-        }
-
+        console.log('💾 Сохранение профиля...');
+        
         const username = document.getElementById('username').value.trim();
         const bio = document.getElementById('bio').value.trim();
         const telegram = document.getElementById('telegram')?.value.trim() || '';
@@ -364,8 +384,10 @@ class SettingsManager {
             return;
         }
 
+        this.showNotification('Сохранение профиля...', 'info');
+
         try {
-            const result = await this.makeRequest(`${this.apiBase}/user/update-profile`, {
+            const result = await this.makeRequest('/api/user/update-profile', {
                 method: 'POST',
                 body: JSON.stringify({ 
                     username, 
@@ -391,11 +413,8 @@ class SettingsManager {
     }
 
     async changePassword() {
-        if (!this.isAuthenticated) {
-            this.showNotification('Требуется авторизация', 'error');
-            return;
-        }
-
+        console.log('🔑 Смена пароля...');
+        
         const currentPassword = document.getElementById('currentPassword').value;
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
@@ -415,8 +434,10 @@ class SettingsManager {
             return;
         }
 
+        this.showNotification('Смена пароля...', 'info');
+
         try {
-            const result = await this.makeRequest(`${this.apiBase}/user/change-password`, {
+            const result = await this.makeRequest('/api/user/change-password', {
                 method: 'POST',
                 body: JSON.stringify({
                     current_password: currentPassword,
@@ -439,8 +460,8 @@ class SettingsManager {
     }
 
     selectTheme(themeName, showNotification = true) {
-        if (!this.isAuthenticated) return;
-
+        console.log('🎨 Применение темы:', themeName);
+        
         document.querySelectorAll('.theme-option').forEach(option => {
             option.classList.remove('active');
         });
@@ -451,7 +472,6 @@ class SettingsManager {
         }
 
         this.applyTheme(themeName);
-
         this.settings.theme = themeName;
         this.saveSettings();
         
@@ -466,20 +486,23 @@ class SettingsManager {
             existingTheme.remove();
         }
 
-        const themeLink = document.createElement('link');
-        themeLink.id = 'dynamic-theme';
-        themeLink.rel = 'stylesheet';
-        themeLink.href = `css/${themeName}-theme.css`;
-        
-        document.head.appendChild(themeLink);
+        // Для демо - просто меняем CSS переменные
+        if (themeName === 'dark') {
+            document.documentElement.style.setProperty('--bg-primary', '#0f172a');
+            document.documentElement.style.setProperty('--bg-secondary', '#1e293b');
+            document.documentElement.style.setProperty('--text-primary', '#f1f5f9');
+        } else {
+            document.documentElement.style.setProperty('--bg-primary', '#ffffff');
+            document.documentElement.style.setProperty('--bg-secondary', '#f8fafc');
+            document.documentElement.style.setProperty('--text-primary', '#1e293b');
+        }
 
         localStorage.setItem('selected-theme', themeName);
-        this.applyFontSettings();
     }
 
     applyFontSettings() {
-        if (!this.isAuthenticated) return;
-
+        console.log('🔤 Применение настроек шрифта...');
+        
         const fontFamily = document.getElementById('fontFamily');
         const fontSize = document.getElementById('fontSize');
         const fontWeight = document.getElementById('fontWeight');
@@ -501,34 +524,25 @@ class SettingsManager {
     }
 
     async saveSettings() {
-        if (!this.isAuthenticated) return;
-
-        const showTimestamps = document.getElementById('showTimestamps');
-        const showAvatars = document.getElementById('showAvatars');
-        const compactMode = document.getElementById('compactMode');
-        const pushNotifications = document.getElementById('pushNotifications');
-        const soundNotifications = document.getElementById('soundNotifications');
-        const showOnlineStatus = document.getElementById('showOnlineStatus');
-        const profileVisibility = document.getElementById('profileVisibility');
-        const enableNotifications = document.getElementById('enableNotifications');
-
+        console.log('⚙️ Сохранение настроек...');
+        
         const settings = {
             theme: this.settings.theme || 'light',
             fontFamily: this.settings.fontFamily || 'Inter',
             fontSize: this.settings.fontSize || '14px',
             fontWeight: this.settings.fontWeight || '400',
-            showTimestamps: showTimestamps ? showTimestamps.checked : true,
-            showAvatars: showAvatars ? showAvatars.checked : true,
-            compactMode: compactMode ? compactMode.checked : false,
-            pushNotifications: pushNotifications ? pushNotifications.checked : true,
-            soundNotifications: soundNotifications ? soundNotifications.checked : true,
-            showOnlineStatus: showOnlineStatus ? showOnlineStatus.checked : true,
-            profileVisibility: profileVisibility ? profileVisibility.checked : true,
-            enableNotifications: enableNotifications ? enableNotifications.checked : false
+            showTimestamps: document.getElementById('showTimestamps')?.checked ?? true,
+            showAvatars: document.getElementById('showAvatars')?.checked ?? true,
+            compactMode: document.getElementById('compactMode')?.checked ?? false,
+            pushNotifications: document.getElementById('pushNotifications')?.checked ?? true,
+            soundNotifications: document.getElementById('soundNotifications')?.checked ?? true,
+            showOnlineStatus: document.getElementById('showOnlineStatus')?.checked ?? true,
+            profileVisibility: document.getElementById('profileVisibility')?.checked ?? true,
+            enableNotifications: document.getElementById('enableNotifications')?.checked ?? false
         };
 
         try {
-            const result = await this.makeRequest(`${this.apiBase}/user/settings`, {
+            const result = await this.makeRequest('/api/user/settings', {
                 method: 'POST',
                 body: JSON.stringify({ 
                     settings,
@@ -545,18 +559,20 @@ class SettingsManager {
     }
 
     async loadSettings() {
-        if (!this.isAuthenticated) return;
-
+        console.log('📥 Загрузка настроек...');
+        
         try {
-            const result = await this.makeRequest(`${this.apiBase}/user/settings?user_id=${this.currentUser.id}`);
+            const result = await this.makeRequest(`/api/user/settings?user_id=${this.currentUser.id}`);
             
             if (result.success && result.settings) {
                 this.settings = result.settings;
-                this.applySettings();
+                console.log('✅ Настройки загружены:', this.settings);
             } else {
                 this.settings = this.getDefaultSettings();
-                this.applySettings();
+                console.log('⚙️ Используются настройки по умолчанию');
             }
+            
+            this.applySettings();
         } catch (error) {
             console.error('❌ Ошибка загрузки настроек:', error);
             this.settings = this.getDefaultSettings();
@@ -582,26 +598,26 @@ class SettingsManager {
     }
 
     applySettings() {
-        if (!this.isAuthenticated) return;
+        console.log('🔧 Применение настроек к интерфейсу...');
+        
+        // Чекбоксы
+        const checkboxes = {
+            'showTimestamps': this.settings.showTimestamps !== false,
+            'showAvatars': this.settings.showAvatars !== false,
+            'compactMode': this.settings.compactMode || false,
+            'pushNotifications': this.settings.pushNotifications !== false,
+            'soundNotifications': this.settings.soundNotifications !== false,
+            'showOnlineStatus': this.settings.showOnlineStatus !== false,
+            'profileVisibility': this.settings.profileVisibility !== false,
+            'enableNotifications': this.settings.enableNotifications || false
+        };
 
-        const showTimestamps = document.getElementById('showTimestamps');
-        const showAvatars = document.getElementById('showAvatars');
-        const compactMode = document.getElementById('compactMode');
-        const pushNotifications = document.getElementById('pushNotifications');
-        const soundNotifications = document.getElementById('soundNotifications');
-        const showOnlineStatus = document.getElementById('showOnlineStatus');
-        const profileVisibility = document.getElementById('profileVisibility');
-        const enableNotifications = document.getElementById('enableNotifications');
+        Object.entries(checkboxes).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element) element.checked = value;
+        });
 
-        if (showTimestamps) showTimestamps.checked = this.settings.showTimestamps !== false;
-        if (showAvatars) showAvatars.checked = this.settings.showAvatars !== false;
-        if (compactMode) compactMode.checked = this.settings.compactMode || false;
-        if (pushNotifications) pushNotifications.checked = this.settings.pushNotifications !== false;
-        if (soundNotifications) soundNotifications.checked = this.settings.soundNotifications !== false;
-        if (showOnlineStatus) showOnlineStatus.checked = this.settings.showOnlineStatus !== false;
-        if (profileVisibility) profileVisibility.checked = this.settings.profileVisibility !== false;
-        if (enableNotifications) enableNotifications.checked = this.settings.enableNotifications || false;
-
+        // Настройки шрифтов
         const fontFamily = document.getElementById('fontFamily');
         const fontSize = document.getElementById('fontSize');
         const fontWeight = document.getElementById('fontWeight');
@@ -612,6 +628,7 @@ class SettingsManager {
         if (fontWeight) fontWeight.value = this.settings.fontWeight || '400';
         if (fontSizeValue) fontSizeValue.textContent = fontSize ? fontSize.value : '14';
 
+        // Тема
         const themeToApply = this.settings.theme || 'light';
         this.applyTheme(themeToApply);
 
@@ -625,7 +642,8 @@ class SettingsManager {
     }
 
     async handleAvatarUpload(file) {
-        if (!this.isAuthenticated) return;
+        console.log('🖼️ Загрузка аватара:', file.name);
+        
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
@@ -638,28 +656,23 @@ class SettingsManager {
             return;
         }
 
+        this.showNotification('Загрузка аватара...', 'info');
+
         try {
             const formData = new FormData();
             formData.append('avatar', file);
             formData.append('user_id', this.currentUser.id);
 
-            const token = localStorage.getItem('auth_token');
-            const response = await fetch(`${this.apiBase}/user/upload-avatar`, {
+            const result = await this.makeRequest('/api/user/upload-avatar', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
                 body: formData
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
             if (result.success) {
-                document.getElementById('avatarPreview').src = result.avatar_url + '?t=' + Date.now();
+                const avatarPreview = document.getElementById('avatarPreview');
+                if (avatarPreview) {
+                    avatarPreview.src = result.avatar_url + '?t=' + Date.now();
+                }
                 this.currentUser.avatar_url = result.avatar_url;
                 localStorage.setItem('user_data', JSON.stringify(this.currentUser));
                 this.showNotification('Аватар успешно обновлен', 'success');
@@ -673,17 +686,21 @@ class SettingsManager {
     }
 
     async removeAvatar() {
-        if (!this.isAuthenticated) return;
+        console.log('🗑️ Удаление аватара...');
+        
         if (!confirm('Вы уверены, что хотите удалить аватар?')) return;
 
         try {
-            const result = await this.makeRequest(`${this.apiBase}/user/remove-avatar`, {
+            const result = await this.makeRequest('/api/user/remove-avatar', {
                 method: 'POST',
                 body: JSON.stringify({ user_id: this.currentUser.id })
             });
 
             if (result.success) {
-                document.getElementById('avatarPreview').src = 'images/default-avatar.svg';
+                const avatarPreview = document.getElementById('avatarPreview');
+                if (avatarPreview) {
+                    avatarPreview.src = 'images/default-avatar.svg';
+                }
                 this.currentUser.avatar_url = null;
                 localStorage.setItem('user_data', JSON.stringify(this.currentUser));
                 this.showNotification('Аватар удален', 'success');
@@ -697,8 +714,8 @@ class SettingsManager {
     }
 
     async toggleNotificationPermission(enabled) {
-        if (!this.isAuthenticated) return;
-
+        console.log('🔔 Настройка уведомлений:', enabled);
+        
         if (enabled) {
             if ('Notification' in window) {
                 const permission = await Notification.requestPermission();
@@ -706,13 +723,14 @@ class SettingsManager {
                 if (permission === 'granted') {
                     this.showNotification('Уведомления включены', 'success');
                     
-                    if (this.settings.pushNotifications) {
-                        new Notification('Спокойный рассвет', {
-                            body: 'Уведомления успешно включены!',
-                            icon: '/images/logo.png'
-                        });
-                    }
-                    
+                    // Тестовое уведомление
+                    new Notification('Спокойный рассвет', {
+                        body: 'Уведомления успешно включены!',
+                        icon: '/images/logo.png',
+                        tag: 'test-notification'
+                    });
+
+                    // Настройка Push уведомлений
                     await this.setupPushNotifications();
                 } else {
                     this.showNotification('Разрешите уведомления в настройках браузера', 'warning');
@@ -727,23 +745,35 @@ class SettingsManager {
         this.settings.enableNotifications = enabled;
         this.saveSettings();
     }
-
-    async setupPushNotifications() {
+            async setupPushNotifications() {
+        console.log('📱 Настройка Push уведомлений...');
+        
         if ('serviceWorker' in navigator && 'PushManager' in window) {
             try {
+                // Регистрируем Service Worker
                 const registration = await navigator.serviceWorker.register('/sw.js');
                 console.log('✅ Service Worker зарегистрирован');
 
+                // Подписываем на push-уведомления
                 const subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: this.urlBase64ToUint8Array('YOUR_VAPID_PUBLIC_KEY_HERE')
+                    applicationServerKey: this.urlBase64ToUint8Array('BEl62iUYgUivzhIh8B46w5X6kAR2HjZ7X2p2bVgK7zQ')
                 });
 
+                console.log('✅ Push подписка создана:', subscription);
+                
+                // Сохраняем подписку на сервере
                 await this.savePushSubscription(subscription);
+                
+                this.showNotification('Push уведомления настроены', 'success');
                 
             } catch (error) {
                 console.error('❌ Ошибка настройки push-уведомлений:', error);
+                this.showNotification('Ошибка настройки push-уведомлений', 'error');
             }
+        } else {
+            console.log('❌ Браузер не поддерживает push уведомления');
+            this.showNotification('Ваш браузер не поддерживает push уведомления', 'warning');
         }
     }
 
@@ -764,13 +794,14 @@ class SettingsManager {
 
     async savePushSubscription(subscription) {
         try {
-            await this.makeRequest(`${this.apiBase}/user/push-subscription`, {
+            await this.makeRequest('/api/user/push-subscription', {
                 method: 'POST',
                 body: JSON.stringify({
                     subscription,
                     user_id: this.currentUser.id
                 })
             });
+            console.log('✅ Push подписка сохранена на сервере');
         } catch (error) {
             console.error('❌ Ошибка сохранения подписки:', error);
         }
@@ -829,12 +860,14 @@ class SettingsManager {
         const accountRole = document.getElementById('accountRole');
         const accountCreated = document.getElementById('accountCreated');
         const accountTelegram = document.getElementById('accountTelegram');
+        const lastLogin = document.getElementById('lastLogin');
 
         if (accountId) accountId.textContent = this.currentUser.id || '-';
         if (accountRole) accountRole.textContent = this.getRoleName(this.currentUser.role);
         if (accountCreated) accountCreated.textContent = this.currentUser.created_at ? 
             new Date(this.currentUser.created_at).toLocaleDateString('ru-RU') : '-';
         if (accountTelegram) accountTelegram.textContent = this.currentUser.telegram_username || 'Не указан';
+        if (lastLogin) lastLogin.textContent = new Date().toLocaleString('ru-RU');
     }
 
     getRoleName(role) {
@@ -863,19 +896,59 @@ class SettingsManager {
     showDeleteConfirm() {
         if (!this.isAuthenticated) return;
         
-        if (confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.')) {
-            this.deleteAccount();
+        // Создаем модальное окно для подтверждения
+        const modal = document.getElementById('deleteConfirmModal');
+        if (modal) {
+            modal.style.display = 'block';
+            
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            const cancelBtn = document.getElementById('cancelDeleteBtn');
+            const passwordInput = document.getElementById('deletePassword');
+            const closeBtn = document.getElementById('closeDeleteModal');
+            
+            const cleanup = () => {
+                modal.style.display = 'none';
+                passwordInput.value = '';
+                confirmBtn.disabled = true;
+                confirmBtn.removeEventListener('click', confirmHandler);
+                cancelBtn.removeEventListener('click', cancelHandler);
+                closeBtn.removeEventListener('click', cancelHandler);
+            };
+            
+            const confirmHandler = () => {
+                if (passwordInput.value) {
+                    this.deleteAccount(passwordInput.value);
+                    cleanup();
+                }
+            };
+            
+            const cancelHandler = () => {
+                cleanup();
+            };
+            
+            passwordInput.addEventListener('input', () => {
+                confirmBtn.disabled = !passwordInput.value;
+            });
+            
+            confirmBtn.addEventListener('click', confirmHandler);
+            cancelBtn.addEventListener('click', cancelHandler);
+            closeBtn.addEventListener('click', cancelHandler);
+        } else {
+            // Fallback на обычный confirm
+            if (confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.')) {
+                const password = prompt('Введите ваш пароль для подтверждения:');
+                if (password) {
+                    this.deleteAccount(password);
+                }
+            }
         }
     }
 
-    async deleteAccount() {
+    async deleteAccount(password) {
         if (!this.isAuthenticated) return;
 
-        const password = prompt('Введите ваш пароль для подтверждения:');
-        if (!password) return;
-
         try {
-            const result = await this.makeRequest(`${this.apiBase}/user/delete-account`, {
+            const result = await this.makeRequest('/api/user/delete-account', {
                 method: 'POST',
                 body: JSON.stringify({ 
                     password,
@@ -895,28 +968,114 @@ class SettingsManager {
         }
     }
 
+    async logoutAllDevices() {
+        if (!this.isAuthenticated) return;
+        
+        if (confirm('Вы уверены, что хотите выйти со всех устройств?')) {
+            try {
+                const result = await this.makeRequest('/api/user/logout-all', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: this.currentUser.id })
+                });
+
+                if (result.success) {
+                    this.showNotification('Выход со всех устройств выполнен', 'success');
+                    setTimeout(() => this.logout(), 1000);
+                }
+            } catch (error) {
+                console.error('❌ Ошибка выхода со всех устройств:', error);
+                this.showNotification('Ошибка выхода со всех устройств', 'error');
+            }
+        }
+    }
+
+    async exportData() {
+        console.log('📤 Экспорт данных...');
+        
+        try {
+            const userData = {
+                profile: this.currentUser,
+                settings: this.settings,
+                export_date: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(userData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `user-data-${this.currentUser.username}-${Date.now()}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            this.showNotification('Данные успешно экспортированы', 'success');
+        } catch (error) {
+            console.error('❌ Ошибка экспорта данных:', error);
+            this.showNotification('Ошибка экспорта данных', 'error');
+        }
+    }
+
+    manageBlockedUsers() {
+        console.log('🚫 Управление блокировками...');
+        this.showNotification('Функция управления блокировками в разработке', 'info');
+    }
+
     showNotification(message, type = 'info') {
+        console.log(`📢 Уведомление [${type}]:`, message);
+        
+        // Удаляем предыдущие уведомления
         document.querySelectorAll('.notification').forEach(notification => {
             notification.remove();
         });
 
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
-        notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <i class="fas fa-${this.getNotificationIcon(type)}"></i>
-                <span style="color: var(--text-primary); font-weight: 500;">${message}</span>
-                <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: auto;">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 20px;
+            background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            max-width: 400px;
         `;
+
+        notification.innerHTML = `
+            <i class="fas fa-${this.getNotificationIcon(type)}"></i>
+            <span style="flex: 1; font-weight: 500;">${message}</span>
+            <button style="background: none; border: none; color: white; cursor: pointer; opacity: 0.8;">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        // Обработчик закрытия
+        const closeBtn = notification.querySelector('button');
+        closeBtn.addEventListener('click', () => {
+            notification.remove();
+        });
 
         document.body.appendChild(notification);
 
+        // Автоматическое закрытие через 5 секунд
         setTimeout(() => {
             if (notification.parentElement) {
-                notification.remove();
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 300);
             }
         }, 5000);
     }
@@ -942,22 +1101,16 @@ class SettingsManager {
 
     goBack() {
         const role = this.currentUser?.role || 'user';
-        switch(role) {
-            case 'owner':
-                window.location.href = '/owner.html';
-                break;
-            case 'admin':
-                window.location.href = '/admin.html';
-                break;
-            case 'coowner':
-                window.location.href = '/coowner.html';
-                break;
-            case 'listener':
-                window.location.href = '/listener.html';
-                break;
-            default:
-                window.location.href = '/chat.html';
-        }
+        const pages = {
+            'owner': '/owner.html',
+            'admin': '/admin.html', 
+            'coowner': '/coowner.html',
+            'listener': '/listener.html',
+            'user': '/chat.html'
+        };
+        
+        const targetPage = pages[role] || '/chat.html';
+        window.location.href = targetPage;
     }
 
     logout() {
@@ -969,6 +1122,36 @@ class SettingsManager {
     }
 }
 
+// Добавляем CSS анимации для уведомлений
+if (!document.getElementById('notification-styles')) {
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     window.settings = new SettingsManager();
 });
