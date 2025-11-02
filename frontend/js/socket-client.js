@@ -5,6 +5,7 @@ class SocketClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectInterval = 3000;
+        this.messageQueue = [];
     }
 
     connect(token) {
@@ -29,6 +30,7 @@ class SocketClient {
             this.isConnected = true;
             this.reconnectAttempts = 0;
             this.onConnect();
+            this.processMessageQueue();
         });
 
         this.socket.on('disconnect', (reason) => {
@@ -37,10 +39,8 @@ class SocketClient {
             this.onDisconnect(reason);
             
             if (reason === 'io server disconnect') {
-                // Сервер принудительно отключил, нужно переподключиться
                 this.socket.connect();
             } else {
-                // Обычное отключение, пытаемся переподключиться
                 this.attemptReconnect();
             }
         });
@@ -66,9 +66,27 @@ class SocketClient {
             this.onNotification(notification);
         });
 
+        this.socket.on('chat_updated', (data) => {
+            this.onChatUpdated(data);
+        });
+
+        this.socket.on('user_banned', (data) => {
+            this.onUserBanned(data);
+        });
+
         this.socket.on('error', (error) => {
             console.error('WebSocket ошибка:', error);
             this.onError(error);
+        });
+
+        this.socket.on('authenticated', (data) => {
+            console.log('✅ WebSocket аутентифицирован');
+            this.onAuthenticated(data);
+        });
+
+        this.socket.on('auth_error', (error) => {
+            console.error('❌ Ошибка аутентификации WebSocket:', error);
+            this.onAuthError(error);
         });
     }
 
@@ -93,21 +111,34 @@ class SocketClient {
         this.onConnectionError();
     }
 
-    // Методы для отправки событий
+    processMessageQueue() {
+        while (this.messageQueue.length > 0 && this.isConnected) {
+            const message = this.messageQueue.shift();
+            this.sendMessageDirect(message);
+        }
+    }
+
     sendMessage(chatId, content, messageType = 'text', mediaUrl = null, stickerUrl = null) {
+        const message = {
+            chat_id: chatId,
+            content: content,
+            message_type: messageType,
+            media_url: mediaUrl,
+            sticker_url: stickerUrl
+        };
+
         if (!this.isConnected) {
-            this.onError(new Error('Нет подключения к серверу'));
+            console.log('💾 Сообщение добавлено в очередь (нет подключения)');
+            this.messageQueue.push(message);
             return false;
         }
 
+        return this.sendMessageDirect(message);
+    }
+
+    sendMessageDirect(message) {
         try {
-            this.socket.emit('send_message', {
-                chat_id: chatId,
-                content: content,
-                message_type: messageType,
-                media_url: mediaUrl,
-                sticker_url: stickerUrl
-            });
+            this.socket.emit('send_message', message);
             return true;
         } catch (error) {
             console.error('Ошибка отправки сообщения:', error);
@@ -119,6 +150,8 @@ class SocketClient {
     joinChat(chatId) {
         if (this.isConnected) {
             this.socket.emit('join_chat', chatId);
+        } else {
+            console.log('❌ Нет подключения для присоединения к чату');
         }
     }
 
@@ -140,6 +173,21 @@ class SocketClient {
         }
     }
 
+    requestUserStatus(userId) {
+        if (this.isConnected) {
+            this.socket.emit('get_user_status', { user_id: userId });
+        }
+    }
+
+    reportMessage(messageId, reason) {
+        if (this.isConnected) {
+            this.socket.emit('report_message', {
+                message_id: messageId,
+                reason: reason
+            });
+        }
+    }
+
     // Колбэки (должны быть переопределены в основном приложении)
     onConnect() {
         console.log('WebSocket connected');
@@ -147,6 +195,14 @@ class SocketClient {
 
     onDisconnect(reason) {
         console.log('WebSocket disconnected:', reason);
+    }
+
+    onAuthenticated(data) {
+        console.log('WebSocket authenticated:', data);
+    }
+
+    onAuthError(error) {
+        console.error('WebSocket auth error:', error);
     }
 
     onNewMessage(message) {
@@ -163,6 +219,14 @@ class SocketClient {
 
     onNotification(notification) {
         console.log('New notification:', notification);
+    }
+
+    onChatUpdated(data) {
+        console.log('Chat updated:', data);
+    }
+
+    onUserBanned(data) {
+        console.log('User banned:', data);
     }
 
     onError(error) {
@@ -184,7 +248,15 @@ class SocketClient {
             this.isConnected = false;
         }
     }
+
+    getConnectionStatus() {
+        return {
+            isConnected: this.isConnected,
+            reconnectAttempts: this.reconnectAttempts,
+            queueLength: this.messageQueue.length
+        };
+    }
 }
 
 // Глобальный экземпляр клиента WebSocket
-const socketClient = new SocketClient();
+window.socketClient = new SocketClient();
