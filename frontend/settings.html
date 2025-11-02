@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Настройки - Чат Система</title>
+    <title>Настройки - Спокойный рассвет</title>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/modern.css">
     <link rel="stylesheet" href="css/settings.css">
@@ -91,6 +91,12 @@
                             </div>
 
                             <div class="form-group">
+                                <label class="form-label">Telegram username</label>
+                                <input type="text" id="telegram" class="form-input" placeholder="@username" maxlength="32">
+                                <div class="form-hint">Для восстановления пароля и уведомлений</div>
+                            </div>
+
+                            <div class="form-group">
                                 <label class="form-label">О себе</label>
                                 <textarea id="bio" class="form-input" rows="4" placeholder="Расскажите о себе..." maxlength="500"></textarea>
                                 <div class="form-hint">Максимум 500 символов</div>
@@ -120,7 +126,7 @@
 
                             <div class="form-group">
                                 <label class="form-label">Новый пароль</label>
-                                <input type="password" id="newPassword" class="form-input" required minlength="6">
+                                <input type="password" id="newPassword" class="form-input" required minlength="6" oninput="settings.checkPasswordStrength()">
                                 <div class="password-strength">
                                     <div class="strength-bar">
                                         <div class="strength-fill" id="passwordStrength"></div>
@@ -268,6 +274,36 @@
                             </label>
                         </div>
                     </div>
+
+                    <div class="focus-card">
+                        <h3>Telegram уведомления</h3>
+                        <div class="telegram-notifications">
+                            <div class="telegram-info">
+                                <i class="fab fa-telegram telegram-icon"></i>
+                                <div>
+                                    <h4>Уведомления через Telegram</h4>
+                                    <p>Для получения уведомлений в Telegram убедитесь, что ваш Telegram username указан в профиле</p>
+                                </div>
+                            </div>
+                            <div class="telegram-settings">
+                                <label class="modern-checkbox">
+                                    <input type="checkbox" id="telegramMessages">
+                                    <span class="checkbox-visual"></span>
+                                    <span>Уведомления о новых сообщениях</span>
+                                </label>
+                                <label class="modern-checkbox">
+                                    <input type="checkbox" id="telegramMentions">
+                                    <span class="checkbox-visual"></span>
+                                    <span>Уведомления об упоминаниях</span>
+                                </label>
+                                <label class="modern-checkbox">
+                                    <input type="checkbox" id="telegramSystem">
+                                    <span class="checkbox-visual"></span>
+                                    <span>Системные уведомления</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Приватность -->
@@ -291,6 +327,34 @@
                                 <span class="checkbox-visual"></span>
                                 <span>Профиль виден другим пользователям</span>
                             </label>
+
+                            <label class="modern-checkbox">
+                                <input type="checkbox" id="showLastSeen" checked>
+                                <span class="checkbox-visual"></span>
+                                <span>Показывать время последнего посещения</span>
+                            </label>
+
+                            <label class="modern-checkbox">
+                                <input type="checkbox" id="allowFriendRequests" checked>
+                                <span class="checkbox-visual"></span>
+                                <span>Разрешать запросы в друзья</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="focus-card">
+                        <h3>Блокировки</h3>
+                        <div class="blocked-users">
+                            <h4>Заблокированные пользователи</h4>
+                            <div class="blocked-list" id="blockedUsersList">
+                                <div class="empty-state">
+                                    <i class="fas fa-user-lock"></i>
+                                    <p>Нет заблокированных пользователей</p>
+                                </div>
+                            </div>
+                            <button class="liquid-btn" onclick="settings.manageBlockedUsers()">
+                                <i class="fas fa-cog"></i> Управление блокировками
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -314,9 +378,28 @@
                                 <span class="info-value" id="accountRole">-</span>
                             </div>
                             <div class="info-item">
+                                <span class="info-label">Telegram:</span>
+                                <span class="info-value" id="accountTelegram">-</span>
+                            </div>
+                            <div class="info-item">
                                 <span class="info-label">Дата создания:</span>
                                 <span class="info-value" id="accountCreated">-</span>
                             </div>
+                            <div class="info-item">
+                                <span class="info-label">Последний вход:</span>
+                                <span class="info-value" id="lastLogin">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="focus-card">
+                        <h3>Экспорт данных</h3>
+                        <div class="data-export">
+                            <p>Вы можете экспортировать все ваши данные в формате JSON</p>
+                            <button class="liquid-btn" onclick="settings.exportData()">
+                                <i class="fas fa-download"></i> Экспорт данных
+                            </button>
+                            <div class="form-hint">Будет скачан файл со всеми вашими сообщениями, настройками и информацией профиля</div>
                         </div>
                     </div>
 
@@ -328,7 +411,7 @@
                             <div class="critical-action">
                                 <div>
                                     <h4>Выйти из аккаунта</h4>
-                                    <p>Завершить текущую сессию</p>
+                                    <p>Завершить текущую сессию на всех устройствах</p>
                                 </div>
                                 <button class="liquid-btn" onclick="settings.logout()">
                                     <i class="fas fa-sign-out-alt"></i> Выйти
@@ -337,11 +420,21 @@
 
                             <div class="critical-action">
                                 <div>
+                                    <h4>Выйти со всех устройств</h4>
+                                    <p>Завершить все активные сессии</p>
+                                </div>
+                                <button class="liquid-btn" onclick="settings.logoutAllDevices()">
+                                    <i class="fas fa-globe"></i> Выйти везде
+                                </button>
+                            </div>
+
+                            <div class="critical-action">
+                                <div>
                                     <h4>Удалить аккаунт</h4>
-                                    <p>Полностью удалить аккаунт и все данные</p>
+                                    <p>Полностью удалить аккаунт и все данные. Это действие необратимо.</p>
                                 </div>
                                 <button class="liquid-btn danger-btn" onclick="settings.showDeleteConfirm()">
-                                    <i class="fas fa-trash"></i> Удалить
+                                    <i class="fas fa-trash"></i> Удалить аккаунт
                                 </button>
                             </div>
                         </div>
@@ -349,6 +442,71 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Модальное окно управления блокировками -->
+    <div id="blockedUsersModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Управление блокировками</h2>
+                <button class="modal-close" id="closeBlockedModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="blocked-users-management">
+                    <div class="search-block">
+                        <input type="text" id="userSearch" class="form-input" placeholder="Поиск пользователя по имени...">
+                        <button class="liquid-btn" onclick="settings.searchUser()">
+                            <i class="fas fa-search"></i> Поиск
+                        </button>
+                    </div>
+                    <div class="search-results" id="searchResults">
+                        <!-- Результаты поиска будут здесь -->
+                    </div>
+                    <div class="current-blocked">
+                        <h4>Текущие блокировки</h4>
+                        <div class="blocked-list" id="currentBlockedList">
+                            <!-- Список заблокированных пользователей -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="closeBlockedModalBtn">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения удаления -->
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-exclamation-triangle"></i> Подтверждение удаления</h2>
+                <button class="modal-close" id="closeDeleteModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="delete-warning">
+                    <i class="fas fa-skull-crossbones"></i>
+                    <h3>Внимание! Это действие необратимо</h3>
+                    <p>Вы собираетесь полностью удалить свой аккаунт. Это приведет к:</p>
+                    <ul>
+                        <li>Удалению всех ваших сообщений</li>
+                        <li>Удалению вашего профиля</li>
+                        <li>Потере всех настроек</li>
+                        <li>Невозможности восстановления аккаунта</li>
+                    </ul>
+                    <div class="form-group">
+                        <label class="form-label">Введите ваш пароль для подтверждения:</label>
+                        <input type="password" id="deletePassword" class="form-input" placeholder="Ваш текущий пароль">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-danger" id="confirmDeleteBtn" disabled>
+                    <i class="fas fa-trash"></i> Удалить аккаунт навсегда
+                </button>
+                <button class="btn-secondary" id="cancelDeleteBtn">Отмена</button>
+            </div>
+        </div>
     </div>
 
     <script src="js/settings.js"></script>
