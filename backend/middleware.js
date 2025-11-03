@@ -1,47 +1,44 @@
-const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
 
+// Инициализация Supabase клиента
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
 
-// Аутентификация по JWT токену
+// Middleware для аутентификации по токену
 const authenticateToken = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Требуется авторизация' });
-  }
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-key');
+    const token = req.headers.authorization?.replace('Bearer ', '');
     
-    // Получаем данные пользователя из базы
+    if (!token) {
+      return res.status(401).json({ error: 'Токен доступа отсутствует' });
+    }
+
+    // Получаем пользователя из базы по ID (токен = user.id в вашей системе)
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
-      .eq('id', decoded.userId)
+      .eq('id', token)
       .single();
 
     if (error || !user) {
-      return res.status(401).json({ error: 'Пользователь не найден' });
+      return res.status(401).json({ error: 'Неверный токен' });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(403).json({ error: 'Неверный токен' });
+    console.error('Ошибка аутентификации:', error);
+    res.status(500).json({ error: 'Ошибка аутентификации' });
   }
 };
 
-// Проверка ролей
+// Middleware для проверки ролей
 const requireRole = (roles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Требуется авторизация' });
+      return res.status(401).json({ error: 'Пользователь не аутентифицирован' });
     }
 
     if (!roles.includes(req.user.role)) {
@@ -52,27 +49,25 @@ const requireRole = (roles) => {
   };
 };
 
-// Логирование действий
+// Функция для логирования действий
 const logAction = async (userId, action, details = {}) => {
   try {
     const { error } = await supabase
-      .from('action_logs')
+      .from('user_actions')
       .insert({
         user_id: userId,
-        action,
-        details,
-        ip_address: details.ipAddress,
-        user_agent: details.userAgent,
+        action: action,
+        details: details,
         created_at: new Date().toISOString()
       });
 
     if (error) {
-      console.error('Logging error:', error);
+      console.error('Ошибка логирования:', error);
     }
     
-    console.log(`📝 Action: ${action} by ${userId}`, details);
+    console.log(`📝 Action: ${action} by ${userId}`);
   } catch (error) {
-    console.error('Logging error:', error);
+    console.error('Ошибка логирования:', error);
   }
 };
 
