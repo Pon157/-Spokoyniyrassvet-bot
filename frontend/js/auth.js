@@ -167,7 +167,7 @@ class AuthManager {
                 }
 
                 setTimeout(() => {
-                    this.redirectUser(data.user);
+                    this.redirectUser(data.user, data.redirectTo);
                 }, 1500);
 
             } else {
@@ -458,7 +458,7 @@ class AuthManager {
         }
     }
 
-    redirectUser(user) {
+    redirectUser(user, redirectTo = null) {
         const role = user?.role || 'user';
         
         const roleNames = {
@@ -472,29 +472,34 @@ class AuthManager {
         this.showNotification(`Добро пожаловать, ${user.username}! Ваша роль: ${roleNames[role]}`, 'success');
         
         setTimeout(() => {
-            this.navigateByRole(user);
+            this.navigateByRole(user, redirectTo);
         }, 2000);
     }
 
-    navigateByRole(user) {
-        const role = user.role || 'user';
-        const routes = {
-            'owner': '/owner.html',
-            'admin': '/admin.html',
-            'coowner': '/coowner.html',
-            'listener': '/listener.html',
-            'user': '/chat.html'
-        };
+    navigateByRole(user, redirectTo = null) {
+        // Используем redirectTo от сервера если есть, иначе определяем по роли
+        let targetPage = redirectTo;
+        
+        if (!targetPage) {
+            const role = user.role || 'user';
+            const routes = {
+                'owner': '/owner.html',
+                'admin': '/admin.html',
+                'coowner': '/coowner.html',
+                'listener': '/listener.html',
+                'user': '/chat.html'
+            };
+            targetPage = routes[role] || '/chat.html';
+        }
 
-        const targetPage = routes[role] || '/chat.html';
         const currentPage = window.location.pathname;
         
         if (currentPage === targetPage || currentPage.includes(targetPage.replace('/', ''))) {
-            console.log(`✅ Уже на правильной странице для роли ${role}`);
+            console.log(`✅ Уже на правильной странице для роли ${user.role}`);
             return;
         }
 
-        console.log(`🔄 Перенаправление ${user.username} (${role}) на ${targetPage}`);
+        console.log(`🔄 Перенаправление ${user.username} (${user.role}) на ${targetPage}`);
         window.location.href = targetPage;
     }
 
@@ -522,8 +527,9 @@ class AuthManager {
             return;
         }
 
+        // Если мы уже на главной странице, не перенаправляем
         if (window.location.pathname === '/' || window.location.pathname.includes('index.html')) {
-            console.log('✅ Уже на главной странице, перенаправление не нужно');
+            console.log('✅ На главной странице - остаемся здесь');
             return;
         }
 
@@ -537,8 +543,19 @@ class AuthManager {
             const data = await response.json();
             
             if (data.success) {
-                console.log('✅ Пользователь аутентифицирован, перенаправляем...');
-                this.navigateByRole(data.user);
+                console.log('✅ Пользователь аутентифицирован:', data.user.username);
+                
+                // Если пользователь уже на правильной странице, не перенаправляем
+                const currentPage = window.location.pathname;
+                const correctPage = data.redirectTo || this.getPageForRole(data.user.role);
+                
+                if (currentPage === correctPage || currentPage.includes(correctPage.replace('/', ''))) {
+                    console.log('✅ Уже на правильной странице');
+                    return;
+                }
+                
+                console.log('🔄 Перенаправление на правильную страницу...');
+                this.navigateByRole(data.user, data.redirectTo);
             } else {
                 console.log('❌ Токен невалиден:', data.error);
                 localStorage.removeItem('auth_token');
@@ -549,6 +566,17 @@ class AuthManager {
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
         }
+    }
+
+    getPageForRole(role) {
+        const routes = {
+            'owner': '/owner.html',
+            'admin': '/admin.html',
+            'coowner': '/coowner.html',
+            'listener': '/listener.html',
+            'user': '/chat.html'
+        };
+        return routes[role] || '/chat.html';
     }
 }
 
@@ -563,9 +591,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('🔄 Пользователь уже авторизован, проверяем страницу...');
         const currentPage = window.location.pathname;
         
+        // Если на главной странице, но пользователь авторизован - остаемся на главной
         if (currentPage === '/' || currentPage.includes('index.html')) {
-            console.log('📍 На главной странице, но пользователь авторизован - перенаправляем');
-            window.authManager.navigateByRole(JSON.parse(userData));
+            console.log('📍 На главной странице с авторизацией - остаемся здесь');
         }
     }
 });
