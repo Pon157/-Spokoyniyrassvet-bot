@@ -15,6 +15,32 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
+    // Проверяем, что пользователь на правильной странице
+    try {
+        const user = JSON.parse(userData);
+        const currentPage = window.location.pathname;
+        const correctPage = getCorrectPageForRole(user.role);
+        
+        console.log('🔍 Проверка страницы:', {
+            userRole: user.role,
+            currentPage: currentPage,
+            correctPage: correctPage
+        });
+        
+        if (!isOnCorrectPage(user.role, currentPage)) {
+            console.log(`🔄 Перенаправление ${user.username} (${user.role}) на ${correctPage}`);
+            window.location.href = correctPage;
+            return;
+        }
+        
+        console.log('✅ Пользователь на правильной странице');
+        
+    } catch (error) {
+        console.error('Ошибка проверки страницы:', error);
+        window.location.href = '/';
+        return;
+    }
+    
     // ЕСЛИ УЖЕ ЕСТЬ ПРИЛОЖЕНИЕ - НЕ СОЗДАВАЙ ЕЩЕ РАЗ
     if (window.app) {
         console.log('✅ Приложение уже инициализировано');
@@ -35,6 +61,23 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = '/';
     }
 });
+
+// Вспомогательные функции для проверки страницы
+function getCorrectPageForRole(role) {
+    const routes = {
+        'owner': '/owner.html',
+        'admin': '/admin.html',
+        'coowner': '/coowner.html',
+        'listener': '/listener.html',
+        'user': '/chat.html'
+    };
+    return routes[role] || '/chat.html';
+}
+
+function isOnCorrectPage(role, currentPage) {
+    const correctPage = getCorrectPageForRole(role);
+    return currentPage === correctPage || currentPage.includes(correctPage.replace('/', ''));
+}
 
 class ChatApp {
     constructor() {
@@ -71,12 +114,6 @@ class ChatApp {
             return;
         }
         
-        // Проверяем, что пользователь на правильной странице
-        if (!this.isOnCorrectPage()) {
-            this.redirectToCorrectPage();
-            return;
-        }
-        
         this.initSocket();
         this.loadUserData();
         this.setupEventListeners();
@@ -110,34 +147,6 @@ class ChatApp {
             console.error('Ошибка проверки аутентификации:', error);
             return false;
         }
-    }
-
-    isOnCorrectPage() {
-        const currentPage = window.location.pathname;
-        const rolePages = {
-            'owner': '/owner.html',
-            'admin': '/admin.html',
-            'coowner': '/coowner.html',
-            'listener': '/listener.html',
-            'user': '/chat.html'
-        };
-
-        const correctPage = rolePages[this.currentUser.role] || '/chat.html';
-        return currentPage === correctPage || currentPage.includes(correctPage.replace('/', ''));
-    }
-
-    redirectToCorrectPage() {
-        const rolePages = {
-            'owner': '/owner.html',
-            'admin': '/admin.html',
-            'coowner': '/coowner.html',
-            'listener': '/listener.html',
-            'user': '/chat.html'
-        };
-
-        const targetPage = rolePages[this.currentUser.role] || '/chat.html';
-        console.log(`🔄 Перенаправление ${this.currentUser.username} (${this.currentUser.role}) на ${targetPage}`);
-        window.location.href = targetPage;
     }
 
     initSocket() {
