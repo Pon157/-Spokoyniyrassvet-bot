@@ -3,6 +3,8 @@ const { createClient } = require('@supabase/supabase-js');
 const { authenticateToken, requireRole, logAction } = require('../middleware');
 
 const router = express.Router();
+
+// Инициализация Supabase клиента
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
@@ -12,6 +14,7 @@ const supabase = createClient(
 router.get('/profile', authenticateToken, requireRole(['listener']), async (req, res) => {
   try {
     const listenerId = req.user.id;
+    console.log('📥 Получение профиля слушателя:', listenerId);
 
     const { data: profile, error } = await supabase
       .from('listeners')
@@ -19,12 +22,36 @@ router.get('/profile', authenticateToken, requireRole(['listener']), async (req,
       .eq('user_id', listenerId)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Ошибка получения профиля:', error);
+      // Если профиля нет, создаем базовый
+      if (error.code === 'PGRST116') {
+        const { data: newProfile, error: createError } = await supabase
+          .from('listeners')
+          .insert({
+            user_id: listenerId,
+            is_available: true,
+            rating: 0,
+            total_sessions: 0,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
 
+        if (createError) throw createError;
+        return res.json({ profile: newProfile });
+      }
+      throw error;
+    }
+
+    console.log('✅ Профиль получен');
     res.json({ profile });
   } catch (error) {
-    console.error('Ошибка получения профиля:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка получения профиля:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -33,6 +60,8 @@ router.put('/profile', authenticateToken, requireRole(['listener']), async (req,
   try {
     const listenerId = req.user.id;
     const { bio, specialties, hourly_rate, languages, experience } = req.body;
+
+    console.log('📝 Обновление профиля слушателя:', listenerId);
 
     const { data, error } = await supabase
       .from('listeners')
@@ -52,10 +81,14 @@ router.put('/profile', authenticateToken, requireRole(['listener']), async (req,
 
     await logAction(listenerId, 'UPDATE_PROFILE', { listenerId });
 
+    console.log('✅ Профиль обновлен');
     res.json({ profile: data });
   } catch (error) {
-    console.error('Ошибка обновления профиля:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка обновления профиля:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -64,6 +97,8 @@ router.post('/status', authenticateToken, requireRole(['listener']), async (req,
   try {
     const listenerId = req.user.id;
     const { online } = req.body;
+
+    console.log('🔄 Обновление статуса слушателя:', listenerId, 'online:', online);
 
     // Обновляем статус в таблице users
     const { error: userError } = await supabase
@@ -74,7 +109,10 @@ router.post('/status', authenticateToken, requireRole(['listener']), async (req,
       })
       .eq('id', listenerId);
 
-    if (userError) throw userError;
+    if (userError) {
+      console.error('❌ Ошибка обновления статуса пользователя:', userError);
+      throw userError;
+    }
 
     // Обновляем статус в таблице listeners
     const { error: listenerError } = await supabase
@@ -85,21 +123,32 @@ router.post('/status', authenticateToken, requireRole(['listener']), async (req,
       })
       .eq('user_id', listenerId);
 
-    if (listenerError) throw listenerError;
+    if (listenerError) {
+      console.error('❌ Ошибка обновления статуса слушателя:', listenerError);
+      throw listenerError;
+    }
 
     await logAction(listenerId, 'UPDATE_STATUS', { online });
 
     // Отправляем уведомление через WebSocket
-    req.app.get('io').emit('listener_status_update', {
-      listenerId,
-      online,
-      timestamp: new Date().toISOString()
-    });
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('listener_status_update', {
+        listenerId,
+        online,
+        timestamp: new Date().toISOString()
+      });
+      console.log('📢 WebSocket уведомление отправлено');
+    }
 
+    console.log('✅ Статус обновлен');
     res.json({ success: true, online });
   } catch (error) {
-    console.error('Ошибка обновления статуса:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка обновления статуса:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -107,6 +156,7 @@ router.post('/status', authenticateToken, requireRole(['listener']), async (req,
 router.get('/reviews', authenticateToken, requireRole(['listener']), async (req, res) => {
   try {
     const listenerId = req.user.id;
+    console.log('📥 Получение отзывов слушателя:', listenerId);
 
     const { data: reviews, error } = await supabase
       .from('reviews')
@@ -118,16 +168,19 @@ router.get('/reviews', authenticateToken, requireRole(['listener']), async (req,
       .eq('listener_id', listenerId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Ошибка получения отзывов:', error);
+      throw error;
+    }
 
     // Рассчитываем средний рейтинг
-    const averageRating = reviews.length > 0 
+    const averageRating = reviews && reviews.length > 0 
       ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
       : 0;
 
-    const formattedReviews = reviews.map(review => ({
+    const formattedReviews = (reviews || []).map(review => ({
       id: review.id,
-      user_name: review.user?.username,
+      user_name: review.user?.username || 'Пользователь',
       user_avatar: review.user?.avatar_url,
       rating: review.rating,
       comment: review.comment,
@@ -135,14 +188,19 @@ router.get('/reviews', authenticateToken, requireRole(['listener']), async (req,
       chat_id: review.chat?.id
     }));
 
+    console.log(`✅ Получено отзывов: ${formattedReviews.length}`);
+
     res.json({ 
       reviews: formattedReviews,
       averageRating: Math.round(averageRating * 10) / 10,
-      totalReviews: reviews.length
+      totalReviews: formattedReviews.length
     });
   } catch (error) {
-    console.error('Ошибка получения отзывов:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка получения отзывов:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -150,6 +208,7 @@ router.get('/reviews', authenticateToken, requireRole(['listener']), async (req,
 router.get('/statistics', authenticateToken, requireRole(['listener']), async (req, res) => {
   try {
     const listenerId = req.user.id;
+    console.log('📊 Получение статистики слушателя:', listenerId);
 
     const [
       reviewsData,
@@ -184,6 +243,12 @@ router.get('/statistics', authenticateToken, requireRole(['listener']), async (r
         .not('ended_at', 'is', null)
     ]);
 
+    // Обработка ошибок
+    if (reviewsData.error) console.error('Ошибка получения отзывов:', reviewsData.error);
+    if (chatsData.error) console.error('Ошибка получения чатов:', chatsData.error);
+    if (messagesData.error) console.error('Ошибка получения сообщений:', messagesData.error);
+    if (sessionsData.error) console.error('Ошибка получения сессий:', sessionsData.error);
+
     const totalChats = chatsData.data?.length || 0;
     const activeChats = chatsData.data?.filter(chat => chat.status === 'active').length || 0;
     const completedChats = chatsData.data?.filter(chat => chat.status === 'completed').length || 0;
@@ -197,9 +262,14 @@ router.get('/statistics', authenticateToken, requireRole(['listener']), async (r
     let averageSessionTime = 0;
     if (sessionsData.data && sessionsData.data.length > 0) {
       const totalTime = sessionsData.data.reduce((sum, session) => {
-        const start = new Date(session.created_at);
-        const end = new Date(session.ended_at);
-        return sum + (end - start);
+        try {
+          const start = new Date(session.created_at);
+          const end = new Date(session.ended_at);
+          return sum + (end - start);
+        } catch (error) {
+          console.error('Ошибка расчета времени сессии:', error);
+          return sum;
+        }
       }, 0);
       averageSessionTime = Math.round(totalTime / sessionsData.data.length / 60000); // в минутах
     }
@@ -209,7 +279,7 @@ router.get('/statistics', authenticateToken, requireRole(['listener']), async (r
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      return date.toLocaleDateString('ru-RU');
+      return date.toISOString().split('T')[0];
     }).reverse();
 
     last7Days.forEach(date => {
@@ -217,9 +287,13 @@ router.get('/statistics', authenticateToken, requireRole(['listener']), async (r
     });
 
     messagesData.data?.forEach(message => {
-      const date = new Date(message.created_at).toLocaleDateString('ru-RU');
-      if (activityByDay[date] !== undefined) {
-        activityByDay[date]++;
+      try {
+        const date = new Date(message.created_at).toISOString().split('T')[0];
+        if (activityByDay[date] !== undefined) {
+          activityByDay[date]++;
+        }
+      } catch (error) {
+        console.error('Ошибка обработки даты сообщения:', error);
       }
     });
 
@@ -228,6 +302,8 @@ router.get('/statistics', authenticateToken, requireRole(['listener']), async (r
     const helpfulness = reviewsData.data?.length > 0 
       ? Math.round((helpfulReviews / reviewsData.data.length) * 100) 
       : 0;
+
+    console.log('✅ Статистика получена');
 
     res.json({
       totalSessions: totalChats,
@@ -240,8 +316,11 @@ router.get('/statistics', authenticateToken, requireRole(['listener']), async (r
       totalMessages: messagesData.data?.length || 0
     });
   } catch (error) {
-    console.error('Ошибка получения статистики слушателя:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка получения статистики слушателя:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -249,62 +328,101 @@ router.get('/statistics', authenticateToken, requireRole(['listener']), async (r
 router.get('/chats', authenticateToken, requireRole(['listener']), async (req, res) => {
   try {
     const listenerId = req.user.id;
+    console.log('📥 Получение чатов слушателя:', listenerId);
 
-    const { data: chats, error } = await supabase
+    // Сначала получаем базовую информацию о чатах
+    const { data: chats, error: chatsError } = await supabase
       .from('chats')
       .select(`
-        *,
-        user:users!chats_user_id_fkey(username, avatar_url, is_online),
-        messages:messages!inner(
-          content, 
-          created_at,
-          is_read,
-          sender_id
-        )
+        id,
+        status,
+        created_at,
+        user_id,
+        listener_id,
+        user:users!chats_user_id_fkey(username, avatar_url, is_online)
       `)
       .eq('listener_id', listenerId)
       .in('status', ['active', 'waiting'])
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (chatsError) {
+      console.error('❌ Ошибка получения чатов:', chatsError);
+      throw chatsError;
+    }
+
+    console.log(`📊 Найдено чатов: ${chats?.length || 0}`);
+
+    // Если чатов нет, возвращаем пустой массив
+    if (!chats || chats.length === 0) {
+      console.log('✅ Нет активных чатов');
+      return res.json({ chats: [] });
+    }
 
     const formattedChats = await Promise.all(
       chats.map(async (chat) => {
-        // Получаем количество непрочитанных сообщений
-        const { count: unreadCount } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('chat_id', chat.id)
-          .eq('is_read', false)
-          .neq('sender_id', listenerId);
+        try {
+          // Получаем количество непрочитанных сообщений
+          const { count: unreadCount, error: unreadError } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('chat_id', chat.id)
+            .eq('is_read', false)
+            .neq('sender_id', listenerId);
 
-        // Получаем последнее сообщение
-        const { data: lastMessage } = await supabase
-          .from('messages')
-          .select('content, created_at, sender_id')
-          .eq('chat_id', chat.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+          if (unreadError) {
+            console.error(`❌ Ошибка подсчета непрочитанных для чата ${chat.id}:`, unreadError);
+          }
 
-        return {
-          id: chat.id,
-          user_name: chat.user?.username,
-          user_avatar: chat.user?.avatar_url,
-          user_online: chat.user?.is_online,
-          status: chat.status,
-          unread_count: unreadCount || 0,
-          last_message: lastMessage?.content,
-          last_message_time: lastMessage?.created_at,
-          created_at: chat.created_at
-        };
+          // Получаем последнее сообщение
+          const { data: lastMessage, error: lastMessageError } = await supabase
+            .from('messages')
+            .select('content, created_at, sender_id')
+            .eq('chat_id', chat.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (lastMessageError && lastMessageError.code !== 'PGRST116') {
+            console.error(`❌ Ошибка получения последнего сообщения для чата ${chat.id}:`, lastMessageError);
+          }
+
+          return {
+            id: chat.id,
+            user_name: chat.user?.username || 'Пользователь',
+            user_avatar: chat.user?.avatar_url,
+            user_online: chat.user?.is_online || false,
+            status: chat.status,
+            unread_count: unreadCount || 0,
+            last_message: lastMessage?.content || 'Чат начат',
+            last_message_time: lastMessage?.created_at || chat.created_at,
+            created_at: chat.created_at
+          };
+        } catch (error) {
+          console.error(`❌ Ошибка обработки чата ${chat.id}:`, error);
+          // Возвращаем базовую информацию о чате даже при ошибке
+          return {
+            id: chat.id,
+            user_name: chat.user?.username || 'Пользователь',
+            user_avatar: chat.user?.avatar_url,
+            user_online: chat.user?.is_online || false,
+            status: chat.status,
+            unread_count: 0,
+            last_message: 'Чат начат',
+            last_message_time: chat.created_at,
+            created_at: chat.created_at
+          };
+        }
       })
     );
 
+    console.log('✅ Чаты успешно обработаны');
     res.json({ chats: formattedChats });
   } catch (error) {
-    console.error('Ошибка получения чатов:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка получения чатов:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -313,6 +431,8 @@ router.post('/chats/:chatId/accept', authenticateToken, requireRole(['listener']
   try {
     const { chatId } = req.params;
     const listenerId = req.user.id;
+
+    console.log('✅ Принятие чата:', chatId, 'слушателем:', listenerId);
 
     const { data: chat, error } = await supabase
       .from('chats')
@@ -326,21 +446,33 @@ router.post('/chats/:chatId/accept', authenticateToken, requireRole(['listener']
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Чат не найден или уже принят' });
+      }
+      throw error;
+    }
 
     await logAction(listenerId, 'ACCEPT_CHAT', { chatId });
 
     // Отправляем уведомление пользователю
-    req.app.get('io').emit('chat_accepted', {
-      chatId,
-      listenerId,
-      timestamp: new Date().toISOString()
-    });
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('chat_accepted', {
+        chatId,
+        listenerId,
+        timestamp: new Date().toISOString()
+      });
+    }
 
+    console.log('✅ Чат принят');
     res.json({ success: true, chat });
   } catch (error) {
-    console.error('Ошибка принятия чата:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка принятия чата:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -349,6 +481,8 @@ router.post('/chats/:chatId/complete', authenticateToken, requireRole(['listener
   try {
     const { chatId } = req.params;
     const listenerId = req.user.id;
+
+    console.log('🏁 Завершение чата:', chatId);
 
     const { data: chat, error } = await supabase
       .from('chats')
@@ -362,14 +496,23 @@ router.post('/chats/:chatId/complete', authenticateToken, requireRole(['listener
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Чат не найден' });
+      }
+      throw error;
+    }
 
     await logAction(listenerId, 'COMPLETE_CHAT', { chatId });
 
+    console.log('✅ Чат завершен');
     res.json({ success: true, chat });
   } catch (error) {
-    console.error('Ошибка завершения чата:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка завершения чата:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -377,6 +520,7 @@ router.post('/chats/:chatId/complete', authenticateToken, requireRole(['listener
 router.get('/online-listeners', authenticateToken, requireRole(['listener']), async (req, res) => {
   try {
     const currentListenerId = req.user.id;
+    console.log('👥 Получение онлайн слушателей, исключая:', currentListenerId);
 
     const { data: listeners, error } = await supabase
       .from('users')
@@ -393,9 +537,12 @@ router.get('/online-listeners', authenticateToken, requireRole(['listener']), as
       .neq('id', currentListenerId)
       .order('username');
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Ошибка получения слушателей:', error);
+      throw error;
+    }
 
-    const formattedListeners = listeners.map(listener => ({
+    const formattedListeners = (listeners || []).map(listener => ({
       id: listener.id,
       name: listener.username,
       avatar: listener.avatar_url,
@@ -406,10 +553,14 @@ router.get('/online-listeners', authenticateToken, requireRole(['listener']), as
       rating: listener.listener?.rating
     }));
 
+    console.log(`✅ Найдено онлайн слушателей: ${formattedListeners.length}`);
     res.json({ listeners: formattedListeners });
   } catch (error) {
-    console.error('Ошибка получения онлайн слушателей:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка получения онлайн слушателей:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -417,6 +568,7 @@ router.get('/online-listeners', authenticateToken, requireRole(['listener']), as
 router.get('/notifications', authenticateToken, requireRole(['listener']), async (req, res) => {
   try {
     const listenerId = req.user.id;
+    console.log('🔔 Получение уведомлений слушателя:', listenerId);
 
     const { data: notifications, error } = await supabase
       .from('notifications')
@@ -425,12 +577,19 @@ router.get('/notifications', authenticateToken, requireRole(['listener']), async
       .order('created_at', { ascending: false })
       .limit(50);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Ошибка получения уведомлений:', error);
+      throw error;
+    }
 
-    res.json({ notifications });
+    console.log(`✅ Получено уведомлений: ${notifications?.length || 0}`);
+    res.json({ notifications: notifications || [] });
   } catch (error) {
-    console.error('Ошибка получения уведомлений:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка получения уведомлений:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
@@ -440,18 +599,112 @@ router.post('/notifications/read', authenticateToken, requireRole(['listener']),
     const listenerId = req.user.id;
     const { notificationIds } = req.body;
 
-    const { error } = await supabase
+    console.log('📝 Отметка уведомлений как прочитанных:', notificationIds);
+
+    let query = supabase
       .from('notifications')
-      .update({ is_read: true })
+      .update({ is_read: true, read_at: new Date().toISOString() })
       .eq('user_id', listenerId)
-      .in('id', notificationIds || []);
+      .eq('is_read', false);
+
+    // Если указаны конкретные ID, обновляем только их
+    if (notificationIds && notificationIds.length > 0) {
+      query = query.in('id', notificationIds);
+    }
+
+    const { error } = await query;
 
     if (error) throw error;
 
+    console.log('✅ Уведомления отмечены как прочитанные');
     res.json({ success: true });
   } catch (error) {
-    console.error('Ошибка отметки уведомлений:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    console.error('❌ Ошибка отметки уведомлений:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
+  }
+});
+
+// Отправить сообщение другому слушателю
+router.post('/messages', authenticateToken, requireRole(['listener']), async (req, res) => {
+  try {
+    const senderId = req.user.id;
+    const { receiver_id, content } = req.body;
+
+    console.log('💬 Отправка сообщения слушателю:', { senderId, receiver_id });
+
+    if (!receiver_id || !content) {
+      return res.status(400).json({ error: 'Получатель и содержание сообщения обязательны' });
+    }
+
+    // Проверяем, что получатель - слушатель
+    const { data: receiver, error: receiverError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', receiver_id)
+      .eq('role', 'listener')
+      .single();
+
+    if (receiverError || !receiver) {
+      return res.status(400).json({ error: 'Получатель не найден или не является слушателем' });
+    }
+
+    // Создаем сообщение
+    const { data: message, error } = await supabase
+      .from('listener_messages')
+      .insert({
+        sender_id: senderId,
+        receiver_id: receiver_id,
+        content: content
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Отправляем уведомление через WebSocket
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user:${receiver_id}`).emit('new_listener_message', message);
+    }
+
+    console.log('✅ Сообщение отправлено');
+    res.json({ success: true, message });
+  } catch (error) {
+    console.error('❌ Ошибка отправки сообщения:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
+  }
+});
+
+// Получить историю сообщений с другим слушателем
+router.get('/chats/:listenerId/messages', authenticateToken, requireRole(['listener']), async (req, res) => {
+  try {
+    const currentListenerId = req.user.id;
+    const { listenerId } = req.params;
+
+    console.log('📨 Получение истории сообщений с слушателем:', listenerId);
+
+    const { data: messages, error } = await supabase
+      .from('listener_messages')
+      .select('*')
+      .or(`and(sender_id.eq.${currentListenerId},receiver_id.eq.${listenerId}),and(sender_id.eq.${listenerId},receiver_id.eq.${currentListenerId})`)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    console.log(`✅ Получено сообщений: ${messages?.length || 0}`);
+    res.json({ messages: messages || [] });
+  } catch (error) {
+    console.error('❌ Ошибка получения истории сообщений:', error);
+    res.status(500).json({ 
+      error: 'Внутренняя ошибка сервера',
+      details: error.message 
+    });
   }
 });
 
