@@ -120,21 +120,33 @@ class ListenerInterface {
                 return;
             }
 
+            // Проверяем доступность io
+            if (typeof io === 'undefined') {
+                console.warn('⚠️ Socket.io не загружен, откладываем подключение');
+                // Повторим попытку через 2 секунды
+                setTimeout(() => this.setupSocketConnection(), 2000);
+                return;
+            }
+
             // Используем глобальный socketClient если доступен
-            if (window.socketClient) {
+            if (window.socketClient && window.socketClient.socket) {
                 this.socket = window.socketClient.socket;
-                this.setupSocketListeners();
+                console.log('✅ Используем существующее WebSocket подключение');
             } else {
-                console.warn('⚠️ SocketClient не инициализирован');
-                // Создаем базовое подключение
+                // Создаем новое подключение
+                console.log('🔄 Создаем новое WebSocket подключение');
                 this.socket = io({
                     auth: { token },
                     transports: ['websocket', 'polling']
                 });
-                this.setupSocketListeners();
             }
+            
+            this.setupSocketListeners();
+            
         } catch (error) {
             console.error('❌ Ошибка подключения WebSocket:', error);
+            // Повторим попытку через 5 секунд
+            setTimeout(() => this.setupSocketConnection(), 5000);
         }
     }
 
@@ -151,6 +163,16 @@ class ListenerInterface {
 
         this.socket.on('disconnect', (reason) => {
             console.log('❌ WebSocket отключен:', reason);
+            this.updateConnectionStatus(false);
+            
+            // Автопереподключение
+            if (reason === 'io server disconnect') {
+                this.socket.connect();
+            }
+        });
+
+        this.socket.on('connect_error', (error) => {
+            console.error('❌ Ошибка подключения WebSocket:', error);
             this.updateConnectionStatus(false);
         });
 
@@ -182,21 +204,33 @@ class ListenerInterface {
 
     updateConnectionStatus(connected) {
         const statusElement = document.getElementById('onlineStatus');
-        if (connected) {
-            statusElement.classList.remove('offline');
-            statusElement.querySelector('.status-text').textContent = 'Онлайн';
-        } else {
-            statusElement.classList.add('offline');
-            statusElement.querySelector('.status-text').textContent = 'Оффлайн';
+        if (statusElement) {
+            if (connected) {
+                statusElement.classList.remove('offline');
+                const statusText = statusElement.querySelector('.status-text');
+                if (statusText) statusText.textContent = 'Онлайн';
+            } else {
+                statusElement.classList.add('offline');
+                const statusText = statusElement.querySelector('.status-text');
+                if (statusText) statusText.textContent = 'Оффлайн';
+            }
         }
     }
 
     async loadUserData() {
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
-            if (user.username) {
-                document.getElementById('userName').textContent = user.username;
-                document.getElementById('userAvatar').src = user.avatar_url || '/images/default-avatar.svg';
+            const userName = document.getElementById('userName');
+            const userAvatar = document.getElementById('userAvatar');
+            
+            if (userName && user.username) {
+                userName.textContent = user.username;
+            }
+            if (userAvatar) {
+                userAvatar.src = user.avatar_url || '/images/default-avatar.svg';
+                userAvatar.onerror = function() {
+                    this.src = '/images/default-avatar.svg';
+                };
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки данных пользователя:', error);
@@ -210,13 +244,15 @@ class ListenerInterface {
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        const activeNav = document.querySelector(`[data-tab="${tabName}"]`);
+        if (activeNav) activeNav.classList.add('active');
 
         // Показываем соответствующий контент
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
         });
-        document.getElementById(tabName).classList.add('active');
+        const activeTab = document.getElementById(tabName);
+        if (activeTab) activeTab.classList.add('active');
 
         this.currentTab = tabName;
 
@@ -281,15 +317,25 @@ class ListenerInterface {
         const userStatus = document.getElementById('userStatus');
         
         if (this.isOnline) {
-            statusElement.classList.remove('offline');
-            statusElement.querySelector('.status-text').textContent = 'Онлайн';
-            userStatus.textContent = 'Онлайн';
-            userStatus.className = 'user-status status-online';
+            if (statusElement) {
+                statusElement.classList.remove('offline');
+                const statusText = statusElement.querySelector('.status-text');
+                if (statusText) statusText.textContent = 'Онлайн';
+            }
+            if (userStatus) {
+                userStatus.textContent = 'Онлайн';
+                userStatus.className = 'user-status status-online';
+            }
         } else {
-            statusElement.classList.add('offline');
-            statusElement.querySelector('.status-text').textContent = 'Оффлайн';
-            userStatus.textContent = 'Оффлайн';
-            userStatus.className = 'user-status status-offline';
+            if (statusElement) {
+                statusElement.classList.add('offline');
+                const statusText = statusElement.querySelector('.status-text');
+                if (statusText) statusText.textContent = 'Оффлайн';
+            }
+            if (userStatus) {
+                userStatus.textContent = 'Оффлайн';
+                userStatus.className = 'user-status status-offline';
+            }
         }
     }
 
@@ -321,6 +367,7 @@ class ListenerInterface {
 
     renderUserChats(chats) {
         const chatsList = document.getElementById('chatsList');
+        if (!chatsList) return;
         
         if (!chats || chats.length === 0) {
             chatsList.innerHTML = this.getEmptyState(
@@ -410,20 +457,29 @@ class ListenerInterface {
         
         // Обработчики событий для модального окна
         const modal = document.getElementById('chatModal');
-        const messageInput = modal.querySelector('#modalMessageText');
-        
-        modal.querySelector('#sendModalMessage').addEventListener('click', () => {
-            this.sendUserMessage(chat.id, messageInput);
-        });
+        if (!modal) return;
 
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        const messageInput = modal.querySelector('#modalMessageText');
+        const sendButton = modal.querySelector('#sendModalMessage');
+        
+        if (sendButton) {
+            sendButton.addEventListener('click', () => {
                 this.sendUserMessage(chat.id, messageInput);
-            }
-        });
+            });
+        }
+
+        if (messageInput) {
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.sendUserMessage(chat.id, messageInput);
+                }
+            });
+        }
 
         // Фокусируемся на поле ввода
-        setTimeout(() => messageInput.focus(), 100);
+        setTimeout(() => {
+            if (messageInput) messageInput.focus();
+        }, 100);
     }
 
     closeModal() {
@@ -453,7 +509,10 @@ class ListenerInterface {
             
         } catch (error) {
             console.error('❌ Ошибка загрузки истории чата:', error);
-            document.getElementById(containerId).innerHTML = this.getErrorState('Ошибка загрузки сообщений');
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = this.getErrorState('Ошибка загрузки сообщений');
+            }
         }
     }
 
@@ -475,6 +534,7 @@ class ListenerInterface {
 
     renderChatMessages(messages, containerId) {
         const container = document.getElementById(containerId);
+        if (!container) return;
         
         if (!messages || messages.length === 0) {
             container.innerHTML = this.getEmptyState('💭 Нет сообщений', 'Начните общение первым сообщением');
@@ -494,6 +554,8 @@ class ListenerInterface {
     }
 
     async sendUserMessage(chatId, inputElement) {
+        if (!inputElement) return;
+        
         const message = inputElement.value.trim();
         if (!message) {
             this.showToast('💭 Введите сообщение');
@@ -561,6 +623,7 @@ class ListenerInterface {
 
     renderOnlineListeners(listeners) {
         const listenersList = document.getElementById('listenersList');
+        if (!listenersList) return;
         
         if (!listeners || listeners.length === 0) {
             listenersList.innerHTML = this.getEmptyState(
@@ -609,17 +672,20 @@ class ListenerInterface {
         document.querySelectorAll('.listener-item').forEach(item => {
             item.classList.remove('active');
         });
-        document.querySelector(`[data-listener-id="${listenerId}"]`).classList.add('active');
+        const selectedItem = document.querySelector(`[data-listener-id="${listenerId}"]`);
+        if (selectedItem) selectedItem.classList.add('active');
 
         // Показываем поле ввода сообщения
-        document.getElementById('listenerMessageInput').classList.remove('hidden');
+        const messageInputContainer = document.getElementById('listenerMessageInput');
+        if (messageInputContainer) messageInputContainer.classList.remove('hidden');
         
         // Загружаем историю сообщений
         this.loadListenerChatHistory(listenerId);
         
         // Фокусируемся на поле ввода
         setTimeout(() => {
-            document.getElementById('listenerMessageText').focus();
+            const messageInput = document.getElementById('listenerMessageText');
+            if (messageInput) messageInput.focus();
         }, 100);
     }
 
@@ -648,6 +714,7 @@ class ListenerInterface {
 
     renderListenerChatMessages(messages) {
         const container = document.getElementById('listenerChatMessages');
+        if (!container) return;
         
         if (!messages || messages.length === 0) {
             container.innerHTML = this.getEmptyState(
@@ -670,6 +737,8 @@ class ListenerInterface {
 
     async sendListenerMessage() {
         const messageInput = document.getElementById('listenerMessageText');
+        if (!messageInput) return;
+        
         const message = messageInput.value.trim();
         
         if (!message) {
@@ -721,6 +790,7 @@ class ListenerInterface {
 
     addListenerMessageToUI(message) {
         const container = document.getElementById('listenerChatMessages');
+        if (!container) return;
         
         // Убираем empty state если есть
         if (container.querySelector('.empty-state')) {
@@ -763,30 +833,42 @@ class ListenerInterface {
     }
 
     renderReviews(data) {
-        // Обновляем статистику
-        document.getElementById('avgRating').textContent = data.averageRating?.toFixed(1) || '0.0';
-        document.getElementById('totalReviews').textContent = data.totalReviews || data.reviews?.length || 0;
+        try {
+            // Обновляем статистику
+            const avgRating = document.getElementById('avgRating');
+            const totalReviews = document.getElementById('totalReviews');
+            
+            if (avgRating) {
+                avgRating.textContent = data.averageRating?.toFixed(1) || '0.0';
+            }
+            if (totalReviews) {
+                totalReviews.textContent = data.totalReviews || data.reviews?.length || 0;
+            }
 
-        const reviewsList = document.getElementById('reviewsList');
-        
-        if (!data.reviews || data.reviews.length === 0) {
-            reviewsList.innerHTML = this.getEmptyState(
-                '⭐ Пока нет отзывов',
-                'Отзывы появятся здесь после завершения чатов с пользователями'
-            );
-            return;
-        }
+            const reviewsList = document.getElementById('reviewsList');
+            if (!reviewsList) return;
+            
+            if (!data.reviews || data.reviews.length === 0) {
+                reviewsList.innerHTML = this.getEmptyState(
+                    '⭐ Пока нет отзывов',
+                    'Отзывы появятся здесь после завершения чатов с пользователями'
+                );
+                return;
+            }
 
-        reviewsList.innerHTML = data.reviews.map(review => `
-            <div class="review-item">
-                <div class="review-header">
-                    <span class="review-user">👤 ${this.escapeHtml(review.user_name || 'Пользователь')}</span>
-                    <span class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}</span>
-                    <span class="review-date">${this.formatDate(review.created_at)}</span>
+            reviewsList.innerHTML = data.reviews.map(review => `
+                <div class="review-item">
+                    <div class="review-header">
+                        <span class="review-user">👤 ${this.escapeHtml(review.user_name || 'Пользователь')}</span>
+                        <span class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}</span>
+                        <span class="review-date">${this.formatDate(review.created_at)}</span>
+                    </div>
+                    <div class="review-text">${this.escapeHtml(review.comment || 'Без комментария')}</div>
                 </div>
-                <div class="review-text">${this.escapeHtml(review.comment || 'Без комментария')}</div>
-            </div>
-        `).join('');
+            `).join('');
+        } catch (error) {
+            console.error('❌ Ошибка рендеринга отзывов:', error);
+        }
     }
 
     async loadStatistics() {
@@ -813,55 +895,88 @@ class ListenerInterface {
     }
 
     renderStatistics(stats) {
-        // Обновляем основные метрики
-        document.getElementById('totalSessions').textContent = stats.totalSessions || 0;
-        document.getElementById('activeChats').textContent = stats.activeChats || 0;
-        document.getElementById('avgSessionTime').textContent = stats.averageSessionTime || 0;
-        document.getElementById('helpfulness').textContent = `${stats.helpfulness || 0}%`;
+        try {
+            // Безопасно обновляем элементы
+            const elements = {
+                totalSessions: document.getElementById('totalSessions'),
+                activeChats: document.getElementById('activeChats'),
+                avgSessionTime: document.getElementById('avgSessionTime'),
+                helpfulness: document.getElementById('helpfulness')
+            };
 
-        // Рендерим график активности
-        this.renderActivityChart(stats.weeklyActivity || {});
+            // Проверяем существование элементов перед обновлением
+            if (elements.totalSessions) {
+                elements.totalSessions.textContent = stats.totalSessions || 0;
+            }
+            if (elements.activeChats) {
+                elements.activeChats.textContent = stats.activeChats || 0;
+            }
+            if (elements.avgSessionTime) {
+                elements.avgSessionTime.textContent = stats.averageSessionTime || 0;
+            }
+            if (elements.helpfulness) {
+                elements.helpfulness.textContent = `${stats.helpfulness || 0}%`;
+            }
+
+            // Рендерим график активности
+            this.renderActivityChart(stats.weeklyActivity || {});
+            
+        } catch (error) {
+            console.error('❌ Ошибка рендеринга статистики:', error);
+        }
     }
 
     renderActivityChart(activityData) {
         const chartContainer = document.getElementById('activityChart');
+        if (!chartContainer) {
+            console.warn('⚠️ Контейнер графика не найден');
+            return;
+        }
         
         if (!activityData || Object.keys(activityData).length === 0) {
             chartContainer.innerHTML = this.getEmptyState('📊 Нет данных', 'Активность появится после работы с пользователями');
             return;
         }
 
-        const days = Object.keys(activityData);
-        const values = Object.values(activityData);
-        const maxValue = Math.max(...values, 1);
+        try {
+            const days = Object.keys(activityData);
+            const values = Object.values(activityData);
+            const maxValue = Math.max(...values, 1);
 
-        chartContainer.innerHTML = days.map((day, index) => {
-            const value = values[index];
-            const height = Math.max((value / maxValue) * 80, 10); // Минимальная высота 10%
-            const date = new Date(day);
-            const label = `${date.getDate()}.${date.getMonth() + 1}`;
-            
-            return `
-                <div class="chart-bar" style="height: ${height}%" title="${label}: ${value} сессий">
-                    <span class="chart-value">${value}</span>
-                    <span class="chart-label">${label}</span>
-                </div>
-            `;
-        }).join('');
+            chartContainer.innerHTML = days.map((day, index) => {
+                const value = values[index];
+                const height = Math.max((value / maxValue) * 80, 10);
+                const date = new Date(day);
+                const label = `${date.getDate()}.${date.getMonth() + 1}`;
+                
+                return `
+                    <div class="chart-bar" style="height: ${height}%" title="${label}: ${value} сессий">
+                        <span class="chart-value">${value}</span>
+                        <span class="chart-label">${label}</span>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('❌ Ошибка рендеринга графика:', error);
+            chartContainer.innerHTML = this.getErrorState('Ошибка загрузки графика');
+        }
     }
 
     toggleNotifications() {
         const panel = document.getElementById('notificationsPanel');
-        panel.classList.toggle('hidden');
-        
-        if (!panel.classList.contains('hidden')) {
-            this.loadNotifications();
-            this.markNotificationsAsRead();
+        if (panel) {
+            panel.classList.toggle('hidden');
+            
+            if (!panel.classList.contains('hidden')) {
+                this.loadNotifications();
+                this.markNotificationsAsRead();
+            }
         }
     }
 
     hideNotifications() {
-        document.getElementById('notificationsPanel').classList.add('hidden');
+        const panel = document.getElementById('notificationsPanel');
+        if (panel) panel.classList.add('hidden');
     }
 
     async loadNotifications() {
@@ -892,7 +1007,8 @@ class ListenerInterface {
             });
             
             // Скрываем бейдж
-            document.getElementById('notificationBadge').classList.add('hidden');
+            const badge = document.getElementById('notificationBadge');
+            if (badge) badge.classList.add('hidden');
             
         } catch (error) {
             console.error('❌ Ошибка отметки уведомлений:', error);
@@ -938,11 +1054,13 @@ class ListenerInterface {
         const unreadCount = this.notifications.filter(n => !n.read).length;
         const badge = document.getElementById('notificationBadge');
         
-        if (unreadCount > 0) {
-            badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
+        if (badge) {
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
         }
     }
 
@@ -950,16 +1068,19 @@ class ListenerInterface {
         const unreadCount = this.currentChats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
         const badge = document.getElementById('userChatsBadge');
         
-        if (unreadCount > 0) {
-            badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-            badge.classList.remove('hidden');
-        } else {
-            badge.classList.add('hidden');
+        if (badge) {
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
         }
     }
 
     renderNotifications() {
         const list = document.getElementById('notificationsList');
+        if (!list) return;
         
         if (this.notifications.length === 0) {
             list.innerHTML = this.getEmptyState('🔕 Нет уведомлений');
@@ -1022,7 +1143,9 @@ class ListenerInterface {
         document.body.appendChild(toast);
 
         setTimeout(() => {
-            toast.remove();
+            if (toast.parentNode) {
+                toast.remove();
+            }
         }, 4000);
     }
 
@@ -1099,18 +1222,29 @@ class ListenerInterface {
     }
 
     loadInitialData() {
-        // Загружаем данные для активного таба
-        this.loadUserChats();
-        
-        // Предзагружаем остальные данные
-        setTimeout(() => {
-            this.loadReviews();
-            this.loadStatistics();
-        }, 1000);
-        
-        // Запрашиваем разрешение на уведомления
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
+        try {
+            // Загружаем данные для активного таба
+            this.loadUserChats();
+            
+            // Предзагружаем остальные данные с задержкой
+            setTimeout(() => {
+                try {
+                    this.loadReviews();
+                    this.loadStatistics();
+                } catch (error) {
+                    console.error('❌ Ошибка предзагрузки данных:', error);
+                }
+            }, 1000);
+            
+            // Запрашиваем разрешение на уведомления
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    console.log('🔔 Разрешение на уведомления:', permission);
+                });
+            }
+            
+        } catch (error) {
+            console.error('❌ Ошибка загрузки начальных данных:', error);
         }
     }
 
