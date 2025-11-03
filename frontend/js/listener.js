@@ -139,6 +139,40 @@ class ListenerInterface {
     }
 
     setupSocketConnection() {
+        console.log('🔌 Настройка подключения Socket.io...');
+        
+        // Проверяем, доступен ли socket.io
+        if (typeof io === 'undefined') {
+            console.warn('⚠️ Socket.io не загружен, попытка загрузить...');
+            
+            // Пробуем загрузить из CDN как fallback
+            this.loadSocketIOFromCDN();
+        } else {
+            this.initializeSocket();
+        }
+    }
+
+    loadSocketIOFromCDN() {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.socket.io/4.7.2/socket.io.min.js';
+        script.integrity = 'sha384-+rLceUhOBZ1qZCDr2aVv2VW5d9h/gp/VMoIcRUVa5PkuA1JQYfX2z5V3L8kXp8N8';
+        script.crossOrigin = 'anonymous';
+        
+        script.onload = () => {
+            console.log('✅ Socket.io загружен из CDN, инициализируем подключение...');
+            this.initializeSocket();
+        };
+        
+        script.onerror = (error) => {
+            console.error('❌ Не удалось загрузить Socket.io из CDN:', error);
+            // Пробуем еще раз через 3 секунды
+            setTimeout(() => this.setupSocketConnection(), 3000);
+        };
+        
+        document.head.appendChild(script);
+    }
+
+    initializeSocket() {
         try {
             const token = localStorage.getItem('token');
             if (!token) {
@@ -146,17 +180,14 @@ class ListenerInterface {
                 return;
             }
 
-            // Ждем загрузки socket.io
-            if (typeof io === 'undefined') {
-                console.warn('⚠️ Socket.io не загружен, откладываем подключение');
-                setTimeout(() => this.setupSocketConnection(), 2000);
-                return;
-            }
-
             console.log('🔄 Создаем WebSocket подключение...');
-            this.socket = io({
+            
+            // Подключаемся к текущему хосту
+            const socketUrl = window.location.origin;
+            this.socket = io(socketUrl, {
                 auth: { token },
-                transports: ['websocket', 'polling']
+                transports: ['websocket', 'polling'],
+                timeout: 10000
             });
             
             this.setupSocketListeners();
