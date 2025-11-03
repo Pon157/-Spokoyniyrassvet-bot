@@ -3,7 +3,7 @@ class AuthManager {
     constructor() {
         this.currentForm = 'login';
         // ВАЖНО: правильный endpoint - без /api
-        this.apiBase = '';
+        this.apiBase = '/auth';
         this.init();
     }
 
