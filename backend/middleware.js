@@ -1,6 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Инициализация Supabase клиента
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
@@ -15,7 +14,8 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Токен доступа отсутствует' });
     }
 
-    // Получаем пользователя из базы по ID (токен = user.id в вашей системе)
+    // Для простоты используем ID пользователя как токен
+    // В реальном приложении здесь должна быть JWT валидация
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
@@ -26,10 +26,14 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Неверный токен' });
     }
 
+    if (user.is_blocked) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован' });
+    }
+
     req.user = user;
     next();
   } catch (error) {
-    console.error('Ошибка аутентификации:', error);
+    console.error('❌ Ошибка аутентификации:', error);
     res.status(500).json({ error: 'Ошибка аутентификации' });
   }
 };
@@ -42,32 +46,31 @@ const requireRole = (roles) => {
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Недостаточно прав' });
+      return res.status(403).json({ 
+        error: 'Недостаточно прав',
+        required: roles,
+        current: req.user.role
+      });
     }
 
     next();
   };
 };
 
-// Функция для логирования действий
+// Логирование действий
 const logAction = async (userId, action, details = {}) => {
   try {
-    const { error } = await supabase
-      .from('user_actions')
+    await supabase
+      .from('action_logs')
       .insert({
         user_id: userId,
         action: action,
         details: details,
-        created_at: new Date().toISOString()
+        ip_address: '127.0.0.1', // В реальном приложении получать из req.ip
+        user_agent: 'server' // В реальном приложении получать из req.headers['user-agent']
       });
-
-    if (error) {
-      console.error('Ошибка логирования:', error);
-    }
-    
-    console.log(`📝 Action: ${action} by ${userId}`);
   } catch (error) {
-    console.error('Ошибка логирования:', error);
+    console.error('❌ Ошибка логирования действия:', error);
   }
 };
 
