@@ -2,147 +2,157 @@
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
-        this.apiBase = '/auth';
-        this.roleHierarchy = {
-            'user': 1,
-            'listener': 2, 
-            'coowner': 3,
-            'admin': 4,
-            'owner': 5
-        };
+        this.apiBase = '/api/auth';
         this.init();
     }
 
     init() {
         this.bindEvents();
-        this.checkAuthState();
+        this.checkExistingAuth();
         this.setupTermsModal();
     }
 
     bindEvents() {
         // Форма входа
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleLogin();
-        });
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleLogin();
+            });
+        }
 
         // Форма регистрации
-        document.getElementById('registerForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleRegister();
-        });
-
-        // Форма восстановления пароля
-        document.getElementById('forgotPasswordForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleForgotPassword();
-        });
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) {
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleRegister();
+            });
+        }
 
         // Переключение между формами
-        document.getElementById('switchBtn').addEventListener('click', () => {
-            this.switchForms();
-        });
+        const switchBtn = document.getElementById('switchBtn');
+        if (switchBtn) {
+            switchBtn.addEventListener('click', () => {
+                this.switchForms();
+            });
+        }
 
-        // Ссылка "Забыли пароль"
-        document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.showForm('forgotPassword');
-        });
+        // Ссылка "Забыли пароль?"
+        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+        if (forgotPasswordLink) {
+            forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showForgotPassword();
+            });
+        }
 
-        // Кнопка "Назад к входу"
-        document.getElementById('backToLogin').addEventListener('click', () => {
-            this.showForm('login');
-        });
+        // Кнопка "Назад" в восстановлении пароля
+        const backToLogin = document.getElementById('backToLogin');
+        if (backToLogin) {
+            backToLogin.addEventListener('click', () => {
+                this.showForm('login');
+            });
+        }
 
         // Переключение видимости пароля
-        document.getElementById('toggleLoginPassword').addEventListener('click', () => {
-            this.togglePassword('loginPassword', 'toggleLoginPassword');
-        });
+        this.setupPasswordToggle('loginPassword', 'toggleLoginPassword');
+        this.setupPasswordToggle('registerPassword', 'toggleRegisterPassword');
+        this.setupPasswordToggle('confirmPassword', 'toggleConfirmPassword');
+    }
 
-        document.getElementById('toggleRegisterPassword').addEventListener('click', () => {
-            this.togglePassword('registerPassword', 'toggleRegisterPassword');
-        });
+    setupPasswordToggle(passwordFieldId, toggleButtonId) {
+        const passwordField = document.getElementById(passwordFieldId);
+        const toggleButton = document.getElementById(toggleButtonId);
+        
+        if (passwordField && toggleButton) {
+            toggleButton.addEventListener('click', () => {
+                this.togglePasswordVisibility(passwordField, toggleButton);
+            });
+        }
+    }
 
-        // Enter key support
-        document.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const activeForm = document.querySelector('.auth-form.active');
-                if (activeForm) {
-                    const submitBtn = activeForm.querySelector('button[type="submit"]');
-                    if (submitBtn) submitBtn.click();
-                }
-            }
-        });
+    togglePasswordVisibility(passwordField, toggleButton) {
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordField.setAttribute('type', type);
+        
+        // Изменяем иконку
+        const icon = toggleButton.querySelector('i');
+        if (icon) {
+            icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+        }
     }
 
     setupTermsModal() {
         const termsLink = document.getElementById('termsLink');
-        const closeTermsModal = document.getElementById('closeTermsModal');
+        const closeTerms = document.getElementById('closeTerms');
         const acceptTermsBtn = document.getElementById('acceptTermsBtn');
-        const cancelTermsBtn = document.getElementById('cancelTermsBtn');
-        const modalAcceptTerms = document.getElementById('modalAcceptTerms');
 
         if (termsLink) {
             termsLink.addEventListener('click', (e) => {
                 e.preventDefault();
-                document.getElementById('termsModal').style.display = 'block';
+                this.showTermsModal();
             });
         }
 
-        if (closeTermsModal) {
-            closeTermsModal.addEventListener('click', () => {
-                document.getElementById('termsModal').style.display = 'none';
-            });
-        }
-
-        if (cancelTermsBtn) {
-            cancelTermsBtn.addEventListener('click', () => {
-                document.getElementById('termsModal').style.display = 'none';
-            });
-        }
-
-        if (modalAcceptTerms) {
-            modalAcceptTerms.addEventListener('change', () => {
-                if (acceptTermsBtn) {
-                    acceptTermsBtn.disabled = !modalAcceptTerms.checked;
-                }
+        if (closeTerms) {
+            closeTerms.addEventListener('click', () => {
+                this.hideTermsModal();
             });
         }
 
         if (acceptTermsBtn) {
             acceptTermsBtn.addEventListener('click', () => {
-                document.getElementById('acceptTerms').checked = true;
-                document.getElementById('termsModal').style.display = 'none';
-                this.showNotification('Условия приняты', 'success');
+                this.acceptTerms();
             });
         }
+    }
 
-        window.addEventListener('click', (e) => {
-            const modal = document.getElementById('termsModal');
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
+    showTermsModal() {
+        const modal = document.getElementById('termsModal');
+        if (modal) {
+            modal.style.display = 'block';
+        }
+    }
+
+    hideTermsModal() {
+        const modal = document.getElementById('termsModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    acceptTerms() {
+        const termsCheckbox = document.getElementById('acceptTerms');
+        if (termsCheckbox) {
+            termsCheckbox.checked = true;
+        }
+        this.hideTermsModal();
+        this.showNotification('Условия приняты!', 'success');
     }
 
     async handleLogin() {
-        const username = document.getElementById('loginUsername').value;
+        const username = document.getElementById('loginUsername').value.trim();
         const password = document.getElementById('loginPassword').value;
-        const rememberMe = document.getElementById('rememberMe').checked;
+        const rememberMe = document.getElementById('rememberMe')?.checked || false;
 
+        // Валидация
         if (!username) {
-            this.showNotification('Пожалуйста, введите имя пользователя или Telegram', 'error');
+            this.showNotification('Введите имя пользователя или Telegram', 'error');
             return;
         }
 
         if (!password) {
-            this.showNotification('Пожалуйста, введите пароль', 'error');
+            this.showNotification('Введите пароль', 'error');
             return;
         }
 
-        this.setLoading('loginBtn', true);
+        this.setLoadingState('loginBtn', true);
 
         try {
+            console.log('🔐 Отправка запроса на вход:', { username });
+            
             const response = await fetch(`${this.apiBase}/login`, {
                 method: 'POST',
                 headers: {
@@ -155,46 +165,64 @@ class AuthManager {
             });
 
             const data = await response.json();
+            console.log('📨 Ответ сервера:', data);
 
             if (data.success) {
-                this.showNotification('Успешный вход! Перенаправление...', 'success');
+                this.showNotification('Успешный вход!', 'success');
                 
-                localStorage.setItem('auth_token', data.token);
-                localStorage.setItem('user_data', JSON.stringify(data.user));
+                // Сохраняем данные
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
                 
                 if (rememberMe) {
-                    localStorage.setItem('remember_me', 'true');
+                    localStorage.setItem('rememberMe', 'true');
+                    localStorage.setItem('savedUsername', username);
                 }
 
-                setTimeout(() => {
-                    this.redirectUser(data.user, data.redirectTo);
-                }, 1500);
+                // ПЕРЕНАПРАВЛЕНИЕ ПОСЛЕ УСПЕШНОГО ВХОДА
+                this.redirectAfterLogin(data.user);
 
             } else {
-                this.showNotification(data.error || 'Ошибка входа', 'error');
+                this.showNotification(data.error || 'Ошибка при входе', 'error');
             }
         } catch (error) {
-            console.error('Login error:', error);
+            console.error('❌ Ошибка входа:', error);
             this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
-            this.setLoading('loginBtn', false);
+            this.setLoadingState('loginBtn', false);
         }
     }
 
+    redirectAfterLogin(user) {
+        console.log('🔄 Перенаправление пользователя:', user);
+        
+        // Задержка для показа уведомления
+        setTimeout(() => {
+            // ВАЖНО: Всегда перенаправляем на chat.html для пользователей
+            // независимо от их роли (если нужно разделение - можно добавить условие)
+            const targetPage = 'chat.html';
+            
+            console.log(`📍 Перенаправление на: ${targetPage}`);
+            window.location.href = targetPage;
+            
+        }, 1000);
+    }
+
     async handleRegister() {
-        const username = document.getElementById('registerUsername').value;
-        const telegram = document.getElementById('registerTelegram').value;
+        const username = document.getElementById('registerUsername').value.trim();
+        const telegram = document.getElementById('registerTelegram').value.trim();
         const password = document.getElementById('registerPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
 
+        // Валидация
         if (!username || username.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
             return;
         }
 
         if (!telegram || !telegram.startsWith('@')) {
-            this.showNotification('Telegram username должен начинаться с @', 'error');
+            this.showNotification('Telegram должен начинаться с @', 'error');
             return;
         }
 
@@ -209,11 +237,11 @@ class AuthManager {
         }
 
         if (!acceptTerms) {
-            this.showNotification('Необходимо согласие с условиями использования', 'error');
+            this.showNotification('Необходимо принять условия использования', 'error');
             return;
         }
 
-        this.setLoading('registerBtn', true);
+        this.setLoadingState('registerBtn', true);
 
         try {
             const response = await fetch(`${this.apiBase}/register`, {
@@ -232,92 +260,59 @@ class AuthManager {
             const data = await response.json();
 
             if (data.success) {
-                this.showNotification('Регистрация успешна! Вы можете войти.', 'success');
+                this.showNotification('Регистрация успешна! Теперь вы можете войти.', 'success');
                 
+                // Очищаем форму и переключаемся на вход
                 setTimeout(() => {
-                    this.showForm('login');
                     document.getElementById('registerForm').reset();
+                    this.showForm('login');
                 }, 2000);
 
             } else {
                 this.showNotification(data.error || 'Ошибка регистрации', 'error');
             }
         } catch (error) {
-            console.error('Register error:', error);
+            console.error('❌ Ошибка регистрации:', error);
             this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
-            this.setLoading('registerBtn', false);
+            this.setLoadingState('registerBtn', false);
         }
     }
 
-    async handleForgotPassword() {
-        const telegram = document.getElementById('forgotTelegram').value;
-
-        if (!telegram || !telegram.startsWith('@')) {
-            this.showNotification('Введите корректный Telegram username (начинается с @)', 'error');
-            return;
-        }
-
-        this.setLoading('forgotBtn', true);
-
-        try {
-            const response = await fetch(`${this.apiBase}/forgot-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    telegram_username: telegram
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                this.showNotification('Ожидайте, в течение дня вам напишут в личные сообщения Telegram с вашим паролем', 'success');
-                
-                setTimeout(() => {
-                    this.showForm('login');
-                    document.getElementById('forgotPasswordForm').reset();
-                }, 3000);
-
-            } else {
-                this.showNotification(data.error || 'Ошибка восстановления пароля', 'error');
-            }
-        } catch (error) {
-            console.error('Forgot password error:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
-        } finally {
-            this.setLoading('forgotBtn', false);
-        }
+    showForgotPassword() {
+        this.showNotification('Для восстановления пароля обратитесь к администратору в Telegram', 'info');
     }
 
     showForm(formType) {
+        // Скрываем все формы
         document.querySelectorAll('.auth-form').forEach(form => {
             form.classList.remove('active');
         });
 
-        const targetForm = document.getElementById(formType + 'Form');
+        // Показываем нужную форму
+        const targetForm = document.getElementById(`${formType}Form`);
         if (targetForm) {
             targetForm.classList.add('active');
             this.currentForm = formType;
         }
 
+        // Обновляем текст переключателя
+        this.updateSwitchText();
+    }
+
+    updateSwitchText() {
         const switchText = document.getElementById('switchText');
         const switchBtn = document.getElementById('switchBtn');
         
-        if (formType === 'login') {
+        if (!switchText || !switchBtn) return;
+
+        if (this.currentForm === 'login') {
             switchText.textContent = 'Нет аккаунта?';
             switchBtn.textContent = 'Создать аккаунт';
-        } else if (formType === 'register') {
+        } else {
             switchText.textContent = 'Уже есть аккаунт?';
             switchBtn.textContent = 'Войти';
-        } else if (formType === 'forgotPassword') {
-            switchText.textContent = '';
-            switchBtn.textContent = '';
         }
-
-        window.scrollTo(0, 0);
     }
 
     switchForms() {
@@ -328,90 +323,70 @@ class AuthManager {
         }
     }
 
-    togglePassword(inputId, buttonId) {
-        const input = document.getElementById(inputId);
-        const toggleBtn = document.getElementById(buttonId);
-        const icon = toggleBtn.querySelector('i');
-        
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.className = 'fas fa-eye-slash';
-        } else {
-            input.type = 'password';
-            icon.className = 'fas fa-eye';
-        }
-    }
-
-    setLoading(buttonId, isLoading) {
+    setLoadingState(buttonId, isLoading) {
         const button = document.getElementById(buttonId);
         if (!button) return;
 
+        const originalText = button.textContent;
+
         if (isLoading) {
             button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
             button.classList.add('loading');
         } else {
             button.disabled = false;
+            button.textContent = originalText;
             button.classList.remove('loading');
         }
     }
 
-    showNotification(message, type = 'success') {
-        let container = document.getElementById('notificationsContainer');
+    showNotification(message, type = 'info') {
+        // Создаем контейнер для уведомлений если его нет
+        let container = document.getElementById('notifications');
         if (!container) {
             container = document.createElement('div');
-            container.id = 'notificationsContainer';
+            container.id = 'notifications';
             container.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
                 z-index: 10000;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
+                max-width: 400px;
             `;
             document.body.appendChild(container);
         }
 
+        // Создаем уведомление
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
         notification.style.cssText = `
-            padding: 16px 20px;
-            border-radius: 12px;
+            background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
             color: white;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             animation: slideInRight 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 12px;
-            min-width: 300px;
-            max-width: 400px;
+            gap: 10px;
         `;
 
+        // Добавляем иконку
         const icon = document.createElement('i');
-        icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+        icon.className = type === 'success' ? 'fas fa-check-circle' : 
+                         type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-info-circle';
         notification.appendChild(icon);
 
-        const messageEl = document.createElement('span');
-        messageEl.textContent = message;
-        notification.appendChild(messageEl);
+        // Добавляем текст
+        const text = document.createElement('span');
+        text.textContent = message;
+        notification.appendChild(text);
 
-        const closeBtn = document.createElement('button');
-        closeBtn.innerHTML = '<i class="fas fa-times"></i>';
-        closeBtn.style.cssText = `
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            margin-left: auto;
-            opacity: 0.8;
-        `;
-        closeBtn.addEventListener('click', () => {
-            notification.remove();
-        });
-        notification.appendChild(closeBtn);
-
+        // Добавляем в контейнер
         container.appendChild(notification);
 
+        // Удаляем через 5 секунд
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.style.animation = 'slideOutRight 0.3s ease';
@@ -423,177 +398,53 @@ class AuthManager {
             }
         }, 5000);
 
+        // Добавляем стили анимации если их нет
         if (!document.getElementById('notificationStyles')) {
             const style = document.createElement('style');
             style.id = 'notificationStyles';
             style.textContent = `
                 @keyframes slideInRight {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
                 }
                 @keyframes slideOutRight {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                }
-                .notification.success {
-                    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-                }
-                .notification.error {
-                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
                 }
             `;
             document.head.appendChild(style);
         }
     }
 
-    redirectUser(user, redirectTo = null) {
-        const role = user?.role || 'user';
+    checkExistingAuth() {
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
         
-        const roleNames = {
-            'user': 'Пользователь',
-            'listener': 'Слушатель', 
-            'coowner': 'Совладелец',
-            'admin': 'Администратор',
-            'owner': 'Владелец'
-        };
-        
-        this.showNotification(`Добро пожаловать, ${user.username}! Ваша роль: ${roleNames[role]}`, 'success');
-        
-        setTimeout(() => {
-            this.navigateByRole(user, redirectTo);
-        }, 2000);
-    }
+        console.log('🔍 Проверка существующей авторизации:', { 
+            hasToken: !!token, 
+            user: user 
+        });
 
-    navigateByRole(user, redirectTo = null) {
-        // Используем redirectTo от сервера если есть, иначе определяем по роли
-        let targetPage = redirectTo;
-        
-        if (!targetPage) {
-            const role = user.role || 'user';
-            const routes = {
-                'owner': '/owner.html',
-                'admin': '/admin.html',
-                'coowner': '/coowner.html',
-                'listener': '/listener.html',
-                'user': '/chat.html'
-            };
-            targetPage = routes[role] || '/chat.html';
-        }
-
-        const currentPage = window.location.pathname;
-        
-        if (currentPage === targetPage || currentPage.includes(targetPage.replace('/', ''))) {
-            console.log(`✅ Уже на правильной странице для роли ${user.role}`);
-            return;
-        }
-
-        console.log(`🔄 Перенаправление ${user.username} (${user.role}) на ${targetPage}`);
-        window.location.href = targetPage;
-    }
-
-    hasPermission(user, requiredRole) {
-        const userLevel = this.roleHierarchy[user.role] || 0;
-        const requiredLevel = this.roleHierarchy[requiredRole] || 0;
-        return userLevel >= requiredLevel;
-    }
-
-    getAvailableRoles(user) {
-        const userLevel = this.roleHierarchy[user.role] || 0;
-        return Object.keys(this.roleHierarchy).filter(role => 
-            this.roleHierarchy[role] <= userLevel
-        );
-    }
-
-    async checkAuthState() {
-        const token = localStorage.getItem('auth_token');
-        const userData = localStorage.getItem('user_data');
-        
-        console.log('🔄 Проверка состояния аутентификации...');
-        
-        if (!token || !userData) {
-            console.log('❌ Нет данных аутентификации');
-            return;
-        }
-
-        // Если мы уже на главной странице, не перенаправляем
-        if (window.location.pathname === '/' || window.location.pathname.includes('index.html')) {
-            console.log('✅ На главной странице - остаемся здесь');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.apiBase}/verify`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            const data = await response.json();
+        // Если пользователь уже авторизован и находится на странице входа - перенаправляем
+        if (token && user.id) {
+            console.log('✅ Пользователь уже авторизован, перенаправление...');
             
-            if (data.success) {
-                console.log('✅ Пользователь аутентифицирован:', data.user.username);
-                
-                // Если пользователь уже на правильной странице, не перенаправляем
-                const currentPage = window.location.pathname;
-                const correctPage = data.redirectTo || this.getPageForRole(data.user.role);
-                
-                if (currentPage === correctPage || currentPage.includes(correctPage.replace('/', ''))) {
-                    console.log('✅ Уже на правильной странице');
-                    return;
-                }
-                
-                console.log('🔄 Перенаправление на правильную страницу...');
-                this.navigateByRole(data.user, data.redirectTo);
-            } else {
-                console.log('❌ Токен невалиден:', data.error);
-                localStorage.removeItem('auth_token');
-                localStorage.removeItem('user_data');
-            }
-        } catch (error) {
-            console.error('Auth check error:', error);
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user_data');
+            // Даем небольшую задержку для инициализации страницы
+            setTimeout(() => {
+                this.redirectAfterLogin(user);
+            }, 500);
         }
-    }
 
-    getPageForRole(role) {
-        const routes = {
-            'owner': '/owner.html',
-            'admin': '/admin.html',
-            'coowner': '/coowner.html',
-            'listener': '/listener.html',
-            'user': '/chat.html'
-        };
-        return routes[role] || '/chat.html';
+        // Восстанавливаем сохраненное имя пользователя
+        const savedUsername = localStorage.getItem('savedUsername');
+        if (savedUsername && document.getElementById('loginUsername')) {
+            document.getElementById('loginUsername').value = savedUsername;
+        }
     }
 }
 
-// Initialize auth manager when DOM is loaded
+// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Инициализация системы авторизации');
     window.authManager = new AuthManager();
-    
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user_data');
-    
-    if (token && userData) {
-        console.log('🔄 Пользователь уже авторизован, проверяем страницу...');
-        const currentPage = window.location.pathname;
-        
-        // Если на главной странице, но пользователь авторизован - остаемся на главной
-        if (currentPage === '/' || currentPage.includes('index.html')) {
-            console.log('📍 На главной странице с авторизацией - остаемся здесь');
-        }
-    }
 });
