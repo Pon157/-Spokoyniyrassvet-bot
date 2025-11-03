@@ -57,47 +57,73 @@ class ListenerInterface {
         });
 
         // Статус онлайн
-        document.getElementById('onlineStatus').addEventListener('click', () => {
-            this.toggleOnlineStatus();
-        });
+        const onlineStatus = document.getElementById('onlineStatus');
+        if (onlineStatus) {
+            onlineStatus.addEventListener('click', () => {
+                this.toggleOnlineStatus();
+            });
+        }
 
         // Уведомления
-        document.getElementById('notificationsBtn').addEventListener('click', () => {
-            this.toggleNotifications();
-        });
+        const notificationsBtn = document.getElementById('notificationsBtn');
+        if (notificationsBtn) {
+            notificationsBtn.addEventListener('click', () => {
+                this.toggleNotifications();
+            });
+        }
 
-        document.getElementById('closeNotifications').addEventListener('click', () => {
-            this.hideNotifications();
-        });
+        const closeNotifications = document.getElementById('closeNotifications');
+        if (closeNotifications) {
+            closeNotifications.addEventListener('click', () => {
+                this.hideNotifications();
+            });
+        }
 
         // Кнопки управления
-        document.getElementById('refreshChats').addEventListener('click', () => {
-            this.loadUserChats();
-        });
+        const refreshChats = document.getElementById('refreshChats');
+        if (refreshChats) {
+            refreshChats.addEventListener('click', () => {
+                this.loadUserChats();
+            });
+        }
 
-        document.getElementById('refreshListeners').addEventListener('click', () => {
-            this.loadOnlineListeners();
-        });
+        const refreshListeners = document.getElementById('refreshListeners');
+        if (refreshListeners) {
+            refreshListeners.addEventListener('click', () => {
+                this.loadOnlineListeners();
+            });
+        }
 
         // Сообщения
-        document.getElementById('sendListenerMessage').addEventListener('click', () => {
-            this.sendListenerMessage();
-        });
-
-        document.getElementById('listenerMessageText').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        const sendListenerMessage = document.getElementById('sendListenerMessage');
+        if (sendListenerMessage) {
+            sendListenerMessage.addEventListener('click', () => {
                 this.sendListenerMessage();
-            }
-        });
+            });
+        }
+
+        const listenerMessageText = document.getElementById('listenerMessageText');
+        if (listenerMessageText) {
+            listenerMessageText.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.sendListenerMessage();
+                }
+            });
+        }
 
         // Выход
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            this.logout();
-        });
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                this.logout();
+            });
+        }
 
         // Клик вне уведомлений
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('.notifications-panel') && !e.target.closest('#notificationsBtn')) {
+            const panel = document.getElementById('notificationsPanel');
+            const btn = document.getElementById('notificationsBtn');
+            if (panel && btn && !e.target.closest('.notifications-panel') && !e.target.closest('#notificationsBtn')) {
                 this.hideNotifications();
             }
         });
@@ -120,33 +146,25 @@ class ListenerInterface {
                 return;
             }
 
-            // Проверяем доступность io
+            // Ждем загрузки socket.io
             if (typeof io === 'undefined') {
                 console.warn('⚠️ Socket.io не загружен, откладываем подключение');
-                // Повторим попытку через 2 секунды
                 setTimeout(() => this.setupSocketConnection(), 2000);
                 return;
             }
 
-            // Используем глобальный socketClient если доступен
-            if (window.socketClient && window.socketClient.socket) {
-                this.socket = window.socketClient.socket;
-                console.log('✅ Используем существующее WebSocket подключение');
-            } else {
-                // Создаем новое подключение
-                console.log('🔄 Создаем новое WebSocket подключение');
-                this.socket = io({
-                    auth: { token },
-                    transports: ['websocket', 'polling']
-                });
-            }
+            console.log('🔄 Создаем WebSocket подключение...');
+            this.socket = io({
+                auth: { token },
+                transports: ['websocket', 'polling']
+            });
             
             this.setupSocketListeners();
             
         } catch (error) {
             console.error('❌ Ошибка подключения WebSocket:', error);
-            // Повторим попытку через 5 секунд
-            setTimeout(() => this.setupSocketConnection(), 5000);
+            // Продолжаем работу без WebSocket
+            console.log('ℹ️ Продолжаем работу без WebSocket подключения');
         }
     }
 
