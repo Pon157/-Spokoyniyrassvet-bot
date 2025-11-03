@@ -6,21 +6,40 @@ class SocketClient {
         this.maxReconnectAttempts = 5;
         this.reconnectInterval = 3000;
         this.messageQueue = [];
+        this.init();
     }
 
-    connect(token) {
+    init() {
+        console.log('🔌 Инициализация SocketClient');
+        this.connect();
+    }
+
+    connect() {
         try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.warn('⚠️ Нет токена для WebSocket подключения');
+                setTimeout(() => this.connect(), 5000);
+                return;
+            }
+
+            if (typeof io === 'undefined') {
+                console.warn('⚠️ Socket.io не загружен');
+                setTimeout(() => this.connect(), 3000);
+                return;
+            }
+
+            console.log('🔄 Подключение к WebSocket...');
             this.socket = io({
-                auth: {
-                    token: token
-                },
-                transports: ['websocket', 'polling']
+                auth: { token },
+                transports: ['websocket', 'polling'],
+                timeout: 10000
             });
 
             this.setupEventHandlers();
         } catch (error) {
-            console.error('Ошибка подключения WebSocket:', error);
-            this.handleConnectionError();
+            console.error('❌ Ошибка подключения WebSocket:', error);
+            setTimeout(() => this.connect(), 5000);
         }
     }
 
