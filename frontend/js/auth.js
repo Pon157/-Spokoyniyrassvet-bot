@@ -419,7 +419,7 @@ class AuthManager {
 }
 
 // Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {}
     console.log('🚀 DOM загружен, инициализация системы авторизации v2.0');
     window.authManager = new AuthManager();
 });
