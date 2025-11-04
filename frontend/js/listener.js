@@ -10,7 +10,7 @@ class ListenerInterface {
     }
 
     init() {
-        console.log('🎧 Инициализация интерфейса слушателя');
+        console.log('Инициализация интерфейса слушателя');
         console.log('=== ИНИЦИАЛИЗАЦИЯ ИНТЕРФЕЙСА СЛУШАТЕЛЯ ===');
         
         this.loadCurrentUser();
@@ -23,8 +23,12 @@ class ListenerInterface {
 
     async loadCurrentUser() {
         try {
-            const token = localStorage.getItem('authToken');
+            // Пробуем разные ключи токена
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            console.log('Токен из localStorage:', token);
+            
             if (!token) {
+                console.log('Токен не найден, редирект на вход');
                 window.location.href = '/index.html';
                 return;
             }
@@ -35,22 +39,40 @@ class ListenerInterface {
                 }
             });
 
+            console.log('Статус ответа verify:', response.status);
+
+            // Проверяем Content-Type перед парсингом JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.error('Сервер вернул не JSON ответ');
+                localStorage.removeItem('token');
+                localStorage.removeItem('authToken');
+                window.location.href = '/index.html';
+                return;
+            }
+
             const data = await response.json();
+            console.log('Ответ verify:', data);
             
             if (data.success) {
                 this.currentUser = data.user;
                 this.updateUserInterface();
+                console.log('Пользователь загружен:', this.currentUser.username);
             } else {
+                console.log('Ошибка верификации:', data.error);
+                localStorage.removeItem('token');
+                localStorage.removeItem('authToken');
                 window.location.href = '/index.html';
             }
         } catch (error) {
-            console.error('❌ Ошибка загрузки пользователя:', error);
+            console.error('Ошибка загрузки пользователя:', error);
+            localStorage.removeItem('token');
+            localStorage.removeItem('authToken');
             window.location.href = '/index.html';
         }
     }
 
     updateUserInterface() {
-        // Обновляем информацию о пользователе
         const userNameElement = document.getElementById('userName');
         const userAvatarElement = document.getElementById('userAvatar');
         
@@ -64,7 +86,7 @@ class ListenerInterface {
     }
 
     bindEvents() {
-        console.log('🔗 Привязка событий...');
+        console.log('Привязка событий...');
         
         // Навигация по табам
         document.querySelectorAll('.nav-item').forEach(item => {
@@ -122,29 +144,28 @@ class ListenerInterface {
             });
         }
 
-        console.log('✅ Все события привязаны');
+        console.log('Все события привязаны');
     }
 
     switchTab(tabName) {
-        // Скрыть все табы
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
         
-        // Показать выбранный таб
         const targetTab = document.getElementById(`${tabName}Tab`);
         if (targetTab) {
             targetTab.classList.add('active');
         }
         
-        // Обновить активную кнопку навигации
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
         
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        const activeNavItem = document.querySelector(`[data-tab="${tabName}"]`);
+        if (activeNavItem) {
+            activeNavItem.classList.add('active');
+        }
 
-        // Загрузить данные для таба
         switch(tabName) {
             case 'chats':
                 this.loadUserChats();
@@ -162,17 +183,17 @@ class ListenerInterface {
     }
 
     setupSocketConnection() {
-        console.log('🔌 Настройка подключения Socket.io...');
+        console.log('Настройка подключения Socket.io...');
         
         if (typeof io !== 'undefined') {
             this.initializeSocket();
         } else {
-            console.log('⚠️ Socket.io не загружен, попытка загрузить...');
+            console.log('Socket.io не загружен, попытка загрузить...');
             setTimeout(() => {
                 if (typeof io !== 'undefined') {
                     this.initializeSocket();
                 } else {
-                    console.error('❌ Socket.io не удалось загрузить');
+                    console.error('Socket.io не удалось загрузить');
                 }
             }, 1000);
         }
@@ -180,31 +201,31 @@ class ListenerInterface {
 
     initializeSocket() {
         try {
-            console.log('🔌 Создаем Socket подключение...');
+            console.log('Создаем Socket подключение...');
             
             if (typeof io === 'undefined') {
                 throw new Error('Socket.io не доступен');
             }
             
             this.socket = io();
-            console.log('✅ Socket.io подключен');
+            console.log('Socket.io подключен');
             
             this.setupSocketListeners();
             
         } catch (error) {
-            console.error('❌ Ошибка подключения WebSocket:', error);
-            console.log('ℹ️ Продолжаем работу без WebSocket подключения');
+            console.error('Ошибка подключения WebSocket:', error);
+            console.log('Продолжаем работу без WebSocket подключения');
         }
     }
 
     setupSocketListeners() {
         if (!this.socket) {
-            console.log('⚠️ WebSocket не инициализирован');
+            console.log('WebSocket не инициализирован');
             return;
         }
 
         this.socket.on('connect', () => {
-            console.log('✅ Подключение к серверу установлено');
+            console.log('Подключение к серверу установлено');
             
             if (this.currentUser) {
                 this.socket.emit('user_connected', {
@@ -216,34 +237,34 @@ class ListenerInterface {
         });
 
         this.socket.on('disconnect', () => {
-            console.log('🔌 Отключение от сервера');
+            console.log('Отключение от сервера');
         });
 
         this.socket.on('new_message', (data) => {
-            console.log('📨 Новое сообщение через Socket:', data);
+            console.log('Новое сообщение через Socket:', data);
             this.handleNewMessage(data);
         });
 
         this.socket.on('user_online', (userData) => {
-            console.log('👤 Пользователь онлайн:', userData.username);
+            console.log('Пользователь онлайн:', userData.username);
             this.updateUserOnlineStatus(userData.id, true);
         });
 
         this.socket.on('user_offline', (userData) => {
-            console.log('👤 Пользователь оффлайн:', userData.username);
+            console.log('Пользователь оффлайн:', userData.username);
             this.updateUserOnlineStatus(userData.id, false);
         });
 
         this.socket.on('chat_accepted', (data) => {
-            console.log('✅ Чат принят:', data);
+            console.log('Чат принят:', data);
             this.handleChatAccepted(data);
         });
 
-        console.log('✅ Слушатели Socket.io настроены');
+        console.log('Слушатели Socket.io настроены');
     }
 
     async loadInitialData() {
-        console.log('📦 Загрузка начальных данных...');
+        console.log('Загрузка начальных данных...');
         await this.loadUserChats();
         await this.loadReviews();
         await this.loadStatistics();
@@ -252,8 +273,8 @@ class ListenerInterface {
 
     async loadUserChats() {
         try {
-            console.log('📨 Загрузка чатов...');
-            const token = localStorage.getItem('authToken');
+            console.log('Загрузка чатов...');
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             
             const response = await fetch('/api/listener/chats', {
                 headers: {
@@ -269,7 +290,7 @@ class ListenerInterface {
             this.renderChats(data.chats);
             
         } catch (error) {
-            console.error('❌ Ошибка загрузки чатов:', error);
+            console.error('Ошибка загрузки чатов:', error);
             this.showError('Ошибка загрузки чатов');
         }
     }
@@ -310,7 +331,6 @@ class ListenerInterface {
             </div>
         `).join('');
 
-        // Добавляем обработчики клика на чаты
         chatsList.querySelectorAll('.chat-item').forEach(item => {
             item.addEventListener('click', () => {
                 const chatId = item.dataset.chatId;
@@ -321,8 +341,8 @@ class ListenerInterface {
 
     async loadReviews() {
         try {
-            console.log('⭐ Загрузка отзывов...');
-            const token = localStorage.getItem('authToken');
+            console.log('Загрузка отзывов...');
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             
             const response = await fetch('/api/listener/reviews', {
                 headers: {
@@ -338,20 +358,18 @@ class ListenerInterface {
             this.renderReviews(data);
             
         } catch (error) {
-            console.error('❌ Ошибка загрузки отзывов:', error);
+            console.error('Ошибка загрузки отзывов:', error);
             this.showError('Ошибка загрузки отзывов');
         }
     }
 
     renderReviews(data) {
-        // Обновляем статистику
         const avgRating = document.getElementById('avgRating');
         const totalReviews = document.getElementById('totalReviews');
         
         if (avgRating) avgRating.textContent = data.averageRating?.toFixed(1) || '0.0';
         if (totalReviews) totalReviews.textContent = data.totalReviews || '0';
 
-        // Рендерим отзывы
         const reviewsList = document.getElementById('reviewsList');
         if (!reviewsList) return;
 
@@ -379,8 +397,8 @@ class ListenerInterface {
 
     async loadStatistics() {
         try {
-            console.log('📊 Загрузка статистики...');
-            const token = localStorage.getItem('authToken');
+            console.log('Загрузка статистики...');
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             
             const response = await fetch('/api/listener/statistics', {
                 headers: {
@@ -396,13 +414,12 @@ class ListenerInterface {
             this.renderStatistics(data);
             
         } catch (error) {
-            console.error('❌ Ошибка загрузки статистики:', error);
+            console.error('Ошибка загрузки статистики:', error);
             this.showError('Ошибка загрузки статистики');
         }
     }
 
     renderStatistics(data) {
-        // Обновляем основные статистики
         const totalSessions = document.getElementById('totalSessions');
         const activeChats = document.getElementById('activeChats');
         const avgSessionTime = document.getElementById('avgSessionTime');
@@ -413,7 +430,6 @@ class ListenerInterface {
         if (avgSessionTime) avgSessionTime.textContent = data.averageSessionTime || '0';
         if (helpfulness) helpfulness.textContent = `${data.helpfulness || '0'}%`;
 
-        // Рендерим график активности
         this.renderActivityChart(data.weeklyActivity);
     }
 
@@ -423,7 +439,7 @@ class ListenerInterface {
 
         const days = Object.keys(weeklyActivity);
         const values = Object.values(weeklyActivity);
-        const maxValue = Math.max(...values, 1); // Минимум 1 чтобы избежать деления на 0
+        const maxValue = Math.max(...values, 1);
 
         chartContainer.innerHTML = days.map((day, index) => {
             const value = values[index];
@@ -440,8 +456,8 @@ class ListenerInterface {
 
     async loadOnlineListeners() {
         try {
-            console.log('👥 Загрузка онлайн слушателей...');
-            const token = localStorage.getItem('authToken');
+            console.log('Загрузка онлайн слушателей...');
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             
             const response = await fetch('/api/listener/online-listeners', {
                 headers: {
@@ -457,7 +473,7 @@ class ListenerInterface {
             this.renderOnlineListeners(data.listeners);
             
         } catch (error) {
-            console.error('❌ Ошибка загрузки слушателей:', error);
+            console.error('Ошибка загрузки слушателей:', error);
             this.showError('Ошибка загрузки слушателей');
         }
     }
@@ -494,7 +510,6 @@ class ListenerInterface {
             </div>
         `).join('');
 
-        // Добавляем обработчики для выбора слушателя
         listenersList.querySelectorAll('.listener-item').forEach(item => {
             item.addEventListener('click', () => {
                 const listenerId = item.dataset.listenerId;
@@ -506,7 +521,7 @@ class ListenerInterface {
     async toggleOnlineStatus() {
         try {
             this.isOnline = !this.isOnline;
-            const token = localStorage.getItem('authToken');
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             
             const response = await fetch('/api/listener/status', {
                 method: 'POST',
@@ -525,8 +540,8 @@ class ListenerInterface {
             }
             
         } catch (error) {
-            console.error('❌ Ошибка изменения статуса:', error);
-            this.isOnline = !this.isOnline; // Откатываем изменение
+            console.error('Ошибка изменения статуса:', error);
+            this.isOnline = !this.isOnline;
             this.showError('Ошибка изменения статуса');
         }
     }
@@ -553,19 +568,16 @@ class ListenerInterface {
     selectListener(listenerId, listenerData) {
         this.currentListenerChat = listenerData;
         
-        // Обновляем заголовок чата
         const chatTitle = document.getElementById('currentChatTitle');
         if (chatTitle) {
             chatTitle.textContent = `Чат с ${listenerData.name}`;
         }
         
-        // Показываем поле ввода сообщения
         const messageInput = document.getElementById('listenerMessageInput');
         if (messageInput) {
             messageInput.classList.remove('hidden');
         }
         
-        // Очищаем сообщения и показываем приветствие
         const messagesContainer = document.getElementById('listenerChatMessages');
         if (messagesContainer) {
             messagesContainer.innerHTML = `
@@ -578,7 +590,6 @@ class ListenerInterface {
             `;
         }
         
-        // Обновляем активный элемент в списке
         document.querySelectorAll('.listener-item').forEach(item => {
             item.classList.remove('active');
         });
@@ -592,7 +603,6 @@ class ListenerInterface {
         const message = input.value.trim();
         const messagesContainer = document.getElementById('listenerChatMessages');
         
-        // Добавляем сообщение в интерфейс
         if (messagesContainer) {
             const messageElement = document.createElement('div');
             messageElement.className = 'message message-outgoing';
@@ -606,7 +616,6 @@ class ListenerInterface {
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
         
-        // Отправляем через Socket.io если доступно
         if (this.socket && this.currentListenerChat) {
             this.socket.emit('send_message', {
                 chatId: `listener_${this.currentListenerChat.id}`,
@@ -616,12 +625,10 @@ class ListenerInterface {
             });
         }
         
-        // Очищаем поле ввода
         input.value = '';
     }
 
     handleNewMessage(data) {
-        // Обработка новых сообщений через WebSocket
         if (data.chatId === this.currentChatId) {
             this.addMessageToChat(data);
         }
@@ -646,7 +653,6 @@ class ListenerInterface {
 
     openChat(chatId) {
         this.currentChatId = chatId;
-        // Здесь можно добавить логику открытия конкретного чата
         this.showNotification(`Открыт чат #${chatId}`, 'info');
     }
 
@@ -666,7 +672,6 @@ class ListenerInterface {
         this.loadUserChats();
     }
 
-    // Вспомогательные методы
     formatTime(dateString) {
         const date = new Date(dateString);
         return date.toLocaleTimeString('ru-RU', { 
@@ -685,14 +690,12 @@ class ListenerInterface {
     }
 
     showNotification(message, type = 'info') {
-        // Создаем уведомление
         const notification = document.createElement('div');
         notification.className = `toast-notification ${type}`;
         notification.textContent = message;
         
         document.body.appendChild(notification);
         
-        // Удаляем через 5 секунд
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.parentNode.removeChild(notification);
@@ -705,8 +708,7 @@ class ListenerInterface {
     }
 }
 
-// Инициализация когда DOM загружен
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM загружен, инициализация интерфейса слушателя');
+    console.log('DOM загружен, инициализация интерфейса слушателя');
     window.listenerInterface = new ListenerInterface();
 });
