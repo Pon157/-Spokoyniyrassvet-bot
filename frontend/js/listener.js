@@ -35,13 +35,6 @@ class ListenerApp {
 
             console.log('Статус ответа verify:', response.status);
 
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.error('Сервер вернул не JSON ответ');
-                this.handleAuthError();
-                return;
-            }
-
             const data = await response.json();
             console.log('Ответ verify:', data);
             
@@ -66,7 +59,6 @@ class ListenerApp {
     }
 
     updateUserInterface() {
-        // Обновляем информацию пользователя
         const userNameElement = document.getElementById('userName');
         const userAvatarElement = document.getElementById('userAvatar');
         const userRatingElement = document.getElementById('userRating');
@@ -76,19 +68,17 @@ class ListenerApp {
             userNameElement.textContent = this.currentUser.username;
         }
         
-        if (userAvatarElement && this.currentUser.avatar_url) {
-            userAvatarElement.src = this.currentUser.avatar_url;
+        if (userAvatarElement) {
+            userAvatarElement.src = this.currentUser.avatar_url || '/images/default-avatar.svg';
         }
 
-        // Временные данные для демонстрации
-        if (userRatingElement) userRatingElement.textContent = `⭐ 4.8`;
-        if (userSessionsElement) userSessionsElement.textContent = `💬 24`;
+        if (userRatingElement) userRatingElement.textContent = `⭐ ${this.currentUser.rating || '5.0'}`;
+        if (userSessionsElement) userSessionsElement.textContent = `💬 ${this.currentUser.total_sessions || '0'}`;
     }
 
     bindEvents() {
         console.log('Привязка событий...');
 
-        // Навигация по табам
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -97,13 +87,11 @@ class ListenerApp {
             });
         });
 
-        // Быстрые действия
         document.getElementById('quickChats')?.addEventListener('click', () => this.switchTab('chats'));
         document.getElementById('quickListenersChat')?.addEventListener('click', () => this.switchTab('listeners-chat'));
         document.getElementById('quickStats')?.addEventListener('click', () => this.switchTab('statistics'));
         document.getElementById('quickReviews')?.addEventListener('click', () => this.switchTab('reviews'));
 
-        // Переключение онлайн статуса
         const onlineToggle = document.getElementById('onlineToggle');
         if (onlineToggle) {
             onlineToggle.addEventListener('change', (e) => {
@@ -111,11 +99,9 @@ class ListenerApp {
             });
         }
 
-        // Кнопки обновления
         document.getElementById('refreshBtn')?.addEventListener('click', () => this.refreshCurrentTab());
         document.getElementById('refreshChatsBtn')?.addEventListener('click', () => this.loadChats());
 
-        // Чат слушателей
         const chatInput = document.getElementById('listenersChatInput');
         const sendButton = document.getElementById('sendListenersMessage');
         
@@ -128,7 +114,6 @@ class ListenerApp {
             });
         }
 
-        // Период статистики
         const statsPeriod = document.getElementById('statsPeriod');
         if (statsPeriod) {
             statsPeriod.addEventListener('change', () => {
@@ -140,7 +125,6 @@ class ListenerApp {
     }
 
     switchTab(tabName) {
-        // Обновляем активную навигацию
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
@@ -150,18 +134,15 @@ class ListenerApp {
             activeNavItem.classList.add('active');
         }
 
-        // Скрываем все табы
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
 
-        // Показываем выбранный таб
         const targetTab = document.getElementById(`${tabName}Tab`);
         if (targetTab) {
             targetTab.classList.add('active');
         }
 
-        // Обновляем заголовок
         const pageTitle = document.getElementById('pageTitle');
         if (pageTitle) {
             const titles = {
@@ -176,7 +157,6 @@ class ListenerApp {
 
         this.currentTab = tabName;
 
-        // Загружаем данные для таба
         switch(tabName) {
             case 'dashboard':
                 this.loadDashboardData();
@@ -221,7 +201,6 @@ class ListenerApp {
         try {
             console.log('Загрузка данных дашборда...');
             
-            // Загружаем статистику для дашборда
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             const response = await fetch('/api/listener/statistics', {
                 headers: {
@@ -234,33 +213,26 @@ class ListenerApp {
                 this.updateDashboardStats(data);
             } else {
                 console.error('Ошибка загрузки статистики:', response.status);
-                // Используем демо данные
                 this.updateDashboardStats({
-                    activeChats: 2,
-                    averageRating: 4.8,
-                    averageSessionTime: 15,
-                    totalSessions: 24
+                    activeChats: 0,
+                    averageRating: 5.0,
+                    averageSessionTime: 0,
+                    totalSessions: 0
                 });
             }
-
-            // Загружаем последние чаты
-            await this.loadRecentChats();
             
         } catch (error) {
             console.error('Ошибка загрузки дашборда:', error);
-            // Используем демо данные при ошибке
             this.updateDashboardStats({
-                activeChats: 2,
-                averageRating: 4.8,
-                averageSessionTime: 15,
-                totalSessions: 24
+                activeChats: 0,
+                averageRating: 5.0,
+                averageSessionTime: 0,
+                totalSessions: 0
             });
-            this.showNotification('Используются демо-данные', 'warning');
         }
     }
 
     updateDashboardStats(stats) {
-        // Обновляем статистические карточки
         const activeChats = document.getElementById('dashboardActiveChats');
         const rating = document.getElementById('dashboardRating');
         const avgTime = document.getElementById('dashboardAvgTime');
@@ -271,7 +243,6 @@ class ListenerApp {
         if (avgTime) avgTime.textContent = stats.averageSessionTime || '0';
         if (sessions) sessions.textContent = stats.totalSessions || '0';
 
-        // Обновляем недавнюю активность
         this.updateRecentActivity(stats);
     }
 
@@ -326,27 +297,7 @@ class ListenerApp {
                 const data = await response.json();
                 this.renderChats(data.chats);
             } else {
-                // Используем демо данные
-                this.renderChats([
-                    {
-                        id: 'chat1',
-                        user_name: 'Анна',
-                        user_avatar: null,
-                        last_message: 'Спасибо за помощь!',
-                        last_message_time: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-                        unread_count: 0,
-                        user_online: true
-                    },
-                    {
-                        id: 'chat2',
-                        user_name: 'Максим',
-                        user_avatar: null,
-                        last_message: 'Можем поговорить?',
-                        last_message_time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-                        unread_count: 1,
-                        user_online: false
-                    }
-                ]);
+                this.renderChats([]);
             }
             
         } catch (error) {
@@ -395,7 +346,6 @@ class ListenerApp {
             </div>
         `).join('');
 
-        // Добавляем обработчики для чатов
         chatsList.querySelectorAll('.chat-item').forEach(item => {
             item.addEventListener('click', () => {
                 const chatId = item.dataset.chatId;
@@ -403,7 +353,6 @@ class ListenerApp {
             });
         });
 
-        // Обновляем бейдж в навигации
         const totalUnread = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
         this.updateChatsBadge(totalUnread);
     }
@@ -411,9 +360,6 @@ class ListenerApp {
     openChat(chatId) {
         this.activeChatId = chatId;
         this.showNotification(`Чат #${chatId} открыт`, 'success');
-        
-        // Здесь будет логика открытия конкретного чата
-        // Пока просто показываем уведомление
         console.log('Открытие чата:', chatId);
     }
 
@@ -457,7 +403,6 @@ class ListenerApp {
         try {
             console.log('Загрузка чата слушателей...');
             
-            // Загружаем онлайн слушателей
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             const response = await fetch('/api/listener/online-listeners', {
                 headers: {
@@ -469,24 +414,14 @@ class ListenerApp {
                 const data = await response.json();
                 this.updateOnlineListenersCount(data.listeners);
             } else {
-                // Демо данные
-                this.updateOnlineListenersCount([
-                    { id: 'listener1', username: 'test_listener', is_online: true },
-                    { id: 'listener2', username: 'мария_слушатель', is_online: true },
-                    { id: 'listener3', username: 'сергей_помощник', is_online: false }
-                ]);
+                this.updateOnlineListenersCount([]);
             }
 
-            // Загружаем историю сообщений
             await this.loadChatHistory();
             
         } catch (error) {
             console.error('Ошибка загрузки чата слушателей:', error);
-            // Демо данные
-            this.updateOnlineListenersCount([
-                { id: 'listener1', username: 'test_listener', is_online: true },
-                { id: 'listener2', username: 'мария_слушатель', is_online: true }
-            ]);
+            this.updateOnlineListenersCount([]);
         }
     }
 
@@ -514,7 +449,6 @@ class ListenerApp {
                 const data = await response.json();
                 this.renderChatHistory(data.messages);
             } else {
-                console.log('Используем демо историю чата');
                 this.renderChatHistory([]);
             }
         } catch (error) {
@@ -527,11 +461,9 @@ class ListenerApp {
         const messagesContainer = document.getElementById('listenersChatMessages');
         if (!messagesContainer) return;
 
-        // Очищаем контейнер
         messagesContainer.innerHTML = '';
 
         if (!messages || messages.length === 0) {
-            // Показываем приветственное сообщение
             messagesContainer.innerHTML = `
                 <div class="welcome-message">
                     <div class="welcome-icon">👥</div>
@@ -542,7 +474,6 @@ class ListenerApp {
             return;
         }
 
-        // Рендерим сообщения
         messages.forEach(message => {
             this.addMessageToChat({
                 ...message,
@@ -550,7 +481,6 @@ class ListenerApp {
             });
         });
 
-        // Прокручиваем вниз
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
@@ -561,13 +491,11 @@ class ListenerApp {
         const message = input.value.trim();
         const messagesContainer = document.getElementById('listenersChatMessages');
         
-        // Убираем welcome сообщение при первом сообщении
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) {
             welcomeMessage.remove();
         }
 
-        // Создаем временное сообщение
         const tempMessage = {
             id: 'temp_' + Date.now(),
             content: message,
@@ -577,11 +505,9 @@ class ListenerApp {
             is_outgoing: true
         };
 
-        // Добавляем сообщение в интерфейс
         this.addMessageToChat(tempMessage);
 
         try {
-            // Отправляем на сервер
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             const response = await fetch('/api/listeners-chat/send', {
                 method: 'POST',
@@ -605,7 +531,6 @@ class ListenerApp {
             console.error('Ошибка отправки сообщения:', error);
             this.showNotification('Ошибка отправки сообщения', 'error');
             
-            // Откатываем сообщение при ошибке
             const messageElement = messagesContainer.querySelector(`[data-message-id="${tempMessage.id}"]`);
             if (messageElement) {
                 messageElement.remove();
@@ -613,7 +538,6 @@ class ListenerApp {
             return;
         }
 
-        // Отправляем через Socket.io
         if (this.socket) {
             this.socket.emit('send_listeners_message', {
                 content: message,
@@ -623,7 +547,6 @@ class ListenerApp {
             });
         }
 
-        // Очищаем поле ввода
         input.value = '';
         input.focus();
     }
@@ -667,27 +590,7 @@ class ListenerApp {
                 const data = await response.json();
                 this.renderReviews(data);
             } else {
-                // Демо данные
-                this.renderReviews({
-                    averageRating: 4.8,
-                    totalReviews: 12,
-                    reviews: [
-                        {
-                            id: 1,
-                            user_name: 'Анна',
-                            rating: 5,
-                            comment: 'Очень внимательный слушатель, помог разобраться в ситуации',
-                            created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-                        },
-                        {
-                            id: 2,
-                            user_name: 'Максим',
-                            rating: 4,
-                            comment: 'Хорошая беседа, почувствовал поддержку',
-                            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-                        }
-                    ]
-                });
+                this.renderReviews({ reviews: [] });
             }
             
         } catch (error) {
@@ -697,16 +600,14 @@ class ListenerApp {
     }
 
     renderReviews(data) {
-        // Обновляем статистику отзывов
         const avgRating = document.getElementById('reviewsAvgRating');
         const totalReviews = document.getElementById('reviewsTotal');
         const helpfulness = document.getElementById('reviewsHelpfulness');
 
         if (avgRating) avgRating.textContent = data.averageRating?.toFixed(1) || '0.0';
         if (totalReviews) totalReviews.textContent = data.totalReviews || '0';
-        if (helpfulness) helpfulness.textContent = '95%'; // Временное значение
+        if (helpfulness) helpfulness.textContent = '95%';
 
-        // Рендерим список отзывов
         const reviewsList = document.getElementById('reviewsList');
         if (!reviewsList) return;
 
@@ -763,46 +664,26 @@ class ListenerApp {
                 const data = await response.json();
                 this.renderStatistics(data);
             } else {
-                // Демо данные
                 this.renderStatistics({
-                    totalSessions: 24,
-                    completedChats: 22,
-                    averageSessionTime: 15,
-                    weeklyActivity: {
-                        'Пн': 5,
-                        'Вт': 3,
-                        'Ср': 7,
-                        'Чт': 4,
-                        'Пт': 6,
-                        'Сб': 8,
-                        'Вс': 2
-                    }
+                    totalSessions: 0,
+                    completedChats: 0,
+                    averageSessionTime: 0,
+                    weeklyActivity: {}
                 });
             }
             
         } catch (error) {
             console.error('Ошибка загрузки статистики:', error);
-            // Демо данные при ошибке
             this.renderStatistics({
-                totalSessions: 24,
-                completedChats: 22,
-                averageSessionTime: 15,
-                weeklyActivity: {
-                    'Пн': 5,
-                    'Вт': 3,
-                    'Ср': 7,
-                    'Чт': 4,
-                    'Пт': 6,
-                    'Сб': 8,
-                    'Вс': 2
-                }
+                totalSessions: 0,
+                completedChats: 0,
+                averageSessionTime: 0,
+                weeklyActivity: {}
             });
-            this.showNotification('Используются демо-данные', 'warning');
         }
     }
 
     renderStatistics(data) {
-        // Обновляем основную статистику
         const totalSessions = document.getElementById('statTotalSessions');
         const completedChats = document.getElementById('statCompletedChats');
         const avgSessionTime = document.getElementById('statAvgSessionTime');
@@ -817,10 +698,7 @@ class ListenerApp {
             totalTime.textContent = `${totalHours} ч`;
         }
 
-        // Рендерим график активности
         this.renderActivityChart(data.weeklyActivity);
-
-        // Рендерим распределение рейтингов
         this.renderRatingDistribution(data);
     }
 
@@ -852,12 +730,11 @@ class ListenerApp {
         const distributionContainer = document.getElementById('ratingDistribution');
         if (!distributionContainer) return;
 
-        // Временные данные для демонстрации
         const ratings = [
-            { stars: 5, count: 12, percentage: 60 },
-            { stars: 4, count: 6, percentage: 30 },
-            { stars: 3, count: 1, percentage: 5 },
-            { stars: 2, count: 1, percentage: 5 },
+            { stars: 5, count: 0, percentage: 0 },
+            { stars: 4, count: 0, percentage: 0 },
+            { stars: 3, count: 0, percentage: 0 },
+            { stars: 2, count: 0, percentage: 0 },
             { stars: 1, count: 0, percentage: 0 }
         ];
 
@@ -899,7 +776,6 @@ class ListenerApp {
                     'success'
                 );
             } else {
-                // Откатываем изменение если ошибка
                 this.isOnline = !online;
                 document.getElementById('onlineToggle').checked = !online;
                 this.showNotification('Ошибка изменения статуса', 'error');
@@ -907,7 +783,6 @@ class ListenerApp {
             
         } catch (error) {
             console.error('Ошибка изменения статуса:', error);
-            // Откатываем изменение при ошибке
             this.isOnline = !online;
             document.getElementById('onlineToggle').checked = !online;
             this.showNotification('Ошибка соединения', 'error');
@@ -931,7 +806,6 @@ class ListenerApp {
         if (typeof io !== 'undefined') {
             this.initializeSocket();
         } else {
-            console.log('Socket.io не загружен, попытка загрузить...');
             setTimeout(() => {
                 if (typeof io !== 'undefined') {
                     this.initializeSocket();
@@ -1010,30 +884,26 @@ class ListenerApp {
         this.socket.on('chat_accepted', (data) => {
             console.log('Чат принят:', data);
             this.showNotification(`Новый чат #${data.chatId}`, 'info');
-            this.loadChats(); // Обновляем список чатов
+            this.loadChats();
         });
 
         console.log('Socket слушатели настроены');
     }
 
     handleNewMessage(data) {
-        // Обработка новых сообщений в личных чатах
         if (data.chatId === this.activeChatId) {
             this.showNotification(`Новое сообщение в чате #${data.chatId}`, 'info');
         }
         
-        // Обновляем бейдж непрочитанных
         this.loadChats();
     }
 
     updateOnlineListeners() {
-        // Обновляем счетчик онлайн слушателей
         if (this.currentTab === 'listeners-chat') {
             this.loadListenersChat();
         }
     }
 
-    // Вспомогательные методы
     formatTime(dateString) {
         try {
             const date = new Date(dateString);
@@ -1072,7 +942,6 @@ class ListenerApp {
 
         container.appendChild(notification);
 
-        // Автоматическое удаление через 5 секунд
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.style.animation = 'slideOutRight 0.3s ease';
@@ -1096,7 +965,6 @@ class ListenerApp {
     }
 }
 
-// Инициализация приложения
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM загружен, инициализация приложения слушателя');
     window.listenerApp = new ListenerApp();
