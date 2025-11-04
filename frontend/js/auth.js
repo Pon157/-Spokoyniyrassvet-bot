@@ -8,8 +8,8 @@ class AuthManager {
     }
 
     init() {
-        console.log('🔄 AuthManager v2.0 - Fixed API endpoints');
-        console.log('📍 API Base URL:', this.apiBase);
+        console.log('AuthManager v2.0 - Fixed API endpoints');
+        console.log('API Base URL:', this.apiBase);
         this.bindEvents();
         this.checkExistingAuth();
         this.setupTermsModal();
@@ -152,8 +152,8 @@ class AuthManager {
         this.setLoadingState('loginBtn', true);
 
         try {
-            console.log('🔐 Отправка запроса на вход:', { username });
-            console.log('📍 Полный URL:', `${window.location.origin}${this.apiBase}/login`);
+            console.log('Отправка запроса на вход:', { username });
+            console.log('Полный URL:', `${window.location.origin}${this.apiBase}/login`);
             
             const response = await fetch(`${this.apiBase}/login`, {
                 method: 'POST',
@@ -166,10 +166,16 @@ class AuthManager {
                 })
             });
 
-            console.log('📨 Статус ответа:', response.status);
+            console.log('Статус ответа:', response.status);
+
+            // Проверяем Content-Type перед парсингом JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Сервер вернул не JSON ответ');
+            }
 
             const data = await response.json();
-            console.log('📨 Ответ сервера:', data);
+            console.log('Ответ сервера:', data);
 
             if (data.success) {
                 this.showNotification('Успешный вход! Перенаправляем...', 'success');
@@ -191,8 +197,12 @@ class AuthManager {
                 this.showNotification(data.error || 'Ошибка при входе', 'error');
             }
         } catch (error) {
-            console.error('❌ Ошибка входа:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
+            console.error('Ошибка входа:', error);
+            if (error.message.includes('JSON')) {
+                this.showNotification('Ошибка сервера: неверный формат ответа', 'error');
+            } else {
+                this.showNotification('Ошибка соединения с сервером', 'error');
+            }
         } finally {
             this.setLoadingState('loginBtn', false);
         }
@@ -246,6 +256,12 @@ class AuthManager {
                 })
             });
 
+            // Проверяем Content-Type перед парсингом JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Сервер вернул не JSON ответ');
+            }
+
             const data = await response.json();
 
             if (data.success) {
@@ -260,8 +276,12 @@ class AuthManager {
                 this.showNotification(data.error || 'Ошибка регистрации', 'error');
             }
         } catch (error) {
-            console.error('❌ Ошибка регистрации:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
+            console.error('Ошибка регистрации:', error);
+            if (error.message.includes('JSON')) {
+                this.showNotification('Ошибка сервера: неверный формат ответа', 'error');
+            } else {
+                this.showNotification('Ошибка соединения с сервером', 'error');
+            }
         } finally {
             this.setLoadingState('registerBtn', false);
         }
@@ -398,18 +418,10 @@ class AuthManager {
         const token = localStorage.getItem('token');
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         
-        console.log('🔍 Проверка существующей авторизации:', { 
+        console.log('Проверка существующей авторизации:', { 
             hasToken: !!token, 
             user: user 
         });
-
-        // ЗАКОММЕНТИРУЙ ЭТОТ БЛОК - он вызывает бесконечную переадресацию
-        // if (token && user.id) {
-        //     console.log('✅ Пользователь уже авторизован, перенаправление...');
-        //     setTimeout(() => {
-        //         window.location.href = 'chat.html';
-        //     }, 500);
-        // }
 
         // Оставляем только восстановление имени пользователя
         const savedUsername = localStorage.getItem('savedUsername');
@@ -421,6 +433,6 @@ class AuthManager {
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM загружен, инициализация системы авторизации v2.0');
+    console.log('DOM загружен, инициализация системы авторизации v2.0');
     window.authManager = new AuthManager();
 });
