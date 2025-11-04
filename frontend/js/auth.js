@@ -394,32 +394,33 @@ class AuthManager {
         }
     }
 
-  checkExistingAuth() {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    
-    console.log('🔍 Проверка существующей авторизации:', { 
-        hasToken: !!token, 
-        user: user 
-    });
+    checkExistingAuth() {
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        console.log('🔍 Проверка существующей авторизации:', { 
+            hasToken: !!token, 
+            user: user 
+        });
 
-    // ЗАКОММЕНТИРУЙ ЭТОТ БЛОК - он вызывает бесконечную переадресацию
-    // if (token && user.id) {
-    //     console.log('✅ Пользователь уже авторизован, перенаправление...');
-    //     setTimeout(() => {
-    //         window.location.href = 'chat.html';
-    //     }, 500);
-    // }
+        // ЗАКОММЕНТИРУЙ ЭТОТ БЛОК - он вызывает бесконечную переадресацию
+        // if (token && user.id) {
+        //     console.log('✅ Пользователь уже авторизован, перенаправление...');
+        //     setTimeout(() => {
+        //         window.location.href = 'chat.html';
+        //     }, 500);
+        // }
 
-    // Оставляем только восстановление имени пользователя
-    const savedUsername = localStorage.getItem('savedUsername');
-    if (savedUsername && document.getElementById('loginUsername')) {
-        document.getElementById('loginUsername').value = savedUsername;
+        // Оставляем только восстановление имени пользователя
+        const savedUsername = localStorage.getItem('savedUsername');
+        if (savedUsername && document.getElementById('loginUsername')) {
+            document.getElementById('loginUsername').value = savedUsername;
+        }
     }
 }
 
 // Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {}
+document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 DOM загружен, инициализация системы авторизации v2.0');
     window.authManager = new AuthManager();
 });
