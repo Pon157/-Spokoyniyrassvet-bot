@@ -1,14 +1,13 @@
-// Auth functionality with Telegram username - VERSION 2.1 FIXED
+// Auth functionality with Telegram username - VERSION 2.2 FIXED REDIRECT
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
-        // ВАЖНО: правильный endpoint - без /api
         this.apiBase = '/auth';
         this.init();
     }
 
     init() {
-        console.log('AuthManager v2.1 - Fixed API endpoints');
+        console.log('AuthManager v2.2 - Fixed Redirect');
         console.log('API Base URL:', this.apiBase);
         this.bindEvents();
         this.checkExistingAuth();
@@ -42,29 +41,11 @@ class AuthManager {
             });
         }
 
-        // Ссылка "Забыли пароль?"
-        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-        if (forgotPasswordLink) {
-            forgotPasswordLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showForgotPassword();
-            });
-        }
-
-        // Кнопка "Назад" в восстановлении пароля
-        const backToLogin = document.getElementById('backToLogin');
-        if (backToLogin) {
-            backToLogin.addEventListener('click', () => {
-                this.showForm('login');
-            });
-        }
-
         // Переключение видимости пароля
         this.setupPasswordToggle('loginPassword', 'toggleLoginPassword');
         this.setupPasswordToggle('registerPassword', 'toggleRegisterPassword');
         this.setupPasswordToggle('confirmPassword', 'toggleConfirmPassword');
 
-        // Исправление проблемы с checkbox
         this.fixCheckboxIssue();
     }
 
@@ -142,7 +123,6 @@ class AuthManager {
         const termsCheckbox = document.getElementById('acceptTerms');
         if (termsCheckbox) {
             termsCheckbox.checked = true;
-            termsCheckbox.setAttribute('data-valid', 'true');
         }
         this.hideTermsModal();
         this.showNotification('Условия приняты!', 'success');
@@ -181,7 +161,6 @@ class AuthManager {
 
             console.log('Статус ответа:', response.status);
 
-            // Обрабатываем разные типы ответов
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 const text = await response.text();
@@ -195,6 +174,7 @@ class AuthManager {
             if (data.success) {
                 this.showNotification('Успешный вход! Перенаправляем...', 'success');
                 
+                // Сохраняем данные
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 
@@ -203,9 +183,10 @@ class AuthManager {
                     localStorage.setItem('savedUsername', username);
                 }
 
-                // Перенаправление
+                // ПРЯМОЕ ПЕРЕНАПРАВЛЕНИЕ БЕЗ ПРОВЕРОК
+                console.log('🔄 Перенаправление на:', data.redirectTo);
                 setTimeout(() => {
-                    window.location.href = data.redirectTo || 'chat.html';
+                    window.location.href = data.redirectTo;
                 }, 1000);
 
             } else {
@@ -230,7 +211,6 @@ class AuthManager {
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
 
-        // Валидация
         if (!username || username.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
             return;
@@ -272,7 +252,6 @@ class AuthManager {
                 })
             });
 
-            // Обрабатываем разные типы ответов
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 const text = await response.text();
@@ -303,10 +282,6 @@ class AuthManager {
         } finally {
             this.setLoadingState('registerBtn', false);
         }
-    }
-
-    showForgotPassword() {
-        this.showNotification('Для восстановления пароля обратитесь к администратору в Telegram', 'info');
     }
 
     showForm(formType) {
@@ -434,26 +409,27 @@ class AuthManager {
 
     checkExistingAuth() {
         const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const user = localStorage.getItem('user');
         
         console.log('Проверка существующей авторизации:', { 
             hasToken: !!token, 
-            user: user 
+            hasUser: !!user 
         });
 
-        // Оставляем только восстановление имени пользователя
+        // Восстанавливаем имя пользователя
         const savedUsername = localStorage.getItem('savedUsername');
         if (savedUsername && document.getElementById('loginUsername')) {
             document.getElementById('loginUsername').value = savedUsername;
         }
 
-        // Если есть токен, проверяем его валидность
-        if (token) {
-            this.verifyToken(token);
+        // Если есть токен, проверяем его и перенаправляем
+        if (token && user) {
+            console.log('🔄 Обнаружена существующая сессия, проверка...');
+            this.verifyAndRedirect(token);
         }
     }
 
-    async verifyToken(token) {
+    async verifyAndRedirect(token) {
         try {
             const response = await fetch(`${this.apiBase}/verify`, {
                 headers: {
@@ -464,12 +440,19 @@ class AuthManager {
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
-                    console.log('Токен валиден, пользователь авторизован');
-                    // Можно автоматически перенаправить или показать интерфейс
+                    console.log('✅ Сессия действительна, перенаправление на:', data.redirectTo);
+                    this.showNotification('Автоматический вход...', 'success');
+                    
+                    // Обновляем данные
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    setTimeout(() => {
+                        window.location.href = data.redirectTo;
+                    }, 1000);
                 }
             }
         } catch (error) {
-            console.log('Токен невалиден:', error);
+            console.log('Сессия недействительна:', error);
             localStorage.removeItem('token');
             localStorage.removeItem('user');
         }
@@ -478,6 +461,6 @@ class AuthManager {
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM загружен, инициализация системы авторизации v2.1');
+    console.log('DOM загружен, инициализация системы авторизации v2.2');
     window.authManager = new AuthManager();
 });
