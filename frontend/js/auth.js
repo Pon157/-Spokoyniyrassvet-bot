@@ -1,4 +1,4 @@
-// Auth functionality with Telegram username - VERSION 2.0 FIXED
+// Auth functionality with Telegram username - VERSION 2.1 FIXED
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
@@ -8,7 +8,7 @@ class AuthManager {
     }
 
     init() {
-        console.log('AuthManager v2.0 - Fixed API endpoints');
+        console.log('AuthManager v2.1 - Fixed API endpoints');
         console.log('API Base URL:', this.apiBase);
         this.bindEvents();
         this.checkExistingAuth();
@@ -63,6 +63,19 @@ class AuthManager {
         this.setupPasswordToggle('loginPassword', 'toggleLoginPassword');
         this.setupPasswordToggle('registerPassword', 'toggleRegisterPassword');
         this.setupPasswordToggle('confirmPassword', 'toggleConfirmPassword');
+
+        // Исправление проблемы с checkbox
+        this.fixCheckboxIssue();
+    }
+
+    fixCheckboxIssue() {
+        const termsCheckbox = document.getElementById('acceptTerms');
+        if (termsCheckbox) {
+            termsCheckbox.addEventListener('invalid', (e) => {
+                e.preventDefault();
+                this.showNotification('Необходимо принять условия использования', 'error');
+            });
+        }
     }
 
     setupPasswordToggle(passwordFieldId, toggleButtonId) {
@@ -129,6 +142,7 @@ class AuthManager {
         const termsCheckbox = document.getElementById('acceptTerms');
         if (termsCheckbox) {
             termsCheckbox.checked = true;
+            termsCheckbox.setAttribute('data-valid', 'true');
         }
         this.hideTermsModal();
         this.showNotification('Условия приняты!', 'success');
@@ -153,7 +167,6 @@ class AuthManager {
 
         try {
             console.log('Отправка запроса на вход:', { username });
-            console.log('Полный URL:', `${window.location.origin}${this.apiBase}/login`);
             
             const response = await fetch(`${this.apiBase}/login`, {
                 method: 'POST',
@@ -168,9 +181,11 @@ class AuthManager {
 
             console.log('Статус ответа:', response.status);
 
-            // Проверяем Content-Type перед парсингом JSON
+            // Обрабатываем разные типы ответов
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Не JSON ответ:', text);
                 throw new Error('Сервер вернул не JSON ответ');
             }
 
@@ -215,6 +230,7 @@ class AuthManager {
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
 
+        // Валидация
         if (!username || username.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
             return;
@@ -256,9 +272,11 @@ class AuthManager {
                 })
             });
 
-            // Проверяем Content-Type перед парсингом JSON
+            // Обрабатываем разные типы ответов
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Не JSON ответ:', text);
                 throw new Error('Сервер вернул не JSON ответ');
             }
 
@@ -428,11 +446,38 @@ class AuthManager {
         if (savedUsername && document.getElementById('loginUsername')) {
             document.getElementById('loginUsername').value = savedUsername;
         }
+
+        // Если есть токен, проверяем его валидность
+        if (token) {
+            this.verifyToken(token);
+        }
+    }
+
+    async verifyToken(token) {
+        try {
+            const response = await fetch(`${this.apiBase}/verify`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    console.log('Токен валиден, пользователь авторизован');
+                    // Можно автоматически перенаправить или показать интерфейс
+                }
+            }
+        } catch (error) {
+            console.log('Токен невалиден:', error);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        }
     }
 }
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM загружен, инициализация системы авторизации v2.0');
+    console.log('DOM загружен, инициализация системы авторизации v2.1');
     window.authManager = new AuthManager();
 });
