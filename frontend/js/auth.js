@@ -1,26 +1,23 @@
-// Auth functionality with Telegram username - VERSION 2.1 FIXED Validation
+// Auth functionality with Telegram username - VERSION 2.3 FIXED Redirect
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
-        // ВАЖНО: правильный endpoint - без /api
         this.apiBase = '/auth';
         this.init();
     }
 
     init() {
-        console.log('AuthManager v2.1 - Fixed Validation');
+        console.log('AuthManager v2.3 - Fixed Redirect');
         console.log('API Base URL:', this.apiBase);
         this.bindEvents();
         this.checkExistingAuth();
         this.setupTermsModal();
-        this.fixCheckboxValidation(); // Добавляем фикс для валидации
+        this.fixCheckboxValidation();
     }
 
-    // ДОБАВЛЯЕМ НОВЫЙ МЕТОД ДЛЯ ФИКСА ВАЛИДАЦИИ
     fixCheckboxValidation() {
         const termsCheckbox = document.getElementById('acceptTerms');
         if (termsCheckbox) {
-            // Убираем стандартную валидацию и делаем свою
             termsCheckbox.required = false;
             termsCheckbox.style.opacity = '1';
             termsCheckbox.style.position = 'relative';
@@ -41,7 +38,7 @@ class AuthManager {
             });
         }
 
-        // Форма регистрации - ОБНОВЛЯЕМ ОБРАБОТЧИК
+        // Форма регистрации
         const registerForm = document.getElementById('registerForm');
         if (registerForm) {
             registerForm.addEventListener('submit', (e) => {
@@ -49,7 +46,6 @@ class AuthManager {
                 this.handleRegister();
             });
             
-            // Добавляем кастомную валидацию для формы
             registerForm.setAttribute('novalidate', 'true');
         }
 
@@ -191,15 +187,18 @@ class AuthManager {
             // Проверяем Content-Type перед парсингом JSON
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Не JSON ответ:', text);
                 throw new Error('Сервер вернул не JSON ответ');
             }
 
             const data = await response.json();
-            console.log('Ответ сервера:', data);
+            console.log('Полный ответ сервера:', data);
 
             if (data.success) {
                 this.showNotification('Успешный вход! Перенаправляем...', 'success');
                 
+                // Сохраняем данные
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 
@@ -208,9 +207,25 @@ class AuthManager {
                     localStorage.setItem('savedUsername', username);
                 }
 
-                // Перенаправление
+                // ОТЛАДКА: Проверяем что сохранилось
+                console.log('Token saved:', localStorage.getItem('token'));
+                console.log('User saved:', localStorage.getItem('user'));
+
+                // УСИЛЕННОЕ ПЕРЕНАПРАВЛЕНИЕ
                 setTimeout(() => {
-                    window.location.href = data.redirectTo || 'chat.html';
+                    const redirectTo = data.redirectTo || 'chat.html';
+                    console.log('Перенаправление на:', redirectTo);
+                    
+                    // Простое перенаправление без проверок
+                    window.location.href = redirectTo;
+                    
+                    // Fallback на случай если перенаправление не сработает
+                    setTimeout(() => {
+                        if (window.location.href.includes('auth') || window.location.href.includes('login')) {
+                            console.log('Перенаправление не сработало, пробуем прямой переход');
+                            window.location.href = 'chat.html';
+                        }
+                    }, 2000);
                 }, 1000);
 
             } else {
@@ -331,7 +346,7 @@ class AuthManager {
         }
     }
 
-    // ДОБАВЛЯЕМ МЕТОД ДЛЯ ПОДСВЕТКИ ПОЛЕЙ
+    // МЕТОД ДЛЯ ПОДСВЕТКИ ПОЛЕЙ
     highlightField(fieldId, isError) {
         const field = document.getElementById(fieldId);
         if (field) {
@@ -481,7 +496,18 @@ class AuthManager {
             user: user 
         });
 
-        // Оставляем только восстановление имени пользователя
+        // ЕСЛИ УЖЕ АВТОРИЗОВАНЫ - ПЕРЕНАПРАВЛЯЕМ СРАЗУ
+        if (token && user.id) {
+            console.log('Обнаружена существующая авторизация, перенаправляем на chat.html');
+            this.showNotification('Обнаружена активная сессия, перенаправляем...', 'info');
+            
+            setTimeout(() => {
+                window.location.href = 'chat.html';
+            }, 1000);
+            return;
+        }
+
+        // Восстанавливаем имя пользователя для формы
         const savedUsername = localStorage.getItem('savedUsername');
         if (savedUsername && document.getElementById('loginUsername')) {
             document.getElementById('loginUsername').value = savedUsername;
@@ -491,6 +517,49 @@ class AuthManager {
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM загружен, инициализация системы авторизации v2.1 - Fixed Validation');
+    console.log('DOM загружен, инициализация системы авторизации v2.3 - Fixed Redirect');
     window.authManager = new AuthManager();
 });
+
+// ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ОТЛАДКИ
+window.authDebug = {
+    // Принудительное перенаправление
+    forceRedirect: function() {
+        console.log('Принудительное перенаправление на chat.html');
+        window.location.href = 'chat.html';
+    },
+    
+    // Проверка существования chat.html
+    checkChatPage: function() {
+        fetch('chat.html', { method: 'HEAD' })
+            .then(response => {
+                console.log('chat.html exists:', response.ok);
+                return response.ok;
+            })
+            .catch(error => {
+                console.error('Error checking chat.html:', error);
+                return false;
+            });
+    },
+    
+    // Очистка авторизации
+    clearAuth: function() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('savedUsername');
+        console.log('Auth data cleared');
+    },
+    
+    // Показать текущую авторизацию
+    showAuth: function() {
+        console.log('Current auth:', {
+            token: localStorage.getItem('token'),
+            user: JSON.parse(localStorage.getItem('user') || '{}'),
+            rememberMe: localStorage.getItem('rememberMe'),
+            savedUsername: localStorage.getItem('savedUsername')
+        });
+    }
+};
+
+console.log('Auth debug functions available: authDebug.forceRedirect(), authDebug.checkChatPage(), authDebug.clearAuth(), authDebug.showAuth()');
