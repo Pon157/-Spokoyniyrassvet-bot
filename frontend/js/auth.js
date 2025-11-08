@@ -1,4 +1,4 @@
-// Auth functionality with Telegram username - VERSION 2.3 FIXED Redirect
+// Auth functionality with Telegram username - VERSION 3.0 FIXED Token Storage
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
@@ -7,7 +7,7 @@ class AuthManager {
     }
 
     init() {
-        console.log('AuthManager v2.3 - Fixed Redirect');
+        console.log('AuthManager v3.0 - Fixed Token Storage');
         console.log('API Base URL:', this.apiBase);
         this.bindEvents();
         this.checkExistingAuth();
@@ -21,9 +21,6 @@ class AuthManager {
             termsCheckbox.required = false;
             termsCheckbox.style.opacity = '1';
             termsCheckbox.style.position = 'relative';
-            termsCheckbox.style.height = 'auto';
-            termsCheckbox.style.width = 'auto';
-            
             console.log('Checkbox validation fixed');
         }
     }
@@ -45,7 +42,6 @@ class AuthManager {
                 e.preventDefault();
                 this.handleRegister();
             });
-            
             registerForm.setAttribute('novalidate', 'true');
         }
 
@@ -168,8 +164,7 @@ class AuthManager {
         this.setLoadingState('loginBtn', true);
 
         try {
-            console.log('Отправка запроса на вход:', { username });
-            console.log('Полный URL:', `${window.location.origin}${this.apiBase}/login`);
+            console.log('🔄 Отправка запроса на вход:', { username });
             
             const response = await fetch(`${this.apiBase}/login`, {
                 method: 'POST',
@@ -182,64 +177,84 @@ class AuthManager {
                 })
             });
 
-            console.log('Статус ответа:', response.status);
-
-            // Проверяем Content-Type перед парсингом JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('Не JSON ответ:', text);
-                throw new Error('Сервер вернул не JSON ответ');
-            }
+            console.log('📊 Статус ответа:', response.status);
 
             const data = await response.json();
-            console.log('Полный ответ сервера:', data);
+            console.log('📨 Полный ответ сервера:', data);
 
-            if (data.success) {
+            if (data.success && data.token) {
+                console.log('✅ Успешный вход, токен получен');
+                
+                // УСИЛЕННОЕ СОХРАНЕНИЕ ДАННЫХ
+                this.saveAuthData(data.token, data.user, username, rememberMe);
+                
                 this.showNotification('Успешный вход! Перенаправляем...', 'success');
-                
-                // Сохраняем данные
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                
-                if (rememberMe) {
-                    localStorage.setItem('rememberMe', 'true');
-                    localStorage.setItem('savedUsername', username);
-                }
 
-                // ОТЛАДКА: Проверяем что сохранилось
-                console.log('Token saved:', localStorage.getItem('token'));
-                console.log('User saved:', localStorage.getItem('user'));
-
-                // УСИЛЕННОЕ ПЕРЕНАПРАВЛЕНИЕ
+                // ПРОВЕРКА СОХРАНЕНИЯ ПЕРЕД ПЕРЕНАПРАВЛЕНИЕМ
                 setTimeout(() => {
+                    const savedToken = localStorage.getItem('token');
+                    const savedUser = localStorage.getItem('user');
+                    console.log('🔍 Проверка сохраненных данных:', {
+                        token: savedToken ? '✅ сохранен' : '❌ отсутствует',
+                        user: savedUser ? '✅ сохранен' : '❌ отсутствует'
+                    });
+
+                    if (!savedToken) {
+                        this.showNotification('Ошибка: токен не сохранился', 'error');
+                        return;
+                    }
+
+                    // ПЕРЕНАПРАВЛЕНИЕ С ПАРАМЕТРАМИ
                     const redirectTo = data.redirectTo || 'chat.html';
-                    console.log('Перенаправление на:', redirectTo);
+                    console.log('🚀 Перенаправление на:', redirectTo);
                     
-                    // Простое перенаправление без проверок
-                    window.location.href = redirectTo;
+                    // Принудительное перенаправление
+                    window.location.href = redirectTo + '?auth=success&t=' + Date.now();
                     
-                    // Fallback на случай если перенаправление не сработает
-                    setTimeout(() => {
-                        if (window.location.href.includes('auth') || window.location.href.includes('login')) {
-                            console.log('Перенаправление не сработало, пробуем прямой переход');
-                            window.location.href = 'chat.html';
-                        }
-                    }, 2000);
-                }, 1000);
+                }, 1500);
 
             } else {
+                console.error('❌ Ошибка входа:', data.error);
                 this.showNotification(data.error || 'Ошибка при входе', 'error');
             }
         } catch (error) {
-            console.error('Ошибка входа:', error);
-            if (error.message.includes('JSON')) {
-                this.showNotification('Ошибка сервера: неверный формат ответа', 'error');
-            } else {
-                this.showNotification('Ошибка соединения с сервером', 'error');
-            }
+            console.error('❌ Ошибка входа:', error);
+            this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoadingState('loginBtn', false);
+        }
+    }
+
+    // УСИЛЕННЫЙ МЕТОД СОХРАНЕНИЯ ДАННЫХ
+    saveAuthData(token, user, username, rememberMe) {
+        try {
+            // Очищаем предыдущие данные
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('rememberMe');
+            localStorage.removeItem('savedUsername');
+
+            // Сохраняем новые данные
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
+            
+            if (rememberMe) {
+                localStorage.setItem('rememberMe', 'true');
+                localStorage.setItem('savedUsername', username);
+            }
+
+            // Дублируем в sessionStorage для надежности
+            sessionStorage.setItem('token', token);
+            sessionStorage.setItem('user', JSON.stringify(user));
+
+            console.log('💾 Данные сохранены:', {
+                token: token ? '✅' : '❌',
+                user: user ? '✅' : '❌',
+                rememberMe: rememberMe ? '✅' : '❌'
+            });
+
+        } catch (error) {
+            console.error('❌ Ошибка сохранения данных:', error);
         }
     }
 
@@ -250,7 +265,7 @@ class AuthManager {
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
 
-        // КАСТОМНАЯ ВАЛИДАЦИЯ ВМЕСТО СТАНДАРТНОЙ
+        // КАСТОМНАЯ ВАЛИДАЦИЯ
         if (!username || username.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
             this.highlightField('registerUsername', true);
@@ -315,12 +330,6 @@ class AuthManager {
                 })
             });
 
-            // Проверяем Content-Type перед парсингом JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                throw new Error('Сервер вернул не JSON ответ');
-            }
-
             const data = await response.json();
 
             if (data.success) {
@@ -336,17 +345,12 @@ class AuthManager {
             }
         } catch (error) {
             console.error('Ошибка регистрации:', error);
-            if (error.message.includes('JSON')) {
-                this.showNotification('Ошибка сервера: неверный формат ответа', 'error');
-            } else {
-                this.showNotification('Ошибка соединения с сервером', 'error');
-            }
+            this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoadingState('registerBtn', false);
         }
     }
 
-    // МЕТОД ДЛЯ ПОДСВЕТКИ ПОЛЕЙ
     highlightField(fieldId, isError) {
         const field = document.getElementById(fieldId);
         if (field) {
@@ -491,18 +495,18 @@ class AuthManager {
         const token = localStorage.getItem('token');
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         
-        console.log('Проверка существующей авторизации:', { 
+        console.log('🔍 Проверка существующей авторизации:', { 
             hasToken: !!token, 
             user: user 
         });
 
         // ЕСЛИ УЖЕ АВТОРИЗОВАНЫ - ПЕРЕНАПРАВЛЯЕМ СРАЗУ
         if (token && user.id) {
-            console.log('Обнаружена существующая авторизация, перенаправляем на chat.html');
+            console.log('✅ Обнаружена существующая авторизация, перенаправляем на chat.html');
             this.showNotification('Обнаружена активная сессия, перенаправляем...', 'info');
             
             setTimeout(() => {
-                window.location.href = 'chat.html';
+                window.location.href = 'chat.html?auth=existing';
             }, 1000);
             return;
         }
@@ -517,49 +521,38 @@ class AuthManager {
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM загружен, инициализация системы авторизации v2.3 - Fixed Redirect');
+    console.log('🚀 DOM загружен, инициализация системы авторизации v3.0');
     window.authManager = new AuthManager();
 });
 
-// ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ОТЛАДКИ
+// Функции для отладки
 window.authDebug = {
-    // Принудительное перенаправление
     forceRedirect: function() {
-        console.log('Принудительное перенаправление на chat.html');
-        window.location.href = 'chat.html';
+        console.log('🔄 Принудительное перенаправление на chat.html');
+        window.location.href = 'chat.html?debug=forced';
     },
     
-    // Проверка существования chat.html
-    checkChatPage: function() {
-        fetch('chat.html', { method: 'HEAD' })
-            .then(response => {
-                console.log('chat.html exists:', response.ok);
-                return response.ok;
-            })
-            .catch(error => {
-                console.error('Error checking chat.html:', error);
-                return false;
-            });
+    checkAuth: function() {
+        const token = localStorage.getItem('token');
+        const user = localStorage.getItem('user');
+        console.log('🔍 Текущая авторизация:', {
+            token: token ? '✅ присутствует' : '❌ отсутствует',
+            user: user ? '✅ присутствует' : '❌ отсутствует',
+            fullToken: token,
+            fullUser: user
+        });
+        return { token, user: JSON.parse(user || '{}') };
     },
     
-    // Очистка авторизации
     clearAuth: function() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('rememberMe');
         localStorage.removeItem('savedUsername');
-        console.log('Auth data cleared');
-    },
-    
-    // Показать текущую авторизацию
-    showAuth: function() {
-        console.log('Current auth:', {
-            token: localStorage.getItem('token'),
-            user: JSON.parse(localStorage.getItem('user') || '{}'),
-            rememberMe: localStorage.getItem('rememberMe'),
-            savedUsername: localStorage.getItem('savedUsername')
-        });
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
+        console.log('🧹 Auth data cleared');
     }
 };
 
-console.log('Auth debug functions available: authDebug.forceRedirect(), authDebug.checkChatPage(), authDebug.clearAuth(), authDebug.showAuth()');
+console.log('🐛 Debug functions: authDebug.forceRedirect(), authDebug.checkAuth(), authDebug.clearAuth()');
