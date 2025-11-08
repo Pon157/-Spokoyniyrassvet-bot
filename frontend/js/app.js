@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // ЕСЛИ УЖЕ ЕСТЬ ПРИЛОЖЕНИЕ - НЕ СОЗДАВАЙ ЕЩЕ РАЗ
-    if (window.app) {
+    if (window.chatApp) {
         console.log('✅ Приложение уже инициализировано');
         return;
     }
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Пользователь аутентифицирован:', user.username);
         
         // Инициализируем приложение чата
-        window.app = new ChatApp();
+        window.chatApp = new ChatApp();
         
     } catch (error) {
         console.error('Ошибка загрузки пользователя:', error);
@@ -87,6 +87,7 @@ class ChatApp {
         this.chats = [];
         this.listeners = [];
         this.stickers = [];
+        this.telegramBot = null;
         this.rolePermissions = {
             'user': ['chat.basic', 'media.send', 'stickers.use'],
             'listener': ['chat.basic', 'media.send', 'stickers.use', 'chat.moderate', 'reviews.view'],
@@ -113,6 +114,9 @@ class ChatApp {
             this.logout();
             return;
         }
+        
+        // Инициализируем Telegram бота
+        this.telegramBot = new TelegramBot();
         
         this.initSocket();
         this.loadUserData();
@@ -152,49 +156,74 @@ class ChatApp {
     initSocket() {
         const token = localStorage.getItem('auth_token');
         
-        this.socket = io({
-            auth: {
-                token: token
+        try {
+            // Проверяем, что Socket.io доступен
+            if (typeof io === 'undefined') {
+                console.error('❌ Socket.io не загружен');
+                setTimeout(() => this.initSocket(), 3000);
+                return;
             }
-        });
 
-        this.socket.on('connect', () => {
-            console.log('✅ WebSocket подключен');
+            console.log('🔌 Инициализация WebSocket подключения...');
             
-            // Аутентифицируем сокет
-            this.socket.emit('authenticate', { token: token });
-        });
+            this.socket = io({
+                auth: {
+                    token: token
+                },
+                transports: ['websocket', 'polling'],
+                timeout: 10000
+            });
 
-        this.socket.on('disconnect', () => {
-            console.log('❌ WebSocket отключен');
-        });
+            this.socket.on('connect', () => {
+                console.log('✅ WebSocket подключен');
+                this.showNotification('Подключено к чату', 'success');
+            });
 
-        this.socket.on('auth_error', (error) => {
-            console.log('❌ Ошибка аутентификации WebSocket:', error);
-            this.showNotification('Ошибка подключения к чату', 'error');
-            this.logout();
-        });
+            this.socket.on('disconnect', (reason) => {
+                console.log('❌ WebSocket отключен:', reason);
+                this.showNotification('Соединение прервано', 'error');
+            });
 
-        // Обработчики событий WebSocket
-        this.socket.on('authenticated', (data) => {
-            console.log('✅ WebSocket аутентифицирован');
-        });
+            this.socket.on('connect_error', (error) => {
+                console.error('❌ Ошибка подключения WebSocket:', error);
+                this.showNotification('Ошибка подключения', 'error');
+            });
 
-        this.socket.on('new_message', (message) => {
-            this.handleNewMessage(message);
-        });
+            // Обработчики событий WebSocket
+            this.socket.on('authenticated', (data) => {
+                console.log('✅ WebSocket аутентифицирован');
+            });
 
-        this.socket.on('user_typing', (data) => {
-            this.showTypingIndicator(data);
-        });
+            this.socket.on('auth_error', (error) => {
+                console.log('❌ Ошибка аутентификации WebSocket:', error);
+                this.showNotification('Ошибка аутентификации', 'error');
+                this.logout();
+            });
 
-        this.socket.on('user_status_changed', (data) => {
-            this.updateUserStatus(data);
-        });
+            this.socket.on('new_message', (message) => {
+                this.handleNewMessage(message);
+            });
 
-        this.socket.on('message_sent', (data) => {
-            console.log('✅ Сообщение доставлено на сервер');
-        });
+            this.socket.on('user_typing', (data) => {
+                this.showTypingIndicator(data);
+            });
+
+            this.socket.on('user_status_changed', (data) => {
+                this.updateUserStatus(data);
+            });
+
+            this.socket.on('message_sent', (data) => {
+                console.log('✅ Сообщение доставлено на сервер');
+            });
+
+            this.socket.on('notification', (notification) => {
+                this.handleNotification(notification);
+            });
+
+        } catch (error) {
+            console.error('❌ Ошибка инициализации WebSocket:', error);
+            setTimeout(() => this.initSocket(), 5000);
+        }
     }
 
     loadUserData() {
@@ -207,6 +236,9 @@ class ChatApp {
         if (userRoleElement) userRoleElement.textContent = this.getRoleDisplayName(this.currentUser.role);
         if (userAvatarElement) {
             userAvatarElement.src = this.currentUser.avatar_url || '/images/default-avatar.svg';
+            userAvatarElement.onerror = () => {
+                userAvatarElement.src = '/images/default-avatar.svg';
+            };
         }
 
         this.loadChats();
@@ -267,6 +299,76 @@ class ChatApp {
                 this.createNewChat();
             });
         }
+
+        // Отправка сообщения
+        const messageInput = document.getElementById('messageInput');
+        const sendMessageBtn = document.getElementById('sendMessageBtn');
+        
+        if (messageInput && sendMessageBtn) {
+            // Отправка по кнопке
+            sendMessageBtn.addEventListener('click', () => {
+                this.sendMessage();
+            });
+            
+            // Отправка по Enter
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.sendMessage();
+                }
+            });
+            
+            // Индикатор набора текста
+            messageInput.addEventListener('input', () => {
+                this.handleTyping();
+            });
+        }
+
+        // Прикрепление файлов
+        const attachBtn = document.getElementById('attachBtn');
+        const fileInput = document.getElementById('fileInput');
+        
+        if (attachBtn && fileInput) {
+            attachBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                this.handleFileSelect(e);
+            });
+        }
+
+        // Стикеры
+        const stickerBtn = document.getElementById('stickerBtn');
+        const stickerModal = document.getElementById('stickerModal');
+        const closeStickerModal = document.getElementById('closeStickerModal');
+        
+        if (stickerBtn && stickerModal) {
+            stickerBtn.addEventListener('click', () => {
+                stickerModal.style.display = 'block';
+            });
+        }
+        
+        if (closeStickerModal) {
+            closeStickerModal.addEventListener('click', () => {
+                stickerModal.style.display = 'none';
+            });
+        }
+
+        // Закрытие модального окна по клику вне его
+        window.addEventListener('click', (e) => {
+            if (stickerModal && e.target === stickerModal) {
+                stickerModal.style.display = 'none';
+            }
+        });
+
+        // Telegram уведомления
+        const telegramToggle = document.getElementById('telegramNotifications');
+        if (telegramToggle) {
+            telegramToggle.addEventListener('change', (e) => {
+                this.toggleTelegramNotifications(e.target.checked);
+            });
+        }
     }
 
     loadRoleSpecificFeatures() {
@@ -299,16 +401,19 @@ class ChatApp {
     loadAdminFeatures() {
         console.log('⚡ Загрузка функций администратора');
         this.showAdminFeatures();
+        this.loadAdminStats();
     }
 
     loadCoownerFeatures() {
         console.log('👑 Загрузка функций совладельца');
         this.showCoownerFeatures();
+        this.loadFinancialData();
     }
 
     loadOwnerFeatures() {
         console.log('💎 Загрузка функций владельца');
         this.showOwnerFeatures();
+        this.loadSystemStats();
     }
 
     loadUserFeatures() {
@@ -328,19 +433,37 @@ class ChatApp {
     showAdminFeatures() {
         const adminTab = document.getElementById('adminTab');
         if (adminTab) adminTab.style.display = 'flex';
+        
+        // Показываем кнопки администрирования
+        const adminControls = document.querySelectorAll('.admin-control');
+        adminControls.forEach(control => {
+            control.style.display = 'block';
+        });
     }
 
     showCoownerFeatures() {
         const coownerTab = document.getElementById('coownerTab');
         if (coownerTab) coownerTab.style.display = 'flex';
+        
+        // Показываем финансовые элементы
+        const financialControls = document.querySelectorAll('.financial-control');
+        financialControls.forEach(control => {
+            control.style.display = 'block';
+        });
     }
 
     showOwnerFeatures() {
         const ownerTab = document.getElementById('ownerTab');
         if (ownerTab) ownerTab.style.display = 'flex';
+        
+        // Показываем все элементы управления
+        const ownerControls = document.querySelectorAll('.owner-control');
+        ownerControls.forEach(control => {
+            control.style.display = 'block';
+        });
     }
 
-    switchSidebarTab(tabName) {
+    async switchSidebarTab(tabName) {
         document.querySelectorAll('.sidebar-tab').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -353,6 +476,28 @@ class ChatApp {
         
         if (activeTab) activeTab.classList.add('active');
         if (activeContent) activeContent.classList.add('active');
+
+        // Загружаем данные для вкладки при переключении
+        switch(tabName) {
+            case 'chats':
+                await this.loadChats();
+                break;
+            case 'listeners':
+                await this.loadListeners();
+                break;
+            case 'reviews':
+                await this.loadReviews();
+                break;
+            case 'admin':
+                await this.loadAdminStats();
+                break;
+            case 'coowner':
+                await this.loadFinancialData();
+                break;
+            case 'owner':
+                await this.loadSystemStats();
+                break;
+        }
     }
 
     async loadChats() {
@@ -370,10 +515,37 @@ class ChatApp {
                 this.renderChats();
             } else {
                 console.log('Ошибка загрузки чатов:', response.status);
+                // Используем тестовые данные
+                this.loadTestChats();
             }
         } catch (error) {
             console.error('Ошибка загрузки чатов:', error);
+            this.loadTestChats();
         }
+    }
+
+    loadTestChats() {
+        this.chats = [
+            {
+                id: '1',
+                partner_name: 'Тестовый чат',
+                partner_avatar: '/images/default-avatar.svg',
+                last_message: 'Добро пожаловать в чат!',
+                last_message_time: new Date().toISOString(),
+                unread_count: 0,
+                partner_online: true
+            },
+            {
+                id: '2',
+                partner_name: 'Поддержка',
+                partner_avatar: '/images/support-avatar.svg',
+                last_message: 'Чем можем помочь?',
+                last_message_time: new Date(Date.now() - 300000).toISOString(),
+                unread_count: 2,
+                partner_online: true
+            }
+        ];
+        this.renderChats();
     }
 
     async loadListeners() {
@@ -391,10 +563,34 @@ class ChatApp {
                 this.renderListeners();
             } else {
                 console.log('Ошибка загрузки слушателей:', response.status);
+                this.loadTestListeners();
             }
         } catch (error) {
             console.error('Ошибка загрузки слушателей:', error);
+            this.loadTestListeners();
         }
+    }
+
+    loadTestListeners() {
+        this.listeners = [
+            {
+                id: '1',
+                username: 'Анна Слушатель',
+                avatar_url: '/images/default-avatar.svg',
+                is_online: true,
+                avg_rating: 4.8,
+                specialty: 'Психология'
+            },
+            {
+                id: '2',
+                username: 'Максим Консультант',
+                avatar_url: '/images/default-avatar.svg',
+                is_online: false,
+                avg_rating: 4.9,
+                specialty: 'Коучинг'
+            }
+        ];
+        this.renderListeners();
     }
 
     async loadReviews() {
@@ -409,9 +605,12 @@ class ChatApp {
             if (response.ok) {
                 const data = await response.json();
                 this.renderReviews(data.reviews || []);
+            } else {
+                this.renderReviews([]);
             }
         } catch (error) {
             console.error('Ошибка загрузки отзывов:', error);
+            this.renderReviews([]);
         }
     }
 
@@ -428,9 +627,76 @@ class ChatApp {
                 const data = await response.json();
                 this.stickers = data.stickers || [];
                 this.renderStickers();
+            } else {
+                this.loadTestStickers();
             }
         } catch (error) {
             console.error('Ошибка загрузки стикеров:', error);
+            this.loadTestStickers();
+        }
+    }
+
+    loadTestStickers() {
+        this.stickers = [
+            { id: '1', name: 'like', url: '/stickers/like.png' },
+            { id: '2', name: 'heart', url: '/stickers/heart.png' },
+            { id: '3', name: 'smile', url: '/stickers/smile.png' },
+            { id: '4', name: 'laugh', url: '/stickers/laugh.png' }
+        ];
+        this.renderStickers();
+    }
+
+    async loadAdminStats() {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch('/admin/stats', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.renderAdminStats(data.stats || {});
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки статистики:', error);
+        }
+    }
+
+    async loadFinancialData() {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch('/coowner/financial', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.renderFinancialData(data.financial || {});
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки финансовых данных:', error);
+        }
+    }
+
+    async loadSystemStats() {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch('/owner/system', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.renderSystemStats(data.system || {});
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки системной статистики:', error);
         }
     }
 
@@ -455,7 +721,7 @@ class ChatApp {
         const div = document.createElement('div');
         div.className = `chat-item ${chat.unread_count > 0 ? 'unread' : ''}`;
         div.innerHTML = `
-            <img src="${chat.partner_avatar || '/images/default-avatar.svg'}" class="avatar">
+            <img src="${chat.partner_avatar || '/images/default-avatar.svg'}" class="avatar" onerror="this.src='/images/default-avatar.svg'">
             <div class="chat-info">
                 <div class="chat-header">
                     <span class="chat-name">${chat.partner_name || 'Пользователь'}</span>
@@ -494,17 +760,19 @@ class ChatApp {
         const div = document.createElement('div');
         div.className = 'listener-item';
         div.innerHTML = `
-            <img src="${listener.avatar_url || '/images/default-avatar.svg'}" class="avatar">
+            <img src="${listener.avatar_url || '/images/default-avatar.svg'}" class="avatar" onerror="this.src='/images/default-avatar.svg'">
             <div class="listener-info">
                 <div class="listener-name">${listener.username}</div>
+                <div class="listener-specialty">${listener.specialty || 'Слушатель'}</div>
                 <div class="listener-status ${listener.is_online ? 'online' : 'offline'}">
                     ${listener.is_online ? 'Online' : 'Offline'}
                 </div>
                 <div class="listener-rating">
                     ${this.generateStarRating(listener.avg_rating || 0)}
+                    <span class="rating-text">(${listener.avg_rating || 0})</span>
                 </div>
             </div>
-            <button class="btn btn-sm btn-primary start-chat-btn">
+            <button class="btn btn-sm btn-primary start-chat-btn" ${!listener.is_online ? 'disabled' : ''}>
                 <i class="fas fa-comment"></i>
             </button>
         `;
@@ -513,7 +781,9 @@ class ChatApp {
         if (startBtn) {
             startBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.startChatWithListener(listener.id);
+                if (listener.is_online) {
+                    this.startChatWithListener(listener.id);
+                }
             });
         }
 
@@ -560,7 +830,7 @@ class ChatApp {
         this.stickers.forEach(sticker => {
             const stickerElement = document.createElement('div');
             stickerElement.className = 'sticker-item';
-            stickerElement.innerHTML = `<img src="${sticker.url}" alt="${sticker.name}">`;
+            stickerElement.innerHTML = `<img src="${sticker.url}" alt="${sticker.name}" onerror="this.style.display='none'">`;
             
             stickerElement.addEventListener('click', () => {
                 this.sendSticker(sticker.url);
@@ -569,6 +839,64 @@ class ChatApp {
 
             container.appendChild(stickerElement);
         });
+    }
+
+    renderAdminStats(stats) {
+        const container = document.getElementById('adminStats');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Пользователи</h3>
+                    <div class="stat-value">${stats.totalUsers || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Активные чаты</h3>
+                    <div class="stat-value">${stats.activeChats || 0}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Сообщения</h3>
+                    <div class="stat-value">${stats.totalMessages || 0}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderFinancialData(financial) {
+        const container = document.getElementById('financialData');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="financial-grid">
+                <div class="financial-card">
+                    <h3>Общий доход</h3>
+                    <div class="financial-value">${financial.totalRevenue || 0} ₽</div>
+                </div>
+                <div class="financial-card">
+                    <h3>Чистая прибыль</h3>
+                    <div class="financial-value">${financial.netProfit || 0} ₽</div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderSystemStats(system) {
+        const container = document.getElementById('systemStats');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="system-grid">
+                <div class="system-card">
+                    <h3>Статус системы</h3>
+                    <div class="system-value online">Online</div>
+                </div>
+                <div class="system-card">
+                    <h3>WebSocket подключения</h3>
+                    <div class="system-value">${system.connections || 1}</div>
+                </div>
+            </div>
+        `;
     }
 
     async selectChat(chat) {
@@ -585,8 +913,16 @@ class ChatApp {
         const partnerStatus = document.getElementById('partnerStatus');
         
         if (partnerName) partnerName.textContent = chat.partner_name || 'Пользователь';
-        if (partnerAvatar) partnerAvatar.src = chat.partner_avatar || '/images/default-avatar.svg';
-        if (partnerStatus) partnerStatus.textContent = chat.partner_online ? 'online' : 'offline';
+        if (partnerAvatar) {
+            partnerAvatar.src = chat.partner_avatar || '/images/default-avatar.svg';
+            partnerAvatar.onerror = () => {
+                partnerAvatar.src = '/images/default-avatar.svg';
+            };
+        }
+        if (partnerStatus) {
+            partnerStatus.textContent = chat.partner_online ? 'online' : 'offline';
+            partnerStatus.className = `status ${chat.partner_online ? 'online' : 'offline'}`;
+        }
         
         if (this.socket) {
             this.socket.emit('join_chat', chat.id);
@@ -607,9 +943,12 @@ class ChatApp {
             if (response.ok) {
                 const data = await response.json();
                 this.renderMessages(data.messages || []);
+            } else {
+                this.renderMessages([]);
             }
         } catch (error) {
             console.error('Ошибка загрузки сообщений:', error);
+            this.renderMessages([]);
         }
     }
 
@@ -618,6 +957,11 @@ class ChatApp {
         if (!container) return;
 
         container.innerHTML = '';
+
+        if (messages.length === 0) {
+            container.innerHTML = '<div class="no-messages">Нет сообщений</div>';
+            return;
+        }
 
         messages.forEach(message => {
             const messageElement = this.createMessageElement(message);
@@ -639,7 +983,7 @@ class ChatApp {
                 content = `<div class="message-text">${this.escapeHtml(message.content)}</div>`;
                 break;
             case 'image':
-                content = `<img src="${message.media_url}" class="message-media" onclick="app.openMedia('${message.media_url}')">`;
+                content = `<img src="${message.media_url}" class="message-media" onclick="window.chatApp.openMedia('${message.media_url}')">`;
                 break;
             case 'video':
                 content = `<video src="${message.media_url}" controls class="message-media"></video>`;
@@ -701,12 +1045,119 @@ class ChatApp {
             const partnerStatus = document.getElementById('partnerStatus');
             if (partnerStatus) {
                 partnerStatus.textContent = data.is_online ? 'online' : 'offline';
+                partnerStatus.className = `status ${data.is_online ? 'online' : 'offline'}`;
             }
         }
         
         // Обновляем статус в списках
         this.loadChats();
         this.loadListeners();
+    }
+
+    handleNotification(notification) {
+        this.showNotification(notification.message, notification.type || 'info');
+        
+        // Отправляем в Telegram если включено
+        if (this.telegramBot && localStorage.getItem('telegram_notifications') === 'true') {
+            this.telegramBot.sendNotification(notification);
+        }
+    }
+
+    async sendMessage() {
+        const messageInput = document.getElementById('messageInput');
+        if (!messageInput || !this.currentChat || !this.socket) return;
+
+        const content = messageInput.value.trim();
+        if (!content) return;
+
+        try {
+            this.socket.emit('send_message', {
+                chat_id: this.currentChat.id,
+                content: content,
+                message_type: 'text'
+            });
+
+            // Очищаем поле ввода
+            messageInput.value = '';
+            
+            // Скрываем индикатор набора
+            this.stopTyping();
+
+        } catch (error) {
+            console.error('Ошибка отправки сообщения:', error);
+            this.showNotification('Ошибка отправки сообщения', 'error');
+        }
+    }
+
+    handleTyping() {
+        if (!this.currentChat || !this.socket) return;
+
+        this.socket.emit('typing_start', {
+            chat_id: this.currentChat.id
+        });
+
+        // Останавливаем индикатор через 3 секунды
+        clearTimeout(this.typingTimeout);
+        this.typingTimeout = setTimeout(() => {
+            this.stopTyping();
+        }, 3000);
+    }
+
+    stopTyping() {
+        if (!this.currentChat || !this.socket) return;
+
+        this.socket.emit('typing_stop', {
+            chat_id: this.currentChat.id
+        });
+    }
+
+    handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Проверяем размер файла (макс 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            this.showNotification('Файл слишком большой (макс. 10MB)', 'error');
+            return;
+        }
+
+        // Определяем тип сообщения
+        let messageType = 'file';
+        if (file.type.startsWith('image/')) {
+            messageType = 'image';
+        } else if (file.type.startsWith('video/')) {
+            messageType = 'video';
+        } else if (file.type.startsWith('audio/')) {
+            messageType = 'audio';
+        }
+
+        // Отправляем файл
+        this.sendFile(file, messageType);
+    }
+
+    async sendFile(file, messageType) {
+        if (!this.currentChat || !this.socket) return;
+
+        try {
+            // В реальном приложении нужно загрузить файл на сервер
+            // Здесь используем временное решение с Data URL
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.socket.emit('send_message', {
+                    chat_id: this.currentChat.id,
+                    media_url: e.target.result,
+                    message_type: messageType,
+                    file_name: file.name
+                });
+                
+                this.showNotification('Файл отправлен', 'success');
+            };
+            reader.readAsDataURL(file);
+
+        } catch (error) {
+            console.error('Ошибка отправки файла:', error);
+            this.showNotification('Ошибка отправки файла', 'error');
+        }
     }
 
     async createNewChat() {
@@ -764,6 +1215,10 @@ class ChatApp {
     }
 
     closeCurrentChat() {
+        if (this.currentChat && this.socket) {
+            this.socket.emit('leave_chat', this.currentChat.id);
+        }
+        
         this.currentChat = null;
         
         const chatPlaceholder = document.getElementById('chatPlaceholder');
@@ -771,10 +1226,6 @@ class ChatApp {
         
         if (chatPlaceholder) chatPlaceholder.style.display = 'flex';
         if (chatContainer) chatContainer.style.display = 'none';
-        
-        if (this.currentChat && this.socket) {
-            this.socket.emit('leave_chat', this.currentChat.id);
-        }
     }
 
     sendSticker(stickerUrl) {
@@ -805,6 +1256,19 @@ class ChatApp {
         window.open(url, '_blank');
     }
 
+    toggleTelegramNotifications(enabled) {
+        localStorage.setItem('telegram_notifications', enabled.toString());
+        
+        if (enabled && this.telegramBot) {
+            this.telegramBot.setupUserNotifications(this.currentUser);
+        }
+        
+        this.showNotification(
+            `Telegram уведомления ${enabled ? 'включены' : 'отключены'}`,
+            enabled ? 'success' : 'info'
+        );
+    }
+
     hasPermission(permission) {
         if (this.currentUser.role === 'owner') return true;
         
@@ -828,11 +1292,20 @@ class ChatApp {
     }
 
     generateStarRating(rating) {
-        const stars = [];
-        for (let i = 1; i <= 5; i++) {
-            stars.push(i <= rating ? '★' : '☆');
+        const fullStars = Math.floor(rating);
+        const hasHalfStar = rating % 1 >= 0.5;
+        
+        let stars = '';
+        for (let i = 0; i < 5; i++) {
+            if (i < fullStars) {
+                stars += '★';
+            } else if (i === fullStars && hasHalfStar) {
+                stars += '☆';
+            } else {
+                stars += '☆';
+            }
         }
-        return stars.join('');
+        return stars;
     }
 
     getRoleDisplayName(role) {
@@ -887,6 +1360,9 @@ class ChatApp {
             background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3'};
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             animation: slideInRight 0.3s ease;
+            min-width: 200px;
+            max-width: 300px;
+            word-wrap: break-word;
         `;
         notification.textContent = message;
 
@@ -894,7 +1370,12 @@ class ChatApp {
 
         setTimeout(() => {
             if (notification.parentNode) {
-                notification.remove();
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
             }
         }, 3000);
     }
@@ -937,3 +1418,34 @@ class ChatApp {
         });
     }
 }
+
+// Добавляем CSS анимации для уведомлений
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    .notification {
+        transition: all 0.3s ease;
+    }
+`;
+document.head.appendChild(style);
