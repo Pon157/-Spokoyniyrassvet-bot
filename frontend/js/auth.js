@@ -1,4 +1,4 @@
-// Auth functionality with Telegram username - VERSION 4.0 COMPLETE
+// Auth functionality - FIXED TOKEN VERSION
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
@@ -7,7 +7,7 @@ class AuthManager {
     }
 
     init() {
-        console.log('AuthManager v4.0 - Complete Version');
+        console.log('🔧 AuthManager - Fixed Token Version');
         this.bindEvents();
         this.checkExistingAuth();
         this.setupTermsModal();
@@ -48,23 +48,6 @@ class AuthManager {
         if (switchBtn) {
             switchBtn.addEventListener('click', () => {
                 this.switchForms();
-            });
-        }
-
-        // Ссылка "Забыли пароль?"
-        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-        if (forgotPasswordLink) {
-            forgotPasswordLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showForgotPassword();
-            });
-        }
-
-        // Кнопка "Назад" в восстановлении пароля
-        const backToLogin = document.getElementById('backToLogin');
-        if (backToLogin) {
-            backToLogin.addEventListener('click', () => {
-                this.showForm('login');
             });
         }
 
@@ -174,21 +157,29 @@ class AuthManager {
                 })
             });
 
+            console.log('📊 Статус ответа:', response.status);
+
+            // ПРОВЕРЯЕМ ОТВЕТ ПЕРЕД ПАРСИНГОМ
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
             console.log('📨 Ответ сервера:', data);
 
             if (data.success && data.token) {
-                console.log('✅ Успешный вход!');
+                console.log('✅ Успешный вход! Токен получен');
                 
-                // СОХРАНЯЕМ ДАННЫЕ
+                // УСИЛЕННОЕ СОХРАНЕНИЕ ДАННЫХ
                 this.saveAuthData(data.token, data.user, username, rememberMe);
                 
                 this.showNotification('Успешный вход! Перенаправляем...', 'success');
 
-                // ПЕРЕНАПРАВЛЕНИЕ
+                // ПЕРЕНАПРАВЛЕНИЕ С ПРОВЕРКОЙ
                 setTimeout(() => {
                     console.log('🚀 Перенаправление на chat.html');
-                    window.location.href = 'chat.html';
+                    console.log('🔍 Проверка сохраненного токена:', localStorage.getItem('auth_token') ? '✅ есть' : '❌ нет');
+                    window.location.href = data.redirectTo || 'chat.html';
                 }, 1000);
 
             } else {
@@ -197,17 +188,25 @@ class AuthManager {
             }
         } catch (error) {
             console.error('❌ Ошибка входа:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
+            this.showNotification('Ошибка соединения с сервером: ' + error.message, 'error');
         } finally {
             this.setLoadingState('loginBtn', false);
         }
     }
 
+    // УСИЛЕННЫЙ МЕТОД СОХРАНЕНИЯ
     saveAuthData(token, user, username, rememberMe) {
         try {
+            console.log('💾 Начало сохранения данных...');
+            
             // Очищаем ВСЕ старые данные
-            localStorage.clear();
-            sessionStorage.clear();
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_data');
+            localStorage.removeItem('remember_me');
+            localStorage.removeItem('username');
+            
+            sessionStorage.removeItem('auth_token');
+            sessionStorage.removeItem('user_data');
 
             // Сохраняем в localStorage
             localStorage.setItem('auth_token', token);
@@ -218,18 +217,27 @@ class AuthManager {
                 localStorage.setItem('username', username);
             }
 
-            // Дублируем в sessionStorage
+            // Дублируем в sessionStorage для надежности
             sessionStorage.setItem('auth_token', token);
             sessionStorage.setItem('user_data', JSON.stringify(user));
 
+            // ПРОВЕРЯЕМ СОХРАНЕНИЕ
+            const savedToken = localStorage.getItem('auth_token');
+            const savedUser = localStorage.getItem('user_data');
+
             console.log('💾 Данные сохранены:', {
-                token: token.substring(0, 10) + '...',
-                user: user.username,
-                rememberMe: rememberMe
+                token: savedToken ? `✅ (${savedToken.substring(0, 20)}...)` : '❌ не сохранен',
+                user: savedUser ? '✅ сохранен' : '❌ не сохранен',
+                rememberMe: rememberMe ? '✅ включено' : '❌ выключено'
             });
 
+            if (!savedToken) {
+                throw new Error('Токен не сохранился в localStorage');
+            }
+
         } catch (error) {
-            console.error('❌ Ошибка сохранения:', error);
+            console.error('❌ Критическая ошибка сохранения:', error);
+            this.showNotification('Ошибка сохранения данных', 'error');
         }
     }
 
@@ -387,16 +395,18 @@ class AuthManager {
         const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
         const user = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
         
-        console.log('🔍 Проверка авторизации:', { 
+        console.log('🔍 Проверка существующей авторизации:', { 
             token: token ? '✅ найден' : '❌ не найден',
             user: user ? '✅ найден' : '❌ не найден'
         });
 
         if (token && user) {
             console.log('✅ Обнаружена авторизация, перенаправляем...');
+            this.showNotification('Обнаружена активная сессия, перенаправляем...', 'info');
+            
             setTimeout(() => {
                 window.location.href = 'chat.html';
-            }, 500);
+            }, 1000);
         }
 
         const savedUsername = localStorage.getItem('username');
@@ -408,6 +418,35 @@ class AuthManager {
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 AuthManager v4.0 инициализирован');
+    console.log('🚀 AuthManager запущен');
     window.authManager = new AuthManager();
 });
+
+// ДЕБАГ ФУНКЦИИ ДЛЯ ПРОВЕРКИ
+window.debugAuth = {
+    checkStorage: function() {
+        console.log('🔍 Проверка localStorage:', {
+            auth_token: localStorage.getItem('auth_token'),
+            user_data: localStorage.getItem('user_data'),
+            remember_me: localStorage.getItem('remember_me'),
+            username: localStorage.getItem('username')
+        });
+    },
+    
+    clearStorage: function() {
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log('🧹 Все данные очищены');
+    },
+    
+    testToken: function() {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            console.log('✅ Токен есть:', token.substring(0, 20) + '...');
+            return true;
+        } else {
+            console.log('❌ Токена нет');
+            return false;
+        }
+    }
+};
