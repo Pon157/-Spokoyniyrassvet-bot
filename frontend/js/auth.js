@@ -1,4 +1,4 @@
-// Auth functionality with Telegram username - VERSION 4.0 FIXED Token & DB
+// Auth functionality with Telegram username - VERSION 4.0 COMPLETE
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
@@ -7,7 +7,7 @@ class AuthManager {
     }
 
     init() {
-        console.log('AuthManager v4.0 - Fixed Token & DB Issues');
+        console.log('AuthManager v4.0 - Complete Version');
         this.bindEvents();
         this.checkExistingAuth();
         this.setupTermsModal();
@@ -48,6 +48,23 @@ class AuthManager {
         if (switchBtn) {
             switchBtn.addEventListener('click', () => {
                 this.switchForms();
+            });
+        }
+
+        // Ссылка "Забыли пароль?"
+        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+        if (forgotPasswordLink) {
+            forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showForgotPassword();
+            });
+        }
+
+        // Кнопка "Назад" в восстановлении пароля
+        const backToLogin = document.getElementById('backToLogin');
+        if (backToLogin) {
+            backToLogin.addEventListener('click', () => {
+                this.showForm('login');
             });
         }
 
@@ -168,7 +185,7 @@ class AuthManager {
                 
                 this.showNotification('Успешный вход! Перенаправляем...', 'success');
 
-                // ПЕРЕНАПРАВЛЕНИЕ С ЗАДЕРЖКОЙ
+                // ПЕРЕНАПРАВЛЕНИЕ
                 setTimeout(() => {
                     console.log('🚀 Перенаправление на chat.html');
                     window.location.href = 'chat.html';
@@ -186,7 +203,6 @@ class AuthManager {
         }
     }
 
-    // УСИЛЕННОЕ СОХРАНЕНИЕ ДАННЫХ
     saveAuthData(token, user, username, rememberMe) {
         try {
             // Очищаем ВСЕ старые данные
@@ -346,7 +362,6 @@ class AuthManager {
     }
 
     showNotification(message, type = 'info') {
-        // Упрощенная версия уведомлений
         const notification = document.createElement('div');
         notification.style.cssText = `
             position: fixed;
@@ -358,6 +373,7 @@ class AuthManager {
             border-radius: 6px;
             z-index: 10000;
             max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         `;
         notification.textContent = message;
         document.body.appendChild(notification);
@@ -368,7 +384,6 @@ class AuthManager {
     }
 
     checkExistingAuth() {
-        // ПРОВЕРЯЕМ ВО ВСЕХ МЕСТАХ ХРАНЕНИЯ
         const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
         const user = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
         
@@ -377,7 +392,6 @@ class AuthManager {
             user: user ? '✅ найден' : '❌ не найден'
         });
 
-        // ЕСЛИ УЖЕ АВТОРИЗОВАНЫ - ПЕРЕНАПРАВЛЯЕМ
         if (token && user) {
             console.log('✅ Обнаружена авторизация, перенаправляем...');
             setTimeout(() => {
@@ -385,7 +399,6 @@ class AuthManager {
             }, 500);
         }
 
-        // Восстанавливаем имя пользователя
         const savedUsername = localStorage.getItem('username');
         if (savedUsername && document.getElementById('loginUsername')) {
             document.getElementById('loginUsername').value = savedUsername;
