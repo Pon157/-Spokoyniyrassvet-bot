@@ -1,17 +1,34 @@
-// Auth functionality with Telegram username - VERSION 2.2 FIXED REDIRECT
+// Auth functionality with Telegram username - VERSION 2.1 FIXED Validation
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
+        // ВАЖНО: правильный endpoint - без /api
         this.apiBase = '/auth';
         this.init();
     }
 
     init() {
-        console.log('AuthManager v2.2 - Fixed Redirect');
+        console.log('AuthManager v2.1 - Fixed Validation');
         console.log('API Base URL:', this.apiBase);
         this.bindEvents();
         this.checkExistingAuth();
         this.setupTermsModal();
+        this.fixCheckboxValidation(); // Добавляем фикс для валидации
+    }
+
+    // ДОБАВЛЯЕМ НОВЫЙ МЕТОД ДЛЯ ФИКСА ВАЛИДАЦИИ
+    fixCheckboxValidation() {
+        const termsCheckbox = document.getElementById('acceptTerms');
+        if (termsCheckbox) {
+            // Убираем стандартную валидацию и делаем свою
+            termsCheckbox.required = false;
+            termsCheckbox.style.opacity = '1';
+            termsCheckbox.style.position = 'relative';
+            termsCheckbox.style.height = 'auto';
+            termsCheckbox.style.width = 'auto';
+            
+            console.log('Checkbox validation fixed');
+        }
     }
 
     bindEvents() {
@@ -24,13 +41,16 @@ class AuthManager {
             });
         }
 
-        // Форма регистрации
+        // Форма регистрации - ОБНОВЛЯЕМ ОБРАБОТЧИК
         const registerForm = document.getElementById('registerForm');
         if (registerForm) {
             registerForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleRegister();
             });
+            
+            // Добавляем кастомную валидацию для формы
+            registerForm.setAttribute('novalidate', 'true');
         }
 
         // Переключение между формами
@@ -41,22 +61,27 @@ class AuthManager {
             });
         }
 
+        // Ссылка "Забыли пароль?"
+        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+        if (forgotPasswordLink) {
+            forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showForgotPassword();
+            });
+        }
+
+        // Кнопка "Назад" в восстановлении пароля
+        const backToLogin = document.getElementById('backToLogin');
+        if (backToLogin) {
+            backToLogin.addEventListener('click', () => {
+                this.showForm('login');
+            });
+        }
+
         // Переключение видимости пароля
         this.setupPasswordToggle('loginPassword', 'toggleLoginPassword');
         this.setupPasswordToggle('registerPassword', 'toggleRegisterPassword');
         this.setupPasswordToggle('confirmPassword', 'toggleConfirmPassword');
-
-        this.fixCheckboxIssue();
-    }
-
-    fixCheckboxIssue() {
-        const termsCheckbox = document.getElementById('acceptTerms');
-        if (termsCheckbox) {
-            termsCheckbox.addEventListener('invalid', (e) => {
-                e.preventDefault();
-                this.showNotification('Необходимо принять условия использования', 'error');
-            });
-        }
     }
 
     setupPasswordToggle(passwordFieldId, toggleButtonId) {
@@ -123,6 +148,7 @@ class AuthManager {
         const termsCheckbox = document.getElementById('acceptTerms');
         if (termsCheckbox) {
             termsCheckbox.checked = true;
+            termsCheckbox.classList.add('accepted');
         }
         this.hideTermsModal();
         this.showNotification('Условия приняты!', 'success');
@@ -147,6 +173,7 @@ class AuthManager {
 
         try {
             console.log('Отправка запроса на вход:', { username });
+            console.log('Полный URL:', `${window.location.origin}${this.apiBase}/login`);
             
             const response = await fetch(`${this.apiBase}/login`, {
                 method: 'POST',
@@ -161,10 +188,9 @@ class AuthManager {
 
             console.log('Статус ответа:', response.status);
 
+            // Проверяем Content-Type перед парсингом JSON
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('Не JSON ответ:', text);
                 throw new Error('Сервер вернул не JSON ответ');
             }
 
@@ -174,7 +200,6 @@ class AuthManager {
             if (data.success) {
                 this.showNotification('Успешный вход! Перенаправляем...', 'success');
                 
-                // Сохраняем данные
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 
@@ -183,10 +208,9 @@ class AuthManager {
                     localStorage.setItem('savedUsername', username);
                 }
 
-                // ПРЯМОЕ ПЕРЕНАПРАВЛЕНИЕ БЕЗ ПРОВЕРОК
-                console.log('🔄 Перенаправление на:', data.redirectTo);
+                // Перенаправление
                 setTimeout(() => {
-                    window.location.href = data.redirectTo;
+                    window.location.href = data.redirectTo || 'chat.html';
                 }, 1000);
 
             } else {
@@ -211,29 +235,53 @@ class AuthManager {
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
 
+        // КАСТОМНАЯ ВАЛИДАЦИЯ ВМЕСТО СТАНДАРТНОЙ
         if (!username || username.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
+            this.highlightField('registerUsername', true);
             return;
+        } else {
+            this.highlightField('registerUsername', false);
         }
 
         if (!telegram || !telegram.startsWith('@')) {
             this.showNotification('Telegram должен начинаться с @', 'error');
+            this.highlightField('registerTelegram', true);
             return;
+        } else {
+            this.highlightField('registerTelegram', false);
         }
 
         if (password.length < 6) {
             this.showNotification('Пароль должен содержать минимум 6 символов', 'error');
+            this.highlightField('registerPassword', true);
             return;
+        } else {
+            this.highlightField('registerPassword', false);
         }
 
         if (password !== confirmPassword) {
             this.showNotification('Пароли не совпадают', 'error');
+            this.highlightField('confirmPassword', true);
             return;
+        } else {
+            this.highlightField('confirmPassword', false);
         }
 
         if (!acceptTerms) {
             this.showNotification('Необходимо принять условия использования', 'error');
+            const termsLabel = document.querySelector('label[for="acceptTerms"]');
+            if (termsLabel) {
+                termsLabel.style.color = '#f44336';
+                termsLabel.style.fontWeight = 'bold';
+            }
             return;
+        } else {
+            const termsLabel = document.querySelector('label[for="acceptTerms"]');
+            if (termsLabel) {
+                termsLabel.style.color = '';
+                termsLabel.style.fontWeight = '';
+            }
         }
 
         this.setLoadingState('registerBtn', true);
@@ -252,10 +300,9 @@ class AuthManager {
                 })
             });
 
+            // Проверяем Content-Type перед парсингом JSON
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('Не JSON ответ:', text);
                 throw new Error('Сервер вернул не JSON ответ');
             }
 
@@ -282,6 +329,24 @@ class AuthManager {
         } finally {
             this.setLoadingState('registerBtn', false);
         }
+    }
+
+    // ДОБАВЛЯЕМ МЕТОД ДЛЯ ПОДСВЕТКИ ПОЛЕЙ
+    highlightField(fieldId, isError) {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            if (isError) {
+                field.style.borderColor = '#f44336';
+                field.style.boxShadow = '0 0 0 2px rgba(244, 67, 54, 0.1)';
+            } else {
+                field.style.borderColor = '';
+                field.style.boxShadow = '';
+            }
+        }
+    }
+
+    showForgotPassword() {
+        this.showNotification('Для восстановления пароля обратитесь к администратору в Telegram', 'info');
     }
 
     showForm(formType) {
@@ -409,58 +474,23 @@ class AuthManager {
 
     checkExistingAuth() {
         const token = localStorage.getItem('token');
-        const user = localStorage.getItem('user');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
         
         console.log('Проверка существующей авторизации:', { 
             hasToken: !!token, 
-            hasUser: !!user 
+            user: user 
         });
 
-        // Восстанавливаем имя пользователя
+        // Оставляем только восстановление имени пользователя
         const savedUsername = localStorage.getItem('savedUsername');
         if (savedUsername && document.getElementById('loginUsername')) {
             document.getElementById('loginUsername').value = savedUsername;
-        }
-
-        // Если есть токен, проверяем его и перенаправляем
-        if (token && user) {
-            console.log('🔄 Обнаружена существующая сессия, проверка...');
-            this.verifyAndRedirect(token);
-        }
-    }
-
-    async verifyAndRedirect(token) {
-        try {
-            const response = await fetch(`${this.apiBase}/verify`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    console.log('✅ Сессия действительна, перенаправление на:', data.redirectTo);
-                    this.showNotification('Автоматический вход...', 'success');
-                    
-                    // Обновляем данные
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    
-                    setTimeout(() => {
-                        window.location.href = data.redirectTo;
-                    }, 1000);
-                }
-            }
-        } catch (error) {
-            console.log('Сессия недействительна:', error);
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
         }
     }
 }
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM загружен, инициализация системы авторизации v2.2');
+    console.log('DOM загружен, инициализация системы авторизации v2.1 - Fixed Validation');
     window.authManager = new AuthManager();
 });
