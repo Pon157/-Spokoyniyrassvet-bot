@@ -1,4 +1,4 @@
-// Auth functionality with Telegram username - VERSION 3.0 FIXED Token Storage
+// Auth functionality with Telegram username - VERSION 4.0 FIXED Token & DB
 class AuthManager {
     constructor() {
         this.currentForm = 'login';
@@ -7,8 +7,7 @@ class AuthManager {
     }
 
     init() {
-        console.log('AuthManager v3.0 - Fixed Token Storage');
-        console.log('API Base URL:', this.apiBase);
+        console.log('AuthManager v4.0 - Fixed Token & DB Issues');
         this.bindEvents();
         this.checkExistingAuth();
         this.setupTermsModal();
@@ -21,7 +20,6 @@ class AuthManager {
             termsCheckbox.required = false;
             termsCheckbox.style.opacity = '1';
             termsCheckbox.style.position = 'relative';
-            console.log('Checkbox validation fixed');
         }
     }
 
@@ -50,23 +48,6 @@ class AuthManager {
         if (switchBtn) {
             switchBtn.addEventListener('click', () => {
                 this.switchForms();
-            });
-        }
-
-        // Ссылка "Забыли пароль?"
-        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-        if (forgotPasswordLink) {
-            forgotPasswordLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.showForgotPassword();
-            });
-        }
-
-        // Кнопка "Назад" в восстановлении пароля
-        const backToLogin = document.getElementById('backToLogin');
-        if (backToLogin) {
-            backToLogin.addEventListener('click', () => {
-                this.showForm('login');
             });
         }
 
@@ -140,7 +121,6 @@ class AuthManager {
         const termsCheckbox = document.getElementById('acceptTerms');
         if (termsCheckbox) {
             termsCheckbox.checked = true;
-            termsCheckbox.classList.add('accepted');
         }
         this.hideTermsModal();
         this.showNotification('Условия приняты!', 'success');
@@ -164,7 +144,7 @@ class AuthManager {
         this.setLoadingState('loginBtn', true);
 
         try {
-            console.log('🔄 Отправка запроса на вход:', { username });
+            console.log('🔄 Отправка запроса на вход...');
             
             const response = await fetch(`${this.apiBase}/login`, {
                 method: 'POST',
@@ -177,41 +157,22 @@ class AuthManager {
                 })
             });
 
-            console.log('📊 Статус ответа:', response.status);
-
             const data = await response.json();
-            console.log('📨 Полный ответ сервера:', data);
+            console.log('📨 Ответ сервера:', data);
 
             if (data.success && data.token) {
-                console.log('✅ Успешный вход, токен получен');
+                console.log('✅ Успешный вход!');
                 
-                // УСИЛЕННОЕ СОХРАНЕНИЕ ДАННЫХ
+                // СОХРАНЯЕМ ДАННЫЕ
                 this.saveAuthData(data.token, data.user, username, rememberMe);
                 
                 this.showNotification('Успешный вход! Перенаправляем...', 'success');
 
-                // ПРОВЕРКА СОХРАНЕНИЯ ПЕРЕД ПЕРЕНАПРАВЛЕНИЕМ
+                // ПЕРЕНАПРАВЛЕНИЕ С ЗАДЕРЖКОЙ
                 setTimeout(() => {
-                    const savedToken = localStorage.getItem('token');
-                    const savedUser = localStorage.getItem('user');
-                    console.log('🔍 Проверка сохраненных данных:', {
-                        token: savedToken ? '✅ сохранен' : '❌ отсутствует',
-                        user: savedUser ? '✅ сохранен' : '❌ отсутствует'
-                    });
-
-                    if (!savedToken) {
-                        this.showNotification('Ошибка: токен не сохранился', 'error');
-                        return;
-                    }
-
-                    // ПЕРЕНАПРАВЛЕНИЕ С ПАРАМЕТРАМИ
-                    const redirectTo = data.redirectTo || 'chat.html';
-                    console.log('🚀 Перенаправление на:', redirectTo);
-                    
-                    // Принудительное перенаправление
-                    window.location.href = redirectTo + '?auth=success&t=' + Date.now();
-                    
-                }, 1500);
+                    console.log('🚀 Перенаправление на chat.html');
+                    window.location.href = 'chat.html';
+                }, 1000);
 
             } else {
                 console.error('❌ Ошибка входа:', data.error);
@@ -225,36 +186,34 @@ class AuthManager {
         }
     }
 
-    // УСИЛЕННЫЙ МЕТОД СОХРАНЕНИЯ ДАННЫХ
+    // УСИЛЕННОЕ СОХРАНЕНИЕ ДАННЫХ
     saveAuthData(token, user, username, rememberMe) {
         try {
-            // Очищаем предыдущие данные
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('rememberMe');
-            localStorage.removeItem('savedUsername');
+            // Очищаем ВСЕ старые данные
+            localStorage.clear();
+            sessionStorage.clear();
 
-            // Сохраняем новые данные
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
+            // Сохраняем в localStorage
+            localStorage.setItem('auth_token', token);
+            localStorage.setItem('user_data', JSON.stringify(user));
             
             if (rememberMe) {
-                localStorage.setItem('rememberMe', 'true');
-                localStorage.setItem('savedUsername', username);
+                localStorage.setItem('remember_me', 'true');
+                localStorage.setItem('username', username);
             }
 
-            // Дублируем в sessionStorage для надежности
-            sessionStorage.setItem('token', token);
-            sessionStorage.setItem('user', JSON.stringify(user));
+            // Дублируем в sessionStorage
+            sessionStorage.setItem('auth_token', token);
+            sessionStorage.setItem('user_data', JSON.stringify(user));
 
             console.log('💾 Данные сохранены:', {
-                token: token ? '✅' : '❌',
-                user: user ? '✅' : '❌',
-                rememberMe: rememberMe ? '✅' : '❌'
+                token: token.substring(0, 10) + '...',
+                user: user.username,
+                rememberMe: rememberMe
             });
 
         } catch (error) {
-            console.error('❌ Ошибка сохранения данных:', error);
+            console.error('❌ Ошибка сохранения:', error);
         }
     }
 
@@ -265,53 +224,30 @@ class AuthManager {
         const confirmPassword = document.getElementById('confirmPassword').value;
         const acceptTerms = document.getElementById('acceptTerms').checked;
 
-        // КАСТОМНАЯ ВАЛИДАЦИЯ
+        // ВАЛИДАЦИЯ
         if (!username || username.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
-            this.highlightField('registerUsername', true);
             return;
-        } else {
-            this.highlightField('registerUsername', false);
         }
 
         if (!telegram || !telegram.startsWith('@')) {
             this.showNotification('Telegram должен начинаться с @', 'error');
-            this.highlightField('registerTelegram', true);
             return;
-        } else {
-            this.highlightField('registerTelegram', false);
         }
 
         if (password.length < 6) {
             this.showNotification('Пароль должен содержать минимум 6 символов', 'error');
-            this.highlightField('registerPassword', true);
             return;
-        } else {
-            this.highlightField('registerPassword', false);
         }
 
         if (password !== confirmPassword) {
             this.showNotification('Пароли не совпадают', 'error');
-            this.highlightField('confirmPassword', true);
             return;
-        } else {
-            this.highlightField('confirmPassword', false);
         }
 
         if (!acceptTerms) {
             this.showNotification('Необходимо принять условия использования', 'error');
-            const termsLabel = document.querySelector('label[for="acceptTerms"]');
-            if (termsLabel) {
-                termsLabel.style.color = '#f44336';
-                termsLabel.style.fontWeight = 'bold';
-            }
             return;
-        } else {
-            const termsLabel = document.querySelector('label[for="acceptTerms"]');
-            if (termsLabel) {
-                termsLabel.style.color = '';
-                termsLabel.style.fontWeight = '';
-            }
         }
 
         this.setLoadingState('registerBtn', true);
@@ -348,19 +284,6 @@ class AuthManager {
             this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoadingState('registerBtn', false);
-        }
-    }
-
-    highlightField(fieldId, isError) {
-        const field = document.getElementById(fieldId);
-        if (field) {
-            if (isError) {
-                field.style.borderColor = '#f44336';
-                field.style.boxShadow = '0 0 0 2px rgba(244, 67, 54, 0.1)';
-            } else {
-                field.style.borderColor = '';
-                field.style.boxShadow = '';
-            }
         }
     }
 
@@ -423,136 +346,55 @@ class AuthManager {
     }
 
     showNotification(message, type = 'info') {
-        let container = document.getElementById('notifications');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'notifications';
-            container.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 10000;
-                max-width: 400px;
-            `;
-            document.body.appendChild(container);
-        }
-
+        // Упрощенная версия уведомлений
         const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
         notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
             background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
             color: white;
-            padding: 16px 20px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            animation: slideInRight 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 6px;
+            z-index: 10000;
+            max-width: 300px;
         `;
-
-        const icon = document.createElement('i');
-        icon.className = type === 'success' ? 'fas fa-check-circle' : 
-                         type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-info-circle';
-        notification.appendChild(icon);
-
-        const text = document.createElement('span');
-        text.textContent = message;
-        notification.appendChild(text);
-
-        container.appendChild(notification);
+        notification.textContent = message;
+        document.body.appendChild(notification);
 
         setTimeout(() => {
-            if (notification.parentNode) {
-                notification.style.animation = 'slideOutRight 0.3s ease';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }
-        }, 5000);
-
-        if (!document.getElementById('notificationStyles')) {
-            const style = document.createElement('style');
-            style.id = 'notificationStyles';
-            style.textContent = `
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOutRight {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
+            notification.remove();
+        }, 4000);
     }
 
     checkExistingAuth() {
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        // ПРОВЕРЯЕМ ВО ВСЕХ МЕСТАХ ХРАНЕНИЯ
+        const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+        const user = localStorage.getItem('user_data') || sessionStorage.getItem('user_data');
         
-        console.log('🔍 Проверка существующей авторизации:', { 
-            hasToken: !!token, 
-            user: user 
+        console.log('🔍 Проверка авторизации:', { 
+            token: token ? '✅ найден' : '❌ не найден',
+            user: user ? '✅ найден' : '❌ не найден'
         });
 
-        // ЕСЛИ УЖЕ АВТОРИЗОВАНЫ - ПЕРЕНАПРАВЛЯЕМ СРАЗУ
-        if (token && user.id) {
-            console.log('✅ Обнаружена существующая авторизация, перенаправляем на chat.html');
-            this.showNotification('Обнаружена активная сессия, перенаправляем...', 'info');
-            
+        // ЕСЛИ УЖЕ АВТОРИЗОВАНЫ - ПЕРЕНАПРАВЛЯЕМ
+        if (token && user) {
+            console.log('✅ Обнаружена авторизация, перенаправляем...');
             setTimeout(() => {
-                window.location.href = 'chat.html?auth=existing';
-            }, 1000);
-            return;
+                window.location.href = 'chat.html';
+            }, 500);
         }
 
-        // Восстанавливаем имя пользователя для формы
-        const savedUsername = localStorage.getItem('savedUsername');
+        // Восстанавливаем имя пользователя
+        const savedUsername = localStorage.getItem('username');
         if (savedUsername && document.getElementById('loginUsername')) {
             document.getElementById('loginUsername').value = savedUsername;
         }
     }
 }
 
-// Инициализация при загрузке страницы
+// Инициализация
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 DOM загружен, инициализация системы авторизации v3.0');
+    console.log('🚀 AuthManager v4.0 инициализирован');
     window.authManager = new AuthManager();
 });
-
-// Функции для отладки
-window.authDebug = {
-    forceRedirect: function() {
-        console.log('🔄 Принудительное перенаправление на chat.html');
-        window.location.href = 'chat.html?debug=forced';
-    },
-    
-    checkAuth: function() {
-        const token = localStorage.getItem('token');
-        const user = localStorage.getItem('user');
-        console.log('🔍 Текущая авторизация:', {
-            token: token ? '✅ присутствует' : '❌ отсутствует',
-            user: user ? '✅ присутствует' : '❌ отсутствует',
-            fullToken: token,
-            fullUser: user
-        });
-        return { token, user: JSON.parse(user || '{}') };
-    },
-    
-    clearAuth: function() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('rememberMe');
-        localStorage.removeItem('savedUsername');
-        sessionStorage.removeItem('token');
-        sessionStorage.removeItem('user');
-        console.log('🧹 Auth data cleared');
-    }
-};
-
-console.log('🐛 Debug functions: authDebug.forceRedirect(), authDebug.checkAuth(), authDebug.clearAuth()');
