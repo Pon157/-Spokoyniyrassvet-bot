@@ -1,7 +1,5 @@
 class AuthManager {
     constructor() {
-        console.log('🚀 AuthManager запущен');
-        console.log('🔧 AuthManager - Fixed Token Version');
         this.init();
     }
 
@@ -11,76 +9,21 @@ class AuthManager {
     }
 
     setupEventListeners() {
-        // Переключение между логином и регистрацией
-        const showRegisterBtn = document.getElementById('showRegisterBtn');
-        const showLoginBtn = document.getElementById('showLoginBtn');
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
 
-        if (showRegisterBtn && showLoginBtn) {
-            showRegisterBtn.addEventListener('click', () => {
-                loginForm.style.display = 'none';
-                registerForm.style.display = 'block';
-                showRegisterBtn.classList.add('active');
-                showLoginBtn.classList.remove('active');
-            });
-
-            showLoginBtn.addEventListener('click', () => {
-                registerForm.style.display = 'none';
-                loginForm.style.display = 'block';
-                showLoginBtn.classList.add('active');
-                showRegisterBtn.classList.remove('active');
-            });
-        }
-
-        // Форма логина
-        const loginFormElement = document.getElementById('loginForm');
-        if (loginFormElement) {
-            loginFormElement.addEventListener('submit', (e) => {
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleLogin();
             });
         }
 
-        // Форма регистрации
-        const registerFormElement = document.getElementById('registerForm');
-        if (registerFormElement) {
-            registerFormElement.addEventListener('submit', (e) => {
+        if (registerForm) {
+            registerForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleRegister();
             });
-        }
-    }
-
-    checkExistingAuth() {
-        const token = localStorage.getItem('auth_token');
-        const userData = localStorage.getItem('user_data');
-        
-        console.log('🔍 Проверка существующей авторизации:', {
-            hasToken: !!token,
-            hasUserData: !!userData
-        });
-
-        if (token && userData) {
-            try {
-                const user = JSON.parse(userData);
-                console.log('🔐 Пользователь уже аутентифицирован:', user.username);
-                
-                // Перенаправляем на правильную страницу
-                const redirectTo = this.getRedirectPageForRole(user.role);
-                console.log('🎯 Автоматическое перенаправление на:', redirectTo);
-                
-                // Добавляем небольшую задержку для стабильности
-                setTimeout(() => {
-                    window.location.href = redirectTo;
-                }, 500);
-                
-            } catch (error) {
-                console.error('❌ Ошибка проверки аутентификации:', error);
-                this.clearAuth();
-            }
-        } else {
-            console.log('🔐 Пользователь не аутентифицирован');
         }
     }
 
@@ -97,9 +40,7 @@ class AuthManager {
 
         try {
             this.setLoading(submitBtn, true);
-            console.log('🔄 Отправка запроса на вход...');
 
-            // ИСПРАВЛЕННЫЙ ENDPOINT - добавлен /api/
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
@@ -108,39 +49,24 @@ class AuthManager {
                 body: JSON.stringify({ username, password })
             });
 
-            console.log('📊 Статус ответа:', response.status);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
             const data = await response.json();
-            console.log('📨 Ответ сервера:', data);
 
             if (data.success) {
-                console.log('✅ Вход успешен:', data.user.username);
-                
-                // Сохраняем токен и данные пользователя
                 localStorage.setItem('auth_token', data.token);
                 localStorage.setItem('user_data', JSON.stringify(data.user));
                 
                 this.showError(errorDiv, '', true);
                 this.showSuccess('Вход выполнен успешно!');
                 
-                console.log('🎯 Перенаправление на:', data.redirectTo);
-                
-                // Перенаправляем на указанную страницу
                 setTimeout(() => {
-                    window.location.href = data.redirectTo || this.getRedirectPageForRole(data.user.role);
+                    window.location.href = data.redirectTo;
                 }, 1000);
                 
             } else {
-                console.log('❌ Ошибка входа от сервера:', data.error);
                 this.showError(errorDiv, data.error || 'Ошибка входа');
             }
         } catch (error) {
-            console.error('❌ Ошибка входа:', error);
-            this.showError(errorDiv, 'Ошибка соединения с сервером: ' + error.message);
+            this.showError(errorDiv, 'Ошибка соединения с сервером');
         } finally {
             this.setLoading(submitBtn, false);
         }
@@ -154,7 +80,6 @@ class AuthManager {
         const errorDiv = document.getElementById('registerError');
         const submitBtn = document.getElementById('registerSubmitBtn');
 
-        // Валидация
         if (!username || !telegram || !password || !confirmPassword) {
             this.showError(errorDiv, 'Заполните все поля');
             return;
@@ -182,9 +107,7 @@ class AuthManager {
 
         try {
             this.setLoading(submitBtn, true);
-            console.log('🔄 Отправка запроса на регистрацию...');
 
-            // ИСПРАВЛЕННЫЙ ENDPOINT - добавлен /api/
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
@@ -198,41 +121,37 @@ class AuthManager {
                 })
             });
 
-            console.log('📊 Статус ответа:', response.status);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
             const data = await response.json();
-            console.log('📨 Ответ сервера:', data);
 
             if (data.success) {
-                console.log('✅ Регистрация успешна:', data.user.username);
                 this.showError(errorDiv, '', true);
                 this.showSuccess('Регистрация успешна! Теперь вы можете войти.');
                 
-                // Переключаем на форму логина
                 document.getElementById('loginForm').style.display = 'block';
                 document.getElementById('registerForm').style.display = 'none';
-                document.getElementById('showLoginBtn').classList.add('active');
-                document.getElementById('showRegisterBtn').classList.remove('active');
-                
-                // Очищаем форму
-                document.getElementById('registerUsername').value = '';
-                document.getElementById('registerTelegram').value = '';
-                document.getElementById('registerPassword').value = '';
-                document.getElementById('registerConfirmPassword').value = '';
                 
             } else {
-                console.log('❌ Ошибка регистрации от сервера:', data.error);
                 this.showError(errorDiv, data.error || 'Ошибка регистрации');
             }
         } catch (error) {
-            console.error('❌ Ошибка регистрации:', error);
-            this.showError(errorDiv, 'Ошибка соединения с сервером: ' + error.message);
+            this.showError(errorDiv, 'Ошибка соединения с сервером');
         } finally {
             this.setLoading(submitBtn, false);
+        }
+    }
+
+    checkExistingAuth() {
+        const token = localStorage.getItem('auth_token');
+        const userData = localStorage.getItem('user_data');
+        
+        if (token && userData) {
+            try {
+                const user = JSON.parse(userData);
+                const redirectTo = this.getRedirectPageForRole(user.role);
+                window.location.href = redirectTo;
+            } catch (error) {
+                this.clearAuth();
+            }
         }
     }
 
@@ -251,39 +170,16 @@ class AuthManager {
         if (!errorElement) return;
         
         errorElement.textContent = message;
-        errorElement.className = 'error-message';
-        
-        if (isSuccess) {
-            errorElement.classList.add('success');
-        } else if (message) {
-            errorElement.classList.add('show');
+        if (message) {
+            errorElement.style.display = 'block';
+            errorElement.style.color = isSuccess ? 'green' : 'red';
         } else {
-            errorElement.classList.remove('show', 'success');
+            errorElement.style.display = 'none';
         }
     }
 
     showSuccess(message) {
-        // Создаем временное уведомление об успехе
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 16px;
-            background: #4CAF50;
-            color: white;
-            border-radius: 8px;
-            z-index: 10000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        `;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 3000);
+        alert(message); // Простое уведомление
     }
 
     setLoading(button, isLoading) {
@@ -291,14 +187,10 @@ class AuthManager {
         
         if (isLoading) {
             button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
+            button.innerHTML = 'Загрузка...';
         } else {
             button.disabled = false;
-            if (button.id === 'loginSubmitBtn') {
-                button.textContent = 'Войти';
-            } else {
-                button.textContent = 'Зарегистрироваться';
-            }
+            button.innerHTML = button.id === 'loginSubmitBtn' ? 'Войти' : 'Зарегистрироваться';
         }
     }
 
@@ -308,7 +200,7 @@ class AuthManager {
     }
 }
 
-// Инициализация при загрузке страницы
+// Инициализация
 document.addEventListener('DOMContentLoaded', function() {
     window.authManager = new AuthManager();
 });
