@@ -10,7 +10,7 @@ class ChatApp {
         this.chats = [];
         this.listeners = [];
         this.stickers = [];
-        this.telegramBot = null;
+        this.telegramBot = null; // Будет инициализирован позже
         this.rolePermissions = {
             'user': ['chat.basic', 'media.send', 'stickers.use'],
             'listener': ['chat.basic', 'media.send', 'stickers.use', 'chat.moderate', 'reviews.view'],
@@ -38,8 +38,8 @@ class ChatApp {
             return;
         }
         
-        // Инициализируем Telegram бота
-        this.telegramBot = new TelegramBot();
+        // Инициализируем Telegram бота (исправленная строка)
+        this.telegramBot = window.telegramBot || new TelegramBot();
         
         this.initSocket();
         this.loadUserData();
