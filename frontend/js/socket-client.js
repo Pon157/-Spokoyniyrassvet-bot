@@ -32,7 +32,7 @@ class SocketClient {
 
             console.log('🔄 Подключение к WebSocket...');
             
-            // Используем тот же origin что и для HTTP запросов
+            // ВАЖНО: используем тот же хост что и страница
             const serverUrl = window.location.origin;
             
             this.socket = io(serverUrl, {
@@ -41,7 +41,7 @@ class SocketClient {
                 },
                 transports: ['websocket', 'polling'],
                 timeout: 10000,
-                reconnectionAttempts: 3,
+                reconnectionAttempts: 5,
                 reconnectionDelay: 1000
             });
 
@@ -66,11 +66,7 @@ class SocketClient {
             this.isConnected = false;
             this.emit('disconnect', reason);
             
-            if (reason === 'io server disconnect') {
-                this.socket.connect();
-            } else {
-                this.attemptReconnect();
-            }
+            this.attemptReconnect();
         });
 
         this.socket.on('connect_error', (error) => {
@@ -106,10 +102,6 @@ class SocketClient {
             this.emit('notification', notification);
         });
 
-        this.socket.on('chat_updated', (data) => {
-            this.emit('chat_updated', data);
-        });
-
         // События для слушателей
         this.socket.on('active_listeners_list', (listeners) => {
             this.emit('active_listeners_list', listeners);
@@ -127,14 +119,6 @@ class SocketClient {
             this.emit('chat_created', data);
         });
 
-        this.socket.on('listener_online', (listener) => {
-            this.emit('listener_online', listener);
-        });
-
-        this.socket.on('listener_offline', (data) => {
-            this.emit('listener_offline', data);
-        });
-
         this.socket.on('error', (error) => {
             console.error('WebSocket ошибка:', error);
             this.emit('error', error);
@@ -147,11 +131,7 @@ class SocketClient {
             console.log(`🔄 Попытка переподключения ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
             
             setTimeout(() => {
-                if (this.socket) {
-                    this.socket.connect();
-                } else {
-                    this.connect();
-                }
+                this.connect();
             }, this.reconnectInterval * this.reconnectAttempts);
         } else {
             console.error('❌ Превышено максимальное количество попыток переподключения');
@@ -200,18 +180,6 @@ class SocketClient {
             return true;
         }
         return false;
-    }
-
-    startTyping(chatId) {
-        if (this.isConnected) {
-            this.socket.emit('typing_start', { chat_id: chatId });
-        }
-    }
-
-    stopTyping(chatId) {
-        if (this.isConnected) {
-            this.socket.emit('typing_stop', { chat_id: chatId });
-        }
     }
 
     // Методы для работы со слушателями
