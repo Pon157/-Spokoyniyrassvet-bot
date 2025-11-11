@@ -10,7 +10,7 @@ class ChatApp {
         this.chats = [];
         this.listeners = [];
         this.stickers = [];
-        this.telegramBot = null; // Будет инициализирован позже
+        this.telegramBot = null;
         this.rolePermissions = {
             'user': ['chat.basic', 'media.send', 'stickers.use'],
             'listener': ['chat.basic', 'media.send', 'stickers.use', 'chat.moderate', 'reviews.view'],
@@ -38,8 +38,8 @@ class ChatApp {
             return;
         }
         
-        // Инициализируем Telegram бота (исправленная строка)
-        this.telegramBot = window.telegramBot || new TelegramBot();
+        // Инициализируем Telegram бота
+        this.telegramBot = window.telegramBot;
         
         this.initSocket();
         this.loadUserData();
@@ -58,11 +58,21 @@ class ChatApp {
     async verifyAuth() {
         try {
             const token = localStorage.getItem('auth_token');
-            const response = await fetch('/auth/verify', {
+            if (!token) {
+                console.log('❌ Токен не найден в localStorage');
+                return false;
+            }
+
+            const response = await fetch('/api/auth/verify', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
+            if (!response.ok) {
+                console.log('❌ Ошибка HTTP при проверке аутентификации:', response.status);
+                return false;
+            }
 
             const data = await response.json();
             
@@ -76,7 +86,7 @@ class ChatApp {
                 return false;
             }
         } catch (error) {
-            console.error('Ошибка проверки аутентификации:', error);
+            console.error('❌ Ошибка проверки аутентификации:', error);
             return false;
         }
     }
@@ -371,7 +381,7 @@ class ChatApp {
     async viewListenerProfile(listenerId) {
         try {
             const token = localStorage.getItem('auth_token');
-            const response = await fetch(`/chat/listeners/${listenerId}/profile`, {
+            const response = await fetch(`/api/chat/listeners/${listenerId}/profile`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -398,7 +408,7 @@ class ChatApp {
                 <div class="modal-content profile-modal">
                     <div class="modal-header">
                         <h2>👤 Профиль слушателя</h2>
-                        <button class="btn-close" onclick="this.closeListenerProfileModal()">
+                        <button class="btn-close" onclick="window.chatApp.closeListenerProfileModal()">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -471,7 +481,7 @@ class ChatApp {
                         ` : ''}
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="this.closeListenerProfileModal()">
+                        <button class="btn btn-secondary" onclick="window.chatApp.closeListenerProfileModal()">
                             Закрыть
                         </button>
                         <button class="btn btn-primary" 
@@ -499,8 +509,6 @@ class ChatApp {
             modal.remove();
         }
     }
-
-    // 🔄 ОСТАЛЬНЫЕ СУЩЕСТВУЮЩИЕ МЕТОДЫ (без изменений)
 
     loadUserData() {
         // Обновляем интерфейс пользователя
@@ -777,7 +785,334 @@ class ChatApp {
         }
     }
 
-    // ... остальные существующие методы (loadChats, loadListeners, sendMessage и т.д.)
+    async loadChats() {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch('/api/chat/chats', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.chats = data.chats;
+                    this.renderChats();
+                }
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки чатов:', error);
+        }
+    }
+
+    async loadListeners() {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch('/api/chat/listeners', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.listeners = data.listeners;
+                    this.renderListeners();
+                }
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки слушателей:', error);
+        }
+    }
+
+    async loadStickers() {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch('/api/chat/stickers', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.stickers = data.stickers;
+                    this.renderStickers();
+                }
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки стикеров:', error);
+        }
+    }
+
+    renderChats() {
+        const chatsContainer = document.getElementById('chatsContainer');
+        if (!chatsContainer) return;
+
+        if (this.chats.length === 0) {
+            chatsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-comments"></i>
+                    <p>У вас пока нет чатов</p>
+                    <button class="btn btn-primary" id="startFirstChatBtn">Начать первый чат</button>
+                </div>
+            `;
+            
+            const startFirstChatBtn = document.getElementById('startFirstChatBtn');
+            if (startFirstChatBtn) {
+                startFirstChatBtn.addEventListener('click', () => {
+                    this.createNewChat();
+                });
+            }
+            return;
+        }
+
+        chatsContainer.innerHTML = this.chats.map(chat => `
+            <div class="chat-item ${this.currentChat?.id === chat.id ? 'active' : ''}" 
+                 onclick="window.chatApp.selectChat('${chat.id}')">
+                <img src="${chat.partner_avatar}" 
+                     class="chat-avatar"
+                     onerror="this.src='/images/default-avatar.svg'">
+                <div class="chat-info">
+                    <div class="chat-header">
+                        <span class="chat-partner">${chat.partner_name}</span>
+                        <span class="chat-time">${this.formatTime(chat.last_message_time)}</span>
+                    </div>
+                    <div class="chat-preview">
+                        <span class="last-message">${chat.last_message}</span>
+                        ${chat.unread_count > 0 ? `
+                            <span class="unread-badge">${chat.unread_count}</span>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderListeners() {
+        const listenersContainer = document.getElementById('listenersContainer');
+        if (!listenersContainer) return;
+
+        listenersContainer.innerHTML = this.listeners.map(listener => `
+            <div class="listener-item">
+                <img src="${listener.avatar_url}" 
+                     class="listener-avatar"
+                     onerror="this.src='/images/default-avatar.svg'">
+                <div class="listener-info">
+                    <div class="listener-header">
+                        <span class="listener-name">${listener.username}</span>
+                        <span class="listener-status ${listener.is_online ? 'online' : 'offline'}">
+                            <div class="status-dot"></div>
+                            ${listener.is_online ? 'Online' : 'Offline'}
+                        </span>
+                    </div>
+                    <div class="listener-details">
+                        <span class="listener-specialty">${listener.specialty}</span>
+                        <span class="listener-rating">⭐ ${listener.avg_rating.toFixed(1)}</span>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-primary start-chat-btn"
+                        onclick="window.chatApp.startChatWithListener('${listener.id}')"
+                        ${!listener.is_online ? 'disabled' : ''}>
+                    ${listener.is_online ? '💬 Чат' : '❌ Офлайн'}
+                </button>
+            </div>
+        `).join('');
+    }
+
+    renderStickers() {
+        const stickersContainer = document.getElementById('stickersContainer');
+        if (!stickersContainer) return;
+
+        stickersContainer.innerHTML = this.stickers.map(sticker => `
+            <div class="sticker-item" onclick="window.chatApp.sendSticker('${sticker.id}')">
+                <img src="${sticker.url}" alt="${sticker.name}" class="sticker-img">
+            </div>
+        `).join('');
+    }
+
+    selectChat(chatId) {
+        console.log('💬 Выбор чата:', chatId);
+        this.currentChat = this.chats.find(chat => chat.id === chatId);
+        
+        if (this.currentChat) {
+            this.renderChats();
+            this.loadChatMessages(chatId);
+            
+            // Присоединяемся к комнате чата
+            if (this.socket) {
+                this.socket.emit('join_chat', chatId);
+            }
+        }
+    }
+
+    async loadChatMessages(chatId) {
+        try {
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`/api/chat/messages/${chatId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.renderMessages(data.messages);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки сообщений:', error);
+        }
+    }
+
+    renderMessages(messages) {
+        const messagesContainer = document.getElementById('messagesContainer');
+        if (!messagesContainer) return;
+
+        messagesContainer.innerHTML = messages.map(message => `
+            <div class="message ${message.sender_id === this.currentUser.id ? 'outgoing' : 'incoming'}">
+                <div class="message-content">
+                    ${message.sticker_url ? `
+                        <img src="${message.sticker_url}" class="sticker-message">
+                    ` : `
+                        <div class="message-text">${message.content}</div>
+                    `}
+                    <div class="message-time">${this.formatTime(message.created_at)}</div>
+                </div>
+            </div>
+        `).join('');
+
+        // Прокручиваем вниз
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    async sendMessage() {
+        const messageInput = document.getElementById('messageInput');
+        if (!messageInput || !this.currentChat) return;
+
+        const content = messageInput.value.trim();
+        if (!content) return;
+
+        try {
+            if (this.socket) {
+                this.socket.emit('send_message', {
+                    chat_id: this.currentChat.id,
+                    content: content,
+                    message_type: 'text'
+                });
+            }
+
+            // Очищаем поле ввода
+            messageInput.value = '';
+            
+        } catch (error) {
+            console.error('❌ Ошибка отправки сообщения:', error);
+            this.showNotification('Ошибка отправки сообщения', 'error');
+        }
+    }
+
+    sendSticker(stickerId) {
+        if (!this.currentChat || !this.socket) return;
+
+        const sticker = this.stickers.find(s => s.id === stickerId);
+        if (!sticker) return;
+
+        this.socket.emit('send_message', {
+            chat_id: this.currentChat.id,
+            content: 'Стикер',
+            message_type: 'sticker',
+            sticker_url: sticker.url
+        });
+
+        // Закрываем модальное окно стикеров
+        const stickerModal = document.getElementById('stickerModal');
+        if (stickerModal) {
+            stickerModal.style.display = 'none';
+        }
+    }
+
+    handleNewMessage(message) {
+        if (this.currentChat && message.chat_id === this.currentChat.id) {
+            this.renderMessages([message]);
+        }
+        
+        // Обновляем список чатов
+        this.loadChats();
+    }
+
+    showTypingIndicator(data) {
+        // Реализация индикатора набора текста
+        console.log('Пользователь печатает:', data);
+    }
+
+    updateUserStatus(data) {
+        // Обновление статуса пользователя
+        console.log('Статус пользователя изменился:', data);
+    }
+
+    handleNotification(notification) {
+        this.showNotification(notification.message, notification.type);
+    }
+
+    createNewChat() {
+        // Переключаемся на вкладку слушателей
+        this.switchSidebarTab('listeners');
+    }
+
+    closeCurrentChat() {
+        this.currentChat = null;
+        this.renderChats();
+        
+        const messagesContainer = document.getElementById('messagesContainer');
+        if (messagesContainer) {
+            messagesContainer.innerHTML = `
+                <div class="empty-chat">
+                    <i class="fas fa-comments"></i>
+                    <h3>Выберите чат чтобы начать общение</h3>
+                    <p>или создайте новый чат со слушателем</p>
+                    <button class="btn btn-primary" id="startChatFromEmptyBtn">Начать чат</button>
+                </div>
+            `;
+            
+            const startChatBtn = document.getElementById('startChatFromEmptyBtn');
+            if (startChatBtn) {
+                startChatBtn.addEventListener('click', () => {
+                    this.createNewChat();
+                });
+            }
+        }
+    }
+
+    handleTyping() {
+        if (!this.currentChat || !this.socket) return;
+
+        // Реализация индикатора набора текста
+        this.socket.emit('typing_start', { chat_id: this.currentChat.id });
+        
+        clearTimeout(this.typingTimer);
+        this.typingTimer = setTimeout(() => {
+            this.socket.emit('typing_stop', { chat_id: this.currentChat.id });
+        }, 1000);
+    }
+
+    handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        console.log('📎 Выбран файл:', file.name);
+        // Реализация загрузки файла
+        this.showNotification(`Файл "${file.name}" выбран для отправки`, 'info');
+    }
+
+    toggleTelegramNotifications(enabled) {
+        if (this.telegramBot) {
+            this.telegramBot.toggleNotifications(enabled);
+        }
+    }
 
     // Вспомогательные методы
     generateStarRating(rating) {
@@ -936,6 +1271,75 @@ class ChatApp {
     }
 }
 
+// УПРОЩЕННАЯ ПРОВЕРКА АУТЕНТИФИКАЦИИ БЕЗ ПЕРЕНАПРАВЛЕНИЙ
+document.addEventListener('DOMContentLoaded', function() {
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user_data');
+    
+    console.log('🔐 Проверка аутентификации...');
+    console.log('Токен:', token ? 'есть' : 'нет');
+    console.log('Данные пользователя:', userData ? 'есть' : 'нет');
+    console.log('Текущая страница:', window.location.pathname);
+    
+    // Если нет токена - перенаправляем на главную
+    if (!token || !userData) {
+        console.log('❌ Нет аутентификации, перенаправляем на главную');
+        window.location.href = '/';
+        return;
+    }
+    
+    try {
+        const user = JSON.parse(userData);
+        console.log('✅ Пользователь аутентифицирован:', user.username);
+        
+        // Проверяем, что пользователь на правильной странице
+        const currentPage = window.location.pathname;
+        const correctPage = getCorrectPageForRole(user.role);
+        
+        console.log('🔍 Проверка страницы:', {
+            userRole: user.role,
+            currentPage: currentPage,
+            correctPage: correctPage
+        });
+        
+        // Если пользователь не на своей странице - перенаправляем
+        if (currentPage !== correctPage) {
+            console.log(`🔄 Перенаправление ${user.username} (${user.role}) на ${correctPage}`);
+            window.location.href = correctPage;
+            return;
+        }
+        
+        console.log('✅ Пользователь на правильной странице');
+        
+        // ЕСЛИ УЖЕ ЕСТЬ ПРИЛОЖЕНИЕ - НЕ СОЗДАВАЙ ЕЩЕ РАЗ
+        if (window.chatApp) {
+            console.log('✅ Приложение уже инициализировано');
+            return;
+        }
+        
+        // Инициализируем приложение чата
+        window.chatApp = new ChatApp();
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки пользователя:', error);
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        window.location.href = '/';
+    }
+});
+
+// Вспомогательные функции для проверки страницы
+function getCorrectPageForRole(role) {
+    const routes = {
+        'owner': '/owner.html',
+        'admin': '/admin.html',
+        'coowner': '/coowner.html',
+        'listener': '/listener.html',
+        'user': '/chat.html'
+    };
+    return routes[role] || '/chat.html';
+}
+
 // Добавляем CSS анимации для уведомлений
 const style = document.createElement('style');
 style.textContent = `
@@ -1010,91 +1414,3 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
-
-// ПРОВЕРКА АУТЕНТИФИКАЦИИ ПРИ ЗАГРУЗКЕ ЧАТА
-document.addEventListener('DOMContentLoaded', function() {
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('user_data');
-    
-    console.log('🔐 Проверка аутентификации для чата...');
-    console.log('Токен:', token ? 'есть' : 'нет');
-    console.log('Данные пользователя:', userData ? 'есть' : 'нет');
-    console.log('Текущая страница:', window.location.pathname);
-    
-    // Если нет токена - перенаправляем на главную
-    if (!token || !userData) {
-        console.log('❌ Нет аутентификации, перенаправляем на главную');
-        window.location.href = '/';
-        return;
-    }
-    
-    // Проверяем, что пользователь на правильной странице
-    try {
-        const user = JSON.parse(userData);
-        const currentPage = window.location.pathname;
-        const correctPage = getCorrectPageForRole(user.role);
-        
-        console.log('🔍 Проверка страницы:', {
-            userRole: user.role,
-            currentPage: currentPage,
-            correctPage: correctPage
-        });
-        
-        if (!isOnCorrectPage(user.role, currentPage)) {
-            console.log(`🔄 Перенаправление ${user.username} (${user.role}) на ${correctPage}`);
-            window.location.href = correctPage;
-            return;
-        }
-        
-        console.log('✅ Пользователь на правильной странице');
-        
-    } catch (error) {
-        console.error('Ошибка проверки страницы:', error);
-        window.location.href = '/';
-        return;
-    }
-    
-    // ЕСЛИ УЖЕ ЕСТЬ ПРИЛОЖЕНИЕ - НЕ СОЗДАВАЙ ЕЩЕ РАЗ
-    if (window.chatApp) {
-        console.log('✅ Приложение уже инициализировано');
-        return;
-    }
-    
-    try {
-        const user = JSON.parse(userData);
-        console.log('✅ Пользователь аутентифицирован:', user.username);
-        
-        // Инициализируем приложение чата
-        window.chatApp = new ChatApp();
-        
-    } catch (error) {
-        console.error('Ошибка загрузки пользователя:', error);
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user_data');
-        window.location.href = '/';
-    }
-});
-
-// Вспомогательные функции для проверки страницы
-function getCorrectPageForRole(role) {
-    const routes = {
-        'owner': '/owner.html',
-        'admin': '/admin.html',
-        'coowner': '/coowner.html',
-        'listener': '/listener.html',
-        'user': '/chat.html'
-    };
-    return routes[role] || '/chat.html';
-}
-
-function isOnCorrectPage(role, currentPage) {
-    const correctPage = getCorrectPageForRole(role);
-    return currentPage === correctPage || currentPage.includes(correctPage.replace('/', ''));
-}
-
-// Глобальные функции для модальных окон
-window.closeListenerProfileModal = function() {
-    if (window.chatApp) {
-        window.chatApp.closeListenerProfileModal();
-    }
-};
