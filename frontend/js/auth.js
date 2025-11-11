@@ -1,5 +1,7 @@
-class AuthApp {
+class AuthManager {
     constructor() {
+        console.log('🚀 AuthManager запущен');
+        console.log('🔧 AuthManager - Fixed Token Version');
         this.init();
     }
 
@@ -54,6 +56,11 @@ class AuthApp {
         const token = localStorage.getItem('auth_token');
         const userData = localStorage.getItem('user_data');
         
+        console.log('🔍 Проверка существующей авторизации:', {
+            hasToken: !!token,
+            hasUserData: !!userData
+        });
+
         if (token && userData) {
             try {
                 const user = JSON.parse(userData);
@@ -62,12 +69,18 @@ class AuthApp {
                 // Перенаправляем на правильную страницу
                 const redirectTo = this.getRedirectPageForRole(user.role);
                 console.log('🎯 Автоматическое перенаправление на:', redirectTo);
-                window.location.href = redirectTo;
+                
+                // Добавляем небольшую задержку для стабильности
+                setTimeout(() => {
+                    window.location.href = redirectTo;
+                }, 500);
                 
             } catch (error) {
                 console.error('❌ Ошибка проверки аутентификации:', error);
                 this.clearAuth();
             }
+        } else {
+            console.log('🔐 Пользователь не аутентифицирован');
         }
     }
 
@@ -84,7 +97,9 @@ class AuthApp {
 
         try {
             this.setLoading(submitBtn, true);
+            console.log('🔄 Отправка запроса на вход...');
 
+            // ИСПРАВЛЕННЫЙ ENDPOINT - добавлен /api/
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
@@ -93,7 +108,14 @@ class AuthApp {
                 body: JSON.stringify({ username, password })
             });
 
+            console.log('📊 Статус ответа:', response.status);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
+            console.log('📨 Ответ сервера:', data);
 
             if (data.success) {
                 console.log('✅ Вход успешен:', data.user.username);
@@ -105,17 +127,20 @@ class AuthApp {
                 this.showError(errorDiv, '', true);
                 this.showSuccess('Вход выполнен успешно!');
                 
+                console.log('🎯 Перенаправление на:', data.redirectTo);
+                
                 // Перенаправляем на указанную страницу
                 setTimeout(() => {
                     window.location.href = data.redirectTo || this.getRedirectPageForRole(data.user.role);
                 }, 1000);
                 
             } else {
+                console.log('❌ Ошибка входа от сервера:', data.error);
                 this.showError(errorDiv, data.error || 'Ошибка входа');
             }
         } catch (error) {
             console.error('❌ Ошибка входа:', error);
-            this.showError(errorDiv, 'Ошибка соединения с сервером');
+            this.showError(errorDiv, 'Ошибка соединения с сервером: ' + error.message);
         } finally {
             this.setLoading(submitBtn, false);
         }
@@ -157,7 +182,9 @@ class AuthApp {
 
         try {
             this.setLoading(submitBtn, true);
+            console.log('🔄 Отправка запроса на регистрацию...');
 
+            // ИСПРАВЛЕННЫЙ ENDPOINT - добавлен /api/
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
@@ -171,7 +198,14 @@ class AuthApp {
                 })
             });
 
+            console.log('📊 Статус ответа:', response.status);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
+            console.log('📨 Ответ сервера:', data);
 
             if (data.success) {
                 console.log('✅ Регистрация успешна:', data.user.username);
@@ -191,11 +225,12 @@ class AuthApp {
                 document.getElementById('registerConfirmPassword').value = '';
                 
             } else {
+                console.log('❌ Ошибка регистрации от сервера:', data.error);
                 this.showError(errorDiv, data.error || 'Ошибка регистрации');
             }
         } catch (error) {
             console.error('❌ Ошибка регистрации:', error);
-            this.showError(errorDiv, 'Ошибка соединения с сервером');
+            this.showError(errorDiv, 'Ошибка соединения с сервером: ' + error.message);
         } finally {
             this.setLoading(submitBtn, false);
         }
@@ -275,5 +310,5 @@ class AuthApp {
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
-    window.authApp = new AuthApp();
+    window.authManager = new AuthManager();
 });
