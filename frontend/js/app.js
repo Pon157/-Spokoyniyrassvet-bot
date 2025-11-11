@@ -15,8 +15,6 @@ class ChatApp {
         if (userData) {
             this.currentUser = JSON.parse(userData);
         }
-        
-        this.init();
     }
 
     async init() {
@@ -212,6 +210,8 @@ class ChatApp {
                     this.chats = data.chats;
                     this.renderChats();
                 }
+            } else {
+                console.error('❌ Ошибка загрузки чатов:', response.status);
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки чатов:', error);
@@ -545,6 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Инициализируем приложение
         window.chatApp = new ChatApp();
+        window.chatApp.init();
         
     } catch (error) {
         console.error('Ошибка загрузки пользователя:', error);
