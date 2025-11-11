@@ -39,6 +39,445 @@ const upload = multer({
   }
 });
 
+// 🔄 НОВЫЕ ENDPOINTS ДЛЯ АКТИВНЫХ СЛУШАТЕЛЕЙ
+
+// Получение активных слушателей с пагинацией
+router.get('/active-listeners', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    console.log('🎧 Запрос активных слушателей, страница:', page);
+
+    const { data: listeners, error, count } = await supabase
+      .from('users')
+      .select(`
+        id,
+        username,
+        avatar_url,
+        is_online,
+        rating,
+        specialties,
+        bio,
+        total_sessions,
+        response_time,
+        languages,
+        experience_years,
+        created_at
+      `, { count: 'exact' })
+      .eq('role', 'listener')
+      .eq('is_online', true)
+      .eq('is_blocked', false)
+      .order('is_online', { ascending: false })
+      .order('rating', { ascending: false })
+      .order('total_sessions', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    const formattedListeners = listeners.map(listener => ({
+      id: listener.id,
+      username: listener.username,
+      avatar_url: listener.avatar_url || '/images/default-avatar.svg',
+      is_online: listener.is_online,
+      rating: listener.rating || 4.5,
+      specialties: listener.specialties || ['Психология'],
+      bio: listener.bio || 'Профессиональный слушатель с опытом работы',
+      total_sessions: listener.total_sessions || 0,
+      response_time: listener.response_time || '2-5 мин',
+      languages: listener.languages || ['Русский'],
+      experience_years: listener.experience_years || 1,
+      is_available: true,
+      member_since: new Date(listener.created_at).getFullYear()
+    }));
+
+    res.json({
+      listeners: formattedListeners,
+      pagination: {
+        page,
+        limit,
+        total: count,
+        totalPages: Math.ceil(count / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения активных слушателей:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Поиск слушателей по специализации
+router.get('/listeners/search', async (req, res) => {
+  try {
+    const { query, specialty, language, min_rating } = req.query;
+    
+    console.log('🔍 Поиск слушателей:', { query, specialty, language, min_rating });
+
+    let supabaseQuery = supabase
+      .from('users')
+      .select(`
+        id,
+        username,
+        avatar_url,
+        is_online,
+        rating,
+        specialties,
+        bio,
+        total_sessions,
+        response_time,
+        languages,
+        experience_years
+      `)
+      .eq('role', 'listener')
+      .eq('is_online', true)
+      .eq('is_blocked', false);
+
+    // Поиск по имени
+    if (query) {
+      supabaseQuery = supabaseQuery.ilike('username', `%${query}%`);
+    }
+
+    // Фильтр по специализации
+    if (specialty && specialty !== 'all') {
+      supabaseQuery = supabaseQuery.contains('specialties', [specialty]);
+    }
+
+    // Фильтр по языку
+    if (language && language !== 'all') {
+      supabaseQuery = supabaseQuery.contains('languages', [language]);
+    }
+
+    // Фильтр по минимальному рейтингу
+    if (min_rating) {
+      supabaseQuery = supabaseQuery.gte('rating', parseFloat(min_rating));
+    }
+
+    const { data: listeners, error } = await supabaseQuery
+      .order('rating', { ascending: false })
+      .order('is_online', { ascending: false })
+      .order('total_sessions', { ascending: false });
+
+    if (error) throw error;
+
+    const formattedListeners = listeners.map(listener => ({
+      id: listener.id,
+      username: listener.username,
+      avatar_url: listener.avatar_url || '/images/default-avatar.svg',
+      is_online: listener.is_online,
+      rating: listener.rating || 4.5,
+      specialties: listener.specialties || ['Психология'],
+      bio: listener.bio || 'Профессиональный слушатель',
+      total_sessions: listener.total_sessions || 0,
+      response_time: listener.response_time || '2-5 мин',
+      languages: listener.languages || ['Русский'],
+      experience_years: listener.experience_years || 1
+    }));
+
+    res.json({ 
+      listeners: formattedListeners,
+      total: formattedListeners.length
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка поиска слушателей:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Получение подробной информации о слушателе
+router.get('/listeners/:id/profile', async (req, res) => {
+  try {
+    const listenerId = req.params.id;
+    
+    console.log('📋 Запрос профиля слушателя:', listenerId);
+
+    const { data: listener, error } = await supabase
+      .from('users')
+      .select(`
+        id,
+        username,
+        avatar_url,
+        is_online,
+        rating,
+        specialties,
+        bio,
+        total_sessions,
+        response_time,
+        languages,
+        experience_years,
+        created_at,
+        reviews:reviews(
+          rating,
+          comment,
+          created_at,
+          user:users(username, avatar_url)
+        )
+      `)
+      .eq('id', listenerId)
+      .eq('role', 'listener')
+      .single();
+
+    if (error) throw error;
+
+    if (!listener) {
+      return res.status(404).json({ error: 'Слушатель не найден' });
+    }
+
+    // Расчет среднего рейтинга из отзывов
+    const reviews = listener.reviews || [];
+    const avgRating = reviews.length > 0 
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+      : listener.rating || 4.5;
+
+    // Расчет распределения оценок
+    const ratingDistribution = [0, 0, 0, 0, 0]; // 1-5 звезды
+    reviews.forEach(review => {
+      if (review.rating >= 1 && review.rating <= 5) {
+        ratingDistribution[review.rating - 1]++;
+      }
+    });
+
+    const profile = {
+      id: listener.id,
+      username: listener.username,
+      avatar_url: listener.avatar_url || '/images/default-avatar.svg',
+      is_online: listener.is_online,
+      rating: Math.round(avgRating * 10) / 10,
+      specialties: listener.specialties || ['Психология'],
+      bio: listener.bio || 'Профессиональный слушатель',
+      total_sessions: listener.total_sessions || 0,
+      response_time: listener.response_time || '2-5 мин',
+      languages: listener.languages || ['Русский'],
+      experience_years: listener.experience_years || 1,
+      member_since: new Date(listener.created_at).getFullYear(),
+      reviews: reviews.slice(0, 10).map(review => ({
+        rating: review.rating,
+        comment: review.comment,
+        created_at: review.created_at,
+        user: {
+          username: review.user?.username || 'Аноним',
+          avatar_url: review.user?.avatar_url
+        }
+      })),
+      rating_distribution: ratingDistribution,
+      total_reviews: reviews.length
+    };
+
+    res.json({ profile });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения профиля слушателя:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Создание чата с конкретным слушателем
+router.post('/create-with-listener', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { listener_id } = req.body;
+
+    if (!listener_id) {
+      return res.status(400).json({ error: 'ID слушателя обязателен' });
+    }
+
+    console.log(`💬 Создание чата пользователем ${userId} с слушателем ${listener_id}`);
+
+    // Проверяем существующий активный чат
+    const { data: existingChat } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('listener_id', listener_id)
+      .eq('status', 'active')
+      .single();
+
+    if (existingChat) {
+      console.log('♻️ Используем существующий чат:', existingChat.id);
+      return res.json({ 
+        chat: existingChat,
+        is_new: false 
+      });
+    }
+
+    // Проверяем, что слушатель существует и доступен
+    const { data: listener } = await supabase
+      .from('users')
+      .select('id, username, is_online, avatar_url')
+      .eq('id', listener_id)
+      .eq('role', 'listener')
+      .eq('is_blocked', false)
+      .single();
+
+    if (!listener) {
+      return res.status(404).json({ error: 'Слушатель не найден' });
+    }
+
+    if (!listener.is_online) {
+      return res.status(400).json({ error: 'Слушатель сейчас не доступен' });
+    }
+
+    // Создаем новый чат
+    const chatData = {
+      user_id: userId,
+      listener_id: listener_id,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: chat, error } = await supabase
+      .from('chats')
+      .insert(chatData)
+      .select(`
+        *,
+        user:users!chats_user_id_fkey(id, username, avatar_url),
+        listener:users!chats_listener_id_fkey(id, username, avatar_url)
+      `)
+      .single();
+
+    if (error) throw error;
+
+    await logAction(userId, 'CHAT_CREATE_WITH_LISTENER', { 
+      listener_id: listener_id,
+      chat_id: chat.id 
+    });
+
+    console.log('✅ Новый чат создан:', chat.id);
+
+    res.json({ 
+      chat: chat,
+      is_new: true 
+    });
+
+  } catch (error) {
+    console.error('❌ Ошибка создания чата с слушателем:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Получение статистики слушателя для пользователя
+router.get('/listeners/:id/stats', async (req, res) => {
+  try {
+    const listenerId = req.params.id;
+
+    // Получаем базовую статистику из users
+    const { data: listener, error } = await supabase
+      .from('users')
+      .select(`
+        total_sessions,
+        rating,
+        response_time,
+        experience_years
+      `)
+      .eq('id', listenerId)
+      .single();
+
+    if (error) throw error;
+
+    // Получаем количество активных чатов
+    const { data: activeChats, error: chatsError } = await supabase
+      .from('chats')
+      .select('id', { count: 'exact' })
+      .eq('listener_id', listenerId)
+      .eq('status', 'active');
+
+    if (chatsError) throw chatsError;
+
+    // Получаем отзывы
+    const { data: reviews, error: reviewsError } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('listener_id', listenerId);
+
+    if (reviewsError) throw reviewsError;
+
+    const stats = {
+      total_sessions: listener.total_sessions || 0,
+      active_chats: activeChats?.length || 0,
+      average_rating: listener.rating || 4.5,
+      total_reviews: reviews?.length || 0,
+      response_time: listener.response_time || '2-5 мин',
+      experience_years: listener.experience_years || 1,
+      completion_rate: 95, // В реальном приложении рассчитывается из истории чатов
+      satisfaction_rate: 92, // В реальном приложении рассчитывается из отзывов
+      response_rate: 98 // В реальном приложении рассчитывается из истории ответов
+    };
+
+    res.json({ stats });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения статистики слушателя:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Получение доступных специализаций
+router.get('/specialties', async (req, res) => {
+  try {
+    const { data: listeners, error } = await supabase
+      .from('users')
+      .select('specialties')
+      .eq('role', 'listener')
+      .eq('is_online', true)
+      .eq('is_blocked', false);
+
+    if (error) throw error;
+
+    // Собираем все уникальные специализации
+    const specialties = new Set();
+    listeners.forEach(listener => {
+      if (listener.specialties && Array.isArray(listener.specialties)) {
+        listener.specialties.forEach(spec => specialties.add(spec));
+      }
+    });
+
+    // Преобразуем в массив и сортируем
+    const specialtiesArray = Array.from(specialties).sort();
+
+    res.json({ specialties: specialtiesArray });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения специализаций:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// Получение доступных языков
+router.get('/languages', async (req, res) => {
+  try {
+    const { data: listeners, error } = await supabase
+      .from('users')
+      .select('languages')
+      .eq('role', 'listener')
+      .eq('is_online', true)
+      .eq('is_blocked', false);
+
+    if (error) throw error;
+
+    // Собираем все уникальные языки
+    const languages = new Set();
+    listeners.forEach(listener => {
+      if (listener.languages && Array.isArray(listener.languages)) {
+        listener.languages.forEach(lang => languages.add(lang));
+      }
+    });
+
+    // Преобразуем в массив и сортируем
+    const languagesArray = Array.from(languages).sort();
+
+    res.json({ languages: languagesArray });
+
+  } catch (error) {
+    console.error('❌ Ошибка получения языков:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+// СУЩЕСТВУЮЩИЕ ENDPOINTS
+
 // Получение списка чатов пользователя
 router.get('/chats', async (req, res) => {
   try {
