@@ -133,6 +133,40 @@ class TelegramBot {
     }
 
     /**
+     * Отправка уведомления о новом сообщении
+     */
+    async sendMessageNotification(senderName, message, chatId) {
+        const notificationMessage = `💬 <b>Новое сообщение от ${senderName}</b>\n\n${message}\n\n<a href="${window.location.origin}/chat.html?chat=${chatId}">💬 Перейти к чату</a>`;
+        
+        return await this.sendNotification(notificationMessage, 'info');
+    }
+
+    /**
+     * Отправка уведомления о новом чате
+     */
+    async sendNewChatNotification(userName, listenerName, chatId) {
+        const notificationMessage = `🆕 <b>Новый чат создан</b>\n\n👤 Пользователь: ${userName}\n🎧 Слушатель: ${listenerName}\n\n<a href="${window.location.origin}/chat.html?chat=${chatId}">💬 Перейти к чату</a>`;
+        
+        return await this.sendNotification(notificationMessage, 'info');
+    }
+
+    /**
+     * Отправка системного уведомления
+     */
+    async sendSystemNotification(title, message, type = 'info') {
+        const emoji = {
+            'success': '✅',
+            'error': '❌',
+            'info': 'ℹ️',
+            'warning': '⚠️'
+        }[type] || '📢';
+
+        const notificationMessage = `${emoji} <b>${title}</b>\n\n${message}`;
+        
+        return await this.sendNotification(notificationMessage, type);
+    }
+
+    /**
      * Показ уведомления в интерфейсе
      */
     showNotification(message, type = 'info') {
@@ -161,6 +195,28 @@ class TelegramBot {
                     notification.parentNode.removeChild(notification);
                 }
             }, 3000);
+        }
+    }
+
+    /**
+     * Получение статуса подключения
+     */
+    async getConnectionStatus() {
+        return await this.checkConnection();
+    }
+
+    /**
+     * Настройка Telegram уведомлений
+     */
+    async setupTelegramNotifications() {
+        const connectionStatus = await this.checkConnection();
+        
+        if (connectionStatus.connected) {
+            this.showNotification('✅ Telegram уведомления подключены', 'success');
+            return true;
+        } else {
+            this.showNotification('❌ Telegram не подключен. Убедитесь, что вы начали диалог с ботом.', 'error');
+            return false;
         }
     }
 }
