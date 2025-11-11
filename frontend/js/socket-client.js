@@ -16,7 +16,7 @@ class SocketClient {
 
     connect() {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('auth_token'); // ИСПРАВЛЕНО: было 'token'
             if (!token) {
                 console.warn('⚠️ Нет токена для WebSocket подключения');
                 setTimeout(() => this.connect(), 5000);
