@@ -6,6 +6,7 @@ class SocketClient {
         this.maxReconnectAttempts = 5;
         this.reconnectInterval = 3000;
         this.messageQueue = [];
+        this.eventCallbacks = new Map();
         this.init();
     }
 
@@ -24,16 +25,24 @@ class SocketClient {
             }
 
             if (typeof io === 'undefined') {
-                console.warn('⚠️ Socket.io не загружен');
+                console.error('❌ Socket.io не загружен');
                 setTimeout(() => this.connect(), 3000);
                 return;
             }
 
             console.log('🔄 Подключение к WebSocket...');
-            this.socket = io({
-                auth: { token },
+            
+            // Используем тот же origin что и для HTTP запросов
+            const serverUrl = window.location.origin;
+            
+            this.socket = io(serverUrl, {
+                auth: { 
+                    token: token 
+                },
                 transports: ['websocket', 'polling'],
-                timeout: 10000
+                timeout: 10000,
+                reconnectionAttempts: 3,
+                reconnectionDelay: 1000
             });
 
             this.setupEventHandlers();
@@ -48,14 +57,14 @@ class SocketClient {
             console.log('✅ WebSocket подключен');
             this.isConnected = true;
             this.reconnectAttempts = 0;
-            this.onConnect();
+            this.emit('connect');
             this.processMessageQueue();
         });
 
         this.socket.on('disconnect', (reason) => {
             console.log('❌ WebSocket отключен:', reason);
             this.isConnected = false;
-            this.onDisconnect(reason);
+            this.emit('disconnect', reason);
             
             if (reason === 'io server disconnect') {
                 this.socket.connect();
@@ -66,75 +75,69 @@ class SocketClient {
 
         this.socket.on('connect_error', (error) => {
             console.error('❌ Ошибка подключения WebSocket:', error);
-            this.handleConnectionError();
-        });
-
-        this.socket.on('new_message', (message) => {
-            this.onNewMessage(message);
-        });
-
-        this.socket.on('user_typing', (data) => {
-            this.onUserTyping(data);
-        });
-
-        this.socket.on('user_status_changed', (data) => {
-            this.onUserStatusChanged(data);
-        });
-
-        this.socket.on('notification', (notification) => {
-            this.onNotification(notification);
-        });
-
-        this.socket.on('chat_updated', (data) => {
-            this.onChatUpdated(data);
-        });
-
-        this.socket.on('user_banned', (data) => {
-            this.onUserBanned(data);
-        });
-
-        this.socket.on('error', (error) => {
-            console.error('WebSocket ошибка:', error);
-            this.onError(error);
+            this.emit('connection_error', error);
+            this.attemptReconnect();
         });
 
         this.socket.on('authenticated', (data) => {
             console.log('✅ WebSocket аутентифицирован');
-            this.onAuthenticated(data);
+            this.emit('authenticated', data);
         });
 
         this.socket.on('auth_error', (error) => {
             console.error('❌ Ошибка аутентификации WebSocket:', error);
-            this.onAuthError(error);
+            this.emit('auth_error', error);
         });
 
-        // Новые события для слушателей
+        // Основные события чата
+        this.socket.on('new_message', (message) => {
+            this.emit('new_message', message);
+        });
+
+        this.socket.on('user_typing', (data) => {
+            this.emit('user_typing', data);
+        });
+
+        this.socket.on('user_status_changed', (data) => {
+            this.emit('user_status_changed', data);
+        });
+
+        this.socket.on('notification', (notification) => {
+            this.emit('notification', notification);
+        });
+
+        this.socket.on('chat_updated', (data) => {
+            this.emit('chat_updated', data);
+        });
+
+        // События для слушателей
         this.socket.on('active_listeners_list', (listeners) => {
-            this.onActiveListenersList(listeners);
+            this.emit('active_listeners_list', listeners);
         });
 
         this.socket.on('new_chat_request', (data) => {
-            this.onNewChatRequest(data);
+            this.emit('new_chat_request', data);
         });
 
         this.socket.on('chat_accepted', (data) => {
-            this.onChatAccepted(data);
+            this.emit('chat_accepted', data);
         });
 
         this.socket.on('chat_created', (data) => {
-            this.onChatCreated(data);
+            this.emit('chat_created', data);
         });
 
         this.socket.on('listener_online', (listener) => {
-            this.onListenerOnline(listener);
+            this.emit('listener_online', listener);
         });
 
         this.socket.on('listener_offline', (data) => {
-            this.onListenerOffline(data);
+            this.emit('listener_offline', data);
         });
 
-        this.socket.on('listener_availability_changed', (data) => {
-            this.onListenerAvailabilityChanged(data);
+        this.socket.on('error', (error) => {
+            console.error('WebSocket ошибка:', error);
+            this.emit('error', error);
         });
     }
 
@@ -146,17 +149,14 @@ class SocketClient {
             setTimeout(() => {
                 if (this.socket) {
                     this.socket.connect();
+                } else {
+                    this.connect();
                 }
             }, this.reconnectInterval * this.reconnectAttempts);
         } else {
             console.error('❌ Превышено максимальное количество попыток переподключения');
-            this.onReconnectFailed();
+            this.emit('reconnect_failed');
         }
-    }
-
-    handleConnectionError() {
-        this.isConnected = false;
-        this.onConnectionError();
     }
 
     processMessageQueue() {
@@ -166,13 +166,12 @@ class SocketClient {
         }
     }
 
-    sendMessage(chatId, content, messageType = 'text', mediaUrl = null, stickerUrl = null) {
+    // Методы для отправки событий
+    sendMessage(chatId, content, messageType = 'text') {
         const message = {
             chat_id: chatId,
             content: content,
-            message_type: messageType,
-            media_url: mediaUrl,
-            sticker_url: stickerUrl
+            message_type: messageType
         };
 
         if (!this.isConnected) {
@@ -190,7 +189,7 @@ class SocketClient {
             return true;
         } catch (error) {
             console.error('Ошибка отправки сообщения:', error);
-            this.onError(error);
+            this.emit('error', error);
             return false;
         }
     }
@@ -198,15 +197,9 @@ class SocketClient {
     joinChat(chatId) {
         if (this.isConnected) {
             this.socket.emit('join_chat', chatId);
-        } else {
-            console.log('❌ Нет подключения для присоединения к чату');
+            return true;
         }
-    }
-
-    leaveChat(chatId) {
-        if (this.isConnected) {
-            this.socket.emit('leave_chat', chatId);
-        }
+        return false;
     }
 
     startTyping(chatId) {
@@ -221,26 +214,13 @@ class SocketClient {
         }
     }
 
-    requestUserStatus(userId) {
-        if (this.isConnected) {
-            this.socket.emit('get_user_status', { user_id: userId });
-        }
-    }
-
-    reportMessage(messageId, reason) {
-        if (this.isConnected) {
-            this.socket.emit('report_message', {
-                message_id: messageId,
-                reason: reason
-            });
-        }
-    }
-
     // Методы для работы со слушателями
     getActiveListeners() {
         if (this.isConnected) {
             this.socket.emit('get_active_listeners');
+            return true;
         }
+        return false;
     }
 
     startChatWithListener(listenerId) {
@@ -248,105 +228,50 @@ class SocketClient {
             this.socket.emit('start_chat_with_listener', { 
                 listener_id: listenerId 
             });
+            return true;
         }
+        return false;
     }
 
     acceptChatRequest(chatId) {
         if (this.isConnected) {
             this.socket.emit('listener_accept_chat', { chat_id: chatId });
+            return true;
+        }
+        return false;
+    }
+
+    // Система обработки событий
+    on(event, callback) {
+        if (!this.eventCallbacks.has(event)) {
+            this.eventCallbacks.set(event, []);
+        }
+        this.eventCallbacks.get(event).push(callback);
+    }
+
+    off(event, callback) {
+        if (this.eventCallbacks.has(event)) {
+            const callbacks = this.eventCallbacks.get(event);
+            const index = callbacks.indexOf(callback);
+            if (index > -1) {
+                callbacks.splice(index, 1);
+            }
         }
     }
 
-    updateListenerAvailability(isAvailable) {
-        if (this.isConnected) {
-            this.socket.emit('update_listener_availability', { 
-                is_available: isAvailable 
+    emit(event, data) {
+        if (this.eventCallbacks.has(event)) {
+            this.eventCallbacks.get(event).forEach(callback => {
+                try {
+                    callback(data);
+                } catch (error) {
+                    console.error(`Ошибка в обработчике события ${event}:`, error);
+                }
             });
         }
     }
 
-    // Колбэки (должны быть переопределены в основном приложении)
-    onConnect() {
-        console.log('WebSocket connected');
-    }
-
-    onDisconnect(reason) {
-        console.log('WebSocket disconnected:', reason);
-    }
-
-    onAuthenticated(data) {
-        console.log('WebSocket authenticated:', data);
-    }
-
-    onAuthError(error) {
-        console.error('WebSocket auth error:', error);
-    }
-
-    onNewMessage(message) {
-        console.log('New message:', message);
-    }
-
-    onUserTyping(data) {
-        console.log('User typing:', data);
-    }
-
-    onUserStatusChanged(data) {
-        console.log('User status changed:', data);
-    }
-
-    onNotification(notification) {
-        console.log('New notification:', notification);
-    }
-
-    onChatUpdated(data) {
-        console.log('Chat updated:', data);
-    }
-
-    onUserBanned(data) {
-        console.log('User banned:', data);
-    }
-
-    onError(error) {
-        console.error('WebSocket error:', error);
-    }
-
-    onConnectionError() {
-        console.error('WebSocket connection error');
-    }
-
-    onReconnectFailed() {
-        console.error('WebSocket reconnect failed');
-    }
-
-    // Новые колбэки для слушателей
-    onActiveListenersList(listeners) {
-        console.log('Active listeners list:', listeners);
-    }
-
-    onNewChatRequest(data) {
-        console.log('New chat request:', data);
-    }
-
-    onChatAccepted(data) {
-        console.log('Chat accepted:', data);
-    }
-
-    onChatCreated(data) {
-        console.log('Chat created:', data);
-    }
-
-    onListenerOnline(listener) {
-        console.log('Listener online:', listener);
-    }
-
-    onListenerOffline(data) {
-        console.log('Listener offline:', data);
-    }
-
-    onListenerAvailabilityChanged(data) {
-        console.log('Listener availability changed:', data);
-    }
-
+    // Утилиты
     disconnect() {
         if (this.socket) {
             this.socket.disconnect();
