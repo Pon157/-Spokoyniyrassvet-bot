@@ -12,10 +12,16 @@ if (typeof ChatApp === 'undefined') {
             this.currentChat = null;
             this.chats = [];
             this.listeners = [];
+            this.isInitialized = false;
             this.init();
         }
 
         async init() {
+            if (this.isInitialized) {
+                console.log('⚠️ ChatApp уже инициализирован');
+                return;
+            }
+            
             console.log('🚀 Инициализация чата');
             
             // Получаем данные пользователя
@@ -35,6 +41,7 @@ if (typeof ChatApp === 'undefined') {
             this.setupSocketClient();
             this.loadUserData();
             this.setupEventListeners();
+            this.isInitialized = true;
         }
 
         async verifyAuth() {
@@ -46,8 +53,12 @@ if (typeof ChatApp === 'undefined') {
                     }
                 });
 
+                if (!response.ok) {
+                    return false;
+                }
+
                 const data = await response.json();
-                return data.success;
+                return !!data.user;
             } catch (error) {
                 console.error('Ошибка проверки аутентификации:', error);
                 return false;
@@ -152,10 +163,10 @@ if (typeof ChatApp === 'undefined') {
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.success) {
-                        this.chats = data.chats;
-                        this.renderChats();
-                    }
+                    this.chats = data.chats || [];
+                    this.renderChats();
+                } else {
+                    console.error('❌ Ошибка загрузки чатов:', response.status);
                 }
             } catch (error) {
                 console.error('❌ Ошибка загрузки чатов:', error);
@@ -173,10 +184,8 @@ if (typeof ChatApp === 'undefined') {
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.success) {
-                        this.listeners = data.listeners;
-                        this.renderListeners();
-                    }
+                    this.listeners = data.listeners || [];
+                    this.renderListeners();
                 }
             } catch (error) {
                 console.error('❌ Ошибка загрузки слушателей:', error);
@@ -292,9 +301,7 @@ if (typeof ChatApp === 'undefined') {
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.success) {
-                        this.renderMessages(data.messages);
-                    }
+                    this.renderMessages(data.messages || []);
                 }
             } catch (error) {
                 console.error('❌ Ошибка загрузки сообщений:', error);
@@ -341,7 +348,7 @@ if (typeof ChatApp === 'undefined') {
             if (this.currentChat && message.chat_id === this.currentChat.id) {
                 this.renderMessages([message]);
             }
-            this.loadChats(); // Обновляем список чатов
+            this.loadChats();
         }
 
         handleActiveListeners(listeners) {
@@ -389,12 +396,9 @@ if (typeof ChatApp === 'undefined') {
         // Вспомогательные методы
         showNotification(message, type = 'info') {
             console.log(`🔔 ${type}: ${message}`);
-            // Простая реализация уведомлений
-            alert(`${type.toUpperCase()}: ${message}`);
         }
 
         showCustomNotification(html, type, duration) {
-            // Можно реализовать кастомные уведомления
             console.log('Custom notification:', html);
         }
 
@@ -425,7 +429,6 @@ if (typeof ChatApp === 'undefined') {
         }
     }
 
-    // Экспортируем класс
     window.ChatApp = ChatApp;
 }
 
@@ -449,7 +452,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        window.chatApp = new ChatApp();
+        // Защита от множественной инициализации
+        if (!window.chatApp) {
+            window.chatApp = new ChatApp();
+        }
         
     } catch (error) {
         console.error('Ошибка загрузки пользователя:', error);
