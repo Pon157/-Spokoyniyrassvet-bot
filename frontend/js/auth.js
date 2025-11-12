@@ -110,13 +110,15 @@ class AuthManager {
             console.log('📊 Статус ответа:', response.status);
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
             console.log('📨 Ответ сервера:', data);
 
-            if (data.success) {
+            // ИСПРАВЛЕНИЕ: Проверяем наличие токена вместо поля success
+            if (data.token && data.user) {
                 console.log('✅ Вход успешен:', data.user.username);
                 
                 // Сохраняем токен и данные пользователя
@@ -134,12 +136,12 @@ class AuthManager {
                 }, 1000);
                 
             } else {
-                console.log('❌ Ошибка входа от сервера:', data.error);
+                console.log('❌ Ошибка входа: нет токена в ответе');
                 this.showError(errorDiv, data.error || 'Ошибка входа');
             }
         } catch (error) {
             console.error('❌ Ошибка входа:', error);
-            this.showError(errorDiv, 'Ошибка соединения с сервером: ' + error.message);
+            this.showError(errorDiv, error.message || 'Ошибка соединения с сервером');
         } finally {
             this.setLoading(submitBtn, false);
         }
@@ -199,12 +201,14 @@ class AuthManager {
             console.log('📊 Статус ответа:', response.status);
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
             console.log('📨 Ответ сервера:', data);
 
+            // ИСПРАВЛЕНИЕ: Проверяем наличие поля success
             if (data.success) {
                 console.log('✅ Регистрация успешна:', data.user.username);
                 this.showError(errorDiv, '', true);
@@ -228,7 +232,7 @@ class AuthManager {
             }
         } catch (error) {
             console.error('❌ Ошибка регистрации:', error);
-            this.showError(errorDiv, 'Ошибка соединения с сервером: ' + error.message);
+            this.showError(errorDiv, error.message || 'Ошибка соединения с сервером');
         } finally {
             this.setLoading(submitBtn, false);
         }
