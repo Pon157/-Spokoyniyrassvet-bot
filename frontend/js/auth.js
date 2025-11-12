@@ -1,7 +1,6 @@
 class AuthManager {
     constructor() {
         console.log('🚀 AuthManager запущен');
-        console.log('🔧 AuthManager - Fixed Token Version');
         this.init();
     }
 
@@ -11,6 +10,8 @@ class AuthManager {
     }
 
     setupEventListeners() {
+        console.log('🎯 Настройка обработчиков событий...');
+
         // Переключение между логином и регистрацией
         const showRegisterBtn = document.getElementById('showRegisterBtn');
         const showLoginBtn = document.getElementById('showLoginBtn');
@@ -19,18 +20,24 @@ class AuthManager {
 
         if (showRegisterBtn && showLoginBtn) {
             showRegisterBtn.addEventListener('click', () => {
-                loginForm.style.display = 'none';
-                registerForm.style.display = 'block';
+                console.log('📝 Переключение на регистрацию');
+                loginForm.classList.remove('active');
+                registerForm.classList.add('active');
                 showRegisterBtn.classList.add('active');
                 showLoginBtn.classList.remove('active');
+                this.clearErrors();
             });
 
             showLoginBtn.addEventListener('click', () => {
-                registerForm.style.display = 'none';
-                loginForm.style.display = 'block';
+                console.log('🔐 Переключение на вход');
+                registerForm.classList.remove('active');
+                loginForm.classList.add('active');
                 showLoginBtn.classList.add('active');
                 showRegisterBtn.classList.remove('active');
+                this.clearErrors();
             });
+        } else {
+            console.error('❌ Кнопки переключения не найдены');
         }
 
         // Форма логина
@@ -38,8 +45,11 @@ class AuthManager {
         if (loginFormElement) {
             loginFormElement.addEventListener('submit', (e) => {
                 e.preventDefault();
+                console.log('📤 Отправка формы входа');
                 this.handleLogin();
             });
+        } else {
+            console.error('❌ Форма входа не найдена');
         }
 
         // Форма регистрации
@@ -47,8 +57,28 @@ class AuthManager {
         if (registerFormElement) {
             registerFormElement.addEventListener('submit', (e) => {
                 e.preventDefault();
+                console.log('📤 Отправка формы регистрации');
                 this.handleRegister();
             });
+        } else {
+            console.error('❌ Форма регистрации не найдена');
+        }
+
+        console.log('✅ Все обработчики событий настроены');
+    }
+
+    clearErrors() {
+        const loginError = document.getElementById('loginError');
+        const registerError = document.getElementById('registerError');
+        
+        if (loginError) {
+            loginError.textContent = '';
+            loginError.classList.remove('show', 'success');
+        }
+        
+        if (registerError) {
+            registerError.textContent = '';
+            registerError.classList.remove('show', 'success');
         }
     }
 
@@ -90,6 +120,8 @@ class AuthManager {
         const errorDiv = document.getElementById('loginError');
         const submitBtn = document.getElementById('loginSubmitBtn');
 
+        console.log('🔐 Попытка входа:', username);
+
         if (!username || !password) {
             this.showError(errorDiv, 'Заполните все поля');
             return;
@@ -109,16 +141,10 @@ class AuthManager {
 
             console.log('📊 Статус ответа:', response.status);
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
-
             const data = await response.json();
             console.log('📨 Ответ сервера:', data);
 
-            // ИСПРАВЛЕНИЕ: Проверяем наличие токена вместо поля success
-            if (data.token && data.user) {
+            if (response.ok && data.success) {
                 console.log('✅ Вход успешен:', data.user.username);
                 
                 // Сохраняем токен и данные пользователя
@@ -136,12 +162,12 @@ class AuthManager {
                 }, 1000);
                 
             } else {
-                console.log('❌ Ошибка входа: нет токена в ответе');
+                console.log('❌ Ошибка входа:', data.error);
                 this.showError(errorDiv, data.error || 'Ошибка входа');
             }
         } catch (error) {
             console.error('❌ Ошибка входа:', error);
-            this.showError(errorDiv, error.message || 'Ошибка соединения с сервером');
+            this.showError(errorDiv, 'Ошибка соединения с сервером');
         } finally {
             this.setLoading(submitBtn, false);
         }
@@ -154,6 +180,8 @@ class AuthManager {
         const confirmPassword = document.getElementById('registerConfirmPassword').value;
         const errorDiv = document.getElementById('registerError');
         const submitBtn = document.getElementById('registerSubmitBtn');
+
+        console.log('👤 Попытка регистрации:', username);
 
         // Валидация
         if (!username || !telegram || !password || !confirmPassword) {
@@ -193,30 +221,23 @@ class AuthManager {
                 body: JSON.stringify({
                     username,
                     telegram_username: telegram,
-                    password,
-                    confirmPassword
+                    password
                 })
             });
 
             console.log('📊 Статус ответа:', response.status);
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
-
             const data = await response.json();
             console.log('📨 Ответ сервера:', data);
 
-            // ИСПРАВЛЕНИЕ: Проверяем наличие поля success
-            if (data.success) {
+            if (response.ok && data.success) {
                 console.log('✅ Регистрация успешна:', data.user.username);
                 this.showError(errorDiv, '', true);
                 this.showSuccess('Регистрация успешна! Теперь вы можете войти.');
                 
                 // Переключаем на форму логина
-                document.getElementById('loginForm').style.display = 'block';
-                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('loginForm').classList.add('active');
+                document.getElementById('registerForm').classList.remove('active');
                 document.getElementById('showLoginBtn').classList.add('active');
                 document.getElementById('showRegisterBtn').classList.remove('active');
                 
@@ -232,7 +253,7 @@ class AuthManager {
             }
         } catch (error) {
             console.error('❌ Ошибка регистрации:', error);
-            this.showError(errorDiv, error.message || 'Ошибка соединения с сервером');
+            this.showError(errorDiv, 'Ошибка соединения с сервером');
         } finally {
             this.setLoading(submitBtn, false);
         }
@@ -250,7 +271,10 @@ class AuthManager {
     }
 
     showError(errorElement, message, isSuccess = false) {
-        if (!errorElement) return;
+        if (!errorElement) {
+            console.error('❌ Элемент ошибки не найден');
+            return;
+        }
         
         errorElement.textContent = message;
         errorElement.className = 'error-message';
@@ -265,6 +289,8 @@ class AuthManager {
     }
 
     showSuccess(message) {
+        console.log('✅', message);
+        
         // Создаем временное уведомление об успехе
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -277,19 +303,28 @@ class AuthManager {
             border-radius: 8px;
             z-index: 10000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            animation: slideInRight 0.3s ease;
         `;
         notification.textContent = message;
         document.body.appendChild(notification);
 
         setTimeout(() => {
             if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
             }
         }, 3000);
     }
 
     setLoading(button, isLoading) {
-        if (!button) return;
+        if (!button) {
+            console.error('❌ Кнопка не найдена');
+            return;
+        }
         
         if (isLoading) {
             button.disabled = true;
@@ -297,9 +332,9 @@ class AuthManager {
         } else {
             button.disabled = false;
             if (button.id === 'loginSubmitBtn') {
-                button.textContent = 'Войти';
+                button.innerHTML = '<i class="fas fa-sign-in-alt"></i> Войти';
             } else {
-                button.textContent = 'Зарегистрироваться';
+                button.innerHTML = '<i class="fas fa-user-plus"></i> Зарегистрироваться';
             }
         }
     }
@@ -312,5 +347,11 @@ class AuthManager {
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 DOM загружен, инициализация AuthManager');
     window.authManager = new AuthManager();
+});
+
+// Глобальный обработчик ошибок
+window.addEventListener('error', function(e) {
+    console.error('🚨 Глобальная ошибка:', e.error);
 });
