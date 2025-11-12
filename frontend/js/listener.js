@@ -5,103 +5,153 @@ class ListenerApp {
         this.isOnline = true;
         this.currentTab = 'dashboard';
         this.activeChatId = null;
+        this.isInitialized = false;
         
         this.init();
     }
 
     init() {
-        console.log('Инициализация приложения слушателя');
-        this.loadCurrentUser();
-        this.bindEvents();
-        this.setupSocketConnection();
-        this.loadDashboardData();
+        console.log('🎧 Инициализация приложения слушателя');
+        this.checkAuthAndLoad();
     }
 
-    async loadCurrentUser() {
+    async checkAuthAndLoad() {
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-            console.log('Токен из localStorage:', token);
+            console.log('🔐 Проверка аутентификации...');
             
+            // Проверяем токен
+            const token = localStorage.getItem('auth_token');
             if (!token) {
-                window.location.href = '/index.html';
+                console.log('❌ Токен не найден, перенаправление на вход');
+                this.redirectToLogin();
                 return;
             }
 
-            const response = await fetch('/auth/verify', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            console.log('Статус ответа verify:', response.status);
-
-            const data = await response.json();
-            console.log('Ответ verify:', data);
-            
-            if (data.success) {
-                this.currentUser = data.user;
-                this.updateUserInterface();
-                console.log('Пользователь загружен:', this.currentUser.username);
-            } else {
-                console.log('Ошибка верификации:', data.error);
-                this.handleAuthError();
+            // Проверяем валидность токена
+            const userData = localStorage.getItem('user_data');
+            if (!userData) {
+                console.log('❌ Данные пользователя не найдены');
+                this.redirectToLogin();
+                return;
             }
+
+            // Парсим данные пользователя
+            this.currentUser = JSON.parse(userData);
+            
+            // Проверяем роль
+            if (this.currentUser.role !== 'listener') {
+                console.log('❌ Недостаточно прав: требуется роль listener');
+                this.redirectToLogin();
+                return;
+            }
+
+            console.log('✅ Пользователь аутентифицирован:', this.currentUser.username);
+            
+            // Инициализируем интерфейс
+            this.initializeInterface();
+            
         } catch (error) {
-            console.error('Ошибка загрузки пользователя:', error);
-            this.handleAuthError();
+            console.error('❌ Ошибка проверки аутентификации:', error);
+            this.redirectToLogin();
         }
     }
 
-    handleAuthError() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('authToken');
-        window.location.href = '/index.html';
+    initializeInterface() {
+        if (this.isInitialized) {
+            console.log('⚠️ Интерфейс уже инициализирован');
+            return;
+        }
+
+        console.log('🎨 Инициализация интерфейса...');
+        
+        this.updateUserInterface();
+        this.bindEvents();
+        this.setupSocketConnection();
+        this.loadDashboardData();
+        
+        this.isInitialized = true;
+        console.log('✅ Интерфейс успешно инициализирован');
+    }
+
+    redirectToLogin() {
+        console.log('🔀 Перенаправление на страницу входа');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        setTimeout(() => {
+            window.location.href = '/index.html';
+        }, 1000);
     }
 
     updateUserInterface() {
+        console.log('👤 Обновление интерфейса пользователя');
+        
         const userNameElement = document.getElementById('userName');
         const userAvatarElement = document.getElementById('userAvatar');
         const userRatingElement = document.getElementById('userRating');
         const userSessionsElement = document.getElementById('userSessions');
         
-        if (userNameElement) {
-            userNameElement.textContent = this.currentUser.username;
+        if (userNameElement && this.currentUser) {
+            userNameElement.textContent = this.currentUser.username || 'Слушатель';
         }
         
-        if (userAvatarElement) {
+        if (userAvatarElement && this.currentUser) {
             userAvatarElement.src = this.currentUser.avatar_url || '/images/default-avatar.svg';
+            userAvatarElement.alt = this.currentUser.username || 'Аватар';
         }
 
-        if (userRatingElement) userRatingElement.textContent = `⭐ ${this.currentUser.rating || '5.0'}`;
-        if (userSessionsElement) userSessionsElement.textContent = `💬 ${this.currentUser.total_sessions || '0'}`;
+        if (userRatingElement) {
+            userRatingElement.textContent = `⭐ ${this.currentUser.rating || '5.0'}`;
+        }
+        
+        if (userSessionsElement) {
+            userSessionsElement.textContent = `💬 ${this.currentUser.total_sessions || '0'}`;
+        }
+
+        // Обновляем статус онлайн
+        this.updateStatusUI(this.isOnline);
     }
 
     bindEvents() {
-        console.log('Привязка событий...');
+        console.log('🎯 Привязка событий...');
 
+        // Навигация
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
                 const tab = item.dataset.tab;
+                console.log('📱 Переключение на вкладку:', tab);
                 this.switchTab(tab);
             });
         });
 
+        // Быстрые действия
         document.getElementById('quickChats')?.addEventListener('click', () => this.switchTab('chats'));
         document.getElementById('quickListenersChat')?.addEventListener('click', () => this.switchTab('listeners-chat'));
         document.getElementById('quickStats')?.addEventListener('click', () => this.switchTab('statistics'));
         document.getElementById('quickReviews')?.addEventListener('click', () => this.switchTab('reviews'));
 
+        // Переключатель онлайн статуса
         const onlineToggle = document.getElementById('onlineToggle');
         if (onlineToggle) {
+            onlineToggle.checked = this.isOnline;
             onlineToggle.addEventListener('change', (e) => {
+                console.log('🔄 Изменение онлайн статуса:', e.target.checked);
                 this.toggleOnlineStatus(e.target.checked);
             });
         }
 
-        document.getElementById('refreshBtn')?.addEventListener('click', () => this.refreshCurrentTab());
-        document.getElementById('refreshChatsBtn')?.addEventListener('click', () => this.loadChats());
+        // Кнопки обновления
+        document.getElementById('refreshBtn')?.addEventListener('click', () => {
+            console.log('🔄 Обновление текущей вкладки');
+            this.refreshCurrentTab();
+        });
+        
+        document.getElementById('refreshChatsBtn')?.addEventListener('click', () => {
+            console.log('🔄 Обновление чатов');
+            this.loadChats();
+        });
 
+        // Чат слушателей
         const chatInput = document.getElementById('listenersChatInput');
         const sendButton = document.getElementById('sendListenersMessage');
         
@@ -114,17 +164,22 @@ class ListenerApp {
             });
         }
 
+        // Период статистики
         const statsPeriod = document.getElementById('statsPeriod');
         if (statsPeriod) {
             statsPeriod.addEventListener('change', () => {
+                console.log('📊 Изменение периода статистики');
                 this.loadStatistics();
             });
         }
 
-        console.log('Все события привязаны');
+        console.log('✅ Все события привязаны');
     }
 
     switchTab(tabName) {
+        console.log('📑 Переключение на вкладку:', tabName);
+        
+        // Обновляем навигацию
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
@@ -134,15 +189,18 @@ class ListenerApp {
             activeNavItem.classList.add('active');
         }
 
+        // Скрываем все вкладки
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
 
+        // Показываем целевую вкладку
         const targetTab = document.getElementById(`${tabName}Tab`);
         if (targetTab) {
             targetTab.classList.add('active');
         }
 
+        // Обновляем заголовок
         const pageTitle = document.getElementById('pageTitle');
         if (pageTitle) {
             const titles = {
@@ -157,6 +215,7 @@ class ListenerApp {
 
         this.currentTab = tabName;
 
+        // Загружаем данные для вкладки
         switch(tabName) {
             case 'dashboard':
                 this.loadDashboardData();
@@ -176,32 +235,11 @@ class ListenerApp {
         }
     }
 
-    refreshCurrentTab() {
-        switch(this.currentTab) {
-            case 'dashboard':
-                this.loadDashboardData();
-                break;
-            case 'chats':
-                this.loadChats();
-                break;
-            case 'listeners-chat':
-                this.loadListenersChat();
-                break;
-            case 'reviews':
-                this.loadReviews();
-                break;
-            case 'statistics':
-                this.loadStatistics();
-                break;
-        }
-        this.showNotification('Данные обновлены', 'success');
-    }
-
     async loadDashboardData() {
         try {
-            console.log('Загрузка данных дашборда...');
+            console.log('📊 Загрузка данных дашборда...');
             
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/api/listener/statistics', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -210,29 +248,32 @@ class ListenerApp {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('✅ Данные дашборда получены:', data);
                 this.updateDashboardStats(data);
             } else {
-                console.error('Ошибка загрузки статистики:', response.status);
-                this.updateDashboardStats({
-                    activeChats: 0,
-                    averageRating: 5.0,
-                    averageSessionTime: 0,
-                    totalSessions: 0
-                });
+                console.error('❌ Ошибка загрузки статистики:', response.status);
+                this.updateDashboardStats(this.getDefaultStats());
             }
             
         } catch (error) {
-            console.error('Ошибка загрузки дашборда:', error);
-            this.updateDashboardStats({
-                activeChats: 0,
-                averageRating: 5.0,
-                averageSessionTime: 0,
-                totalSessions: 0
-            });
+            console.error('❌ Ошибка загрузки дашборда:', error);
+            this.updateDashboardStats(this.getDefaultStats());
         }
     }
 
+    getDefaultStats() {
+        return {
+            activeChats: 0,
+            averageRating: 5.0,
+            averageSessionTime: 0,
+            totalSessions: 0,
+            helpfulness: 0
+        };
+    }
+
     updateDashboardStats(stats) {
+        console.log('📈 Обновление статистики дашборда:', stats);
+        
         const activeChats = document.getElementById('dashboardActiveChats');
         const rating = document.getElementById('dashboardRating');
         const avgTime = document.getElementById('dashboardAvgTime');
@@ -281,8 +322,8 @@ class ListenerApp {
 
     async loadChats() {
         try {
-            console.log('Загрузка чатов...');
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            console.log('💬 Загрузка чатов...');
+            const token = localStorage.getItem('auth_token');
             
             const response = await fetch('/api/listener/chats', {
                 headers: {
@@ -295,13 +336,15 @@ class ListenerApp {
 
             if (response.ok) {
                 const data = await response.json();
-                this.renderChats(data.chats);
+                console.log(`✅ Получено чатов: ${data.chats?.length || 0}`);
+                this.renderChats(data.chats || []);
             } else {
+                console.error('❌ Ошибка загрузки чатов:', response.status);
                 this.renderChats([]);
             }
             
         } catch (error) {
-            console.error('Ошибка загрузки чатов:', error);
+            console.error('❌ Ошибка загрузки чатов:', error);
             this.showChatsError();
         }
     }
@@ -325,8 +368,8 @@ class ListenerApp {
             <div class="chat-item ${chat.unread_count > 0 ? 'unread' : ''}" data-chat-id="${chat.id}">
                 <div class="chat-avatar">
                     ${chat.user_avatar ? 
-                        `<img src="${chat.user_avatar}" alt="${chat.user_name}">` : 
-                        chat.user_name?.charAt(0) || 'U'
+                        `<img src="${chat.user_avatar}" alt="${chat.user_name}" onerror="this.src='/images/default-avatar.svg'">` : 
+                        '<div class="avatar-placeholder">' + (chat.user_name?.charAt(0) || 'U') + '</div>'
                     }
                 </div>
                 <div class="chat-info">
@@ -334,7 +377,7 @@ class ListenerApp {
                         ${chat.user_name || 'Пользователь'}
                         <span class="user-status ${chat.user_online ? 'online' : 'offline'}"></span>
                     </div>
-                    <div class="chat-preview">${chat.last_message || 'Чат начат'}</div>
+                    <div class="chat-preview">${this.escapeHtml(chat.last_message || 'Чат начат')}</div>
                 </div>
                 <div class="chat-meta">
                     <div class="chat-time">${this.formatTime(chat.last_message_time)}</div>
@@ -346,6 +389,7 @@ class ListenerApp {
             </div>
         `).join('');
 
+        // Добавляем обработчики событий
         chatsList.querySelectorAll('.chat-item').forEach(item => {
             item.addEventListener('click', () => {
                 const chatId = item.dataset.chatId;
@@ -353,14 +397,21 @@ class ListenerApp {
             });
         });
 
+        // Обновляем бейджи
         const totalUnread = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
         this.updateChatsBadge(totalUnread);
     }
 
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     openChat(chatId) {
+        console.log('💬 Открытие чата:', chatId);
         this.activeChatId = chatId;
         this.showNotification(`Чат #${chatId} открыт`, 'success');
-        console.log('Открытие чата:', chatId);
     }
 
     updateChatsBadge(count) {
@@ -369,7 +420,7 @@ class ListenerApp {
         
         if (chatsBadge) {
             if (count > 0) {
-                chatsBadge.textContent = count;
+                chatsBadge.textContent = count > 99 ? '99+' : count;
                 chatsBadge.classList.remove('hidden');
             } else {
                 chatsBadge.classList.add('hidden');
@@ -378,7 +429,7 @@ class ListenerApp {
 
         if (globalBadge) {
             if (count > 0) {
-                globalBadge.textContent = count;
+                globalBadge.textContent = count > 99 ? '99+' : count;
                 globalBadge.classList.remove('hidden');
             } else {
                 globalBadge.classList.add('hidden');
@@ -390,10 +441,11 @@ class ListenerApp {
         const chatsList = document.getElementById('chatsList');
         if (chatsList) {
             chatsList.innerHTML = `
-                <div class="empty-state">
+                <div class="empty-state error">
                     <i>❌</i>
                     <h3>Ошибка загрузки чатов</h3>
                     <p>Попробуйте обновить страницу</p>
+                    <button onclick="window.listenerApp.loadChats()" class="retry-btn">Повторить</button>
                 </div>
             `;
         }
@@ -401,9 +453,9 @@ class ListenerApp {
 
     async loadListenersChat() {
         try {
-            console.log('Загрузка чата слушателей...');
+            console.log('👥 Загрузка чата слушателей...');
             
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/api/listener/online-listeners', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -412,30 +464,35 @@ class ListenerApp {
 
             if (response.ok) {
                 const data = await response.json();
-                this.updateOnlineListenersCount(data.listeners);
+                console.log(`✅ Онлайн слушателей: ${data.listeners?.length || 0}`);
+                this.updateOnlineListenersCount(data.listeners || []);
             } else {
+                console.error('❌ Ошибка загрузки слушателей:', response.status);
                 this.updateOnlineListenersCount([]);
             }
 
             await this.loadChatHistory();
             
         } catch (error) {
-            console.error('Ошибка загрузки чата слушателей:', error);
+            console.error('❌ Ошибка загрузки чата слушателей:', error);
             this.updateOnlineListenersCount([]);
         }
     }
 
     updateOnlineListenersCount(listeners) {
         const onlineCount = document.getElementById('onlineListenersCount');
-        if (onlineCount && listeners) {
+        if (onlineCount) {
             const onlineListeners = listeners.filter(l => l.is_online).length;
             onlineCount.textContent = onlineListeners;
+            console.log(`👥 Онлайн слушателей: ${onlineListeners}`);
         }
     }
 
     async loadChatHistory() {
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            console.log('📨 Загрузка истории чата...');
+            
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/api/listeners-chat/messages', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -447,12 +504,14 @@ class ListenerApp {
 
             if (response.ok) {
                 const data = await response.json();
-                this.renderChatHistory(data.messages);
+                console.log(`✅ Загружено сообщений: ${data.messages?.length || 0}`);
+                this.renderChatHistory(data.messages || []);
             } else {
+                console.error('❌ Ошибка загрузки истории:', response.status);
                 this.renderChatHistory([]);
             }
         } catch (error) {
-            console.error('Ошибка загрузки истории чата:', error);
+            console.error('❌ Ошибка загрузки истории чата:', error);
             this.renderChatHistory([]);
         }
     }
@@ -486,16 +545,24 @@ class ListenerApp {
 
     async sendListenersMessage() {
         const input = document.getElementById('listenersChatInput');
-        if (!input || !input.value.trim()) return;
+        if (!input || !input.value.trim()) {
+            console.log('⚠️ Пустое сообщение, отправка отменена');
+            return;
+        }
 
         const message = input.value.trim();
+        console.log('📤 Отправка сообщения:', message);
+
         const messagesContainer = document.getElementById('listenersChatMessages');
-        
+        if (!messagesContainer) return;
+
+        // Убираем приветственное сообщение
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) {
             welcomeMessage.remove();
         }
 
+        // Временно добавляем сообщение
         const tempMessage = {
             id: 'temp_' + Date.now(),
             content: message,
@@ -508,7 +575,7 @@ class ListenerApp {
         this.addMessageToChat(tempMessage);
 
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const token = localStorage.getItem('auth_token');
             const response = await fetch('/api/listeners-chat/send', {
                 method: 'POST',
                 headers: {
@@ -521,30 +588,32 @@ class ListenerApp {
             });
 
             if (!response.ok) {
-                throw new Error('Ошибка отправки');
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
-            console.log('Сообщение отправлено:', data);
+            console.log('✅ Сообщение отправлено:', data);
+
+            // Отправляем через WebSocket если есть
+            if (this.socket) {
+                this.socket.emit('send_listeners_message', {
+                    content: message,
+                    sender_id: this.currentUser.id,
+                    sender_name: this.currentUser.username,
+                    timestamp: new Date().toISOString()
+                });
+            }
 
         } catch (error) {
-            console.error('Ошибка отправки сообщения:', error);
+            console.error('❌ Ошибка отправки сообщения:', error);
             this.showNotification('Ошибка отправки сообщения', 'error');
             
+            // Удаляем временное сообщение
             const messageElement = messagesContainer.querySelector(`[data-message-id="${tempMessage.id}"]`);
             if (messageElement) {
                 messageElement.remove();
             }
             return;
-        }
-
-        if (this.socket) {
-            this.socket.emit('send_listeners_message', {
-                content: message,
-                sender_id: this.currentUser.id,
-                sender_name: this.currentUser.username,
-                timestamp: new Date().toISOString()
-            });
         }
 
         input.value = '';
@@ -560,9 +629,9 @@ class ListenerApp {
         messageElement.setAttribute('data-message-id', messageData.id);
         messageElement.innerHTML = `
             <div class="message-bubble">
-                <div class="message-content">${messageData.content}</div>
+                <div class="message-content">${this.escapeHtml(messageData.content)}</div>
                 <div class="message-meta">
-                    <span class="message-sender">${messageData.sender_name}</span>
+                    <span class="message-sender">${this.escapeHtml(messageData.sender_name)}</span>
                     <span class="message-time">${this.formatTime(messageData.created_at)}</span>
                 </div>
             </div>
@@ -574,8 +643,8 @@ class ListenerApp {
 
     async loadReviews() {
         try {
-            console.log('Загрузка отзывов...');
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            console.log('⭐ Загрузка отзывов...');
+            const token = localStorage.getItem('auth_token');
             
             const response = await fetch('/api/listener/reviews', {
                 headers: {
@@ -588,13 +657,15 @@ class ListenerApp {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log(`✅ Загружено отзывов: ${data.reviews?.length || 0}`);
                 this.renderReviews(data);
             } else {
+                console.error('❌ Ошибка загрузки отзывов:', response.status);
                 this.renderReviews({ reviews: [] });
             }
             
         } catch (error) {
-            console.error('Ошибка загрузки отзывов:', error);
+            console.error('❌ Ошибка загрузки отзывов:', error);
             this.showReviewsError();
         }
     }
@@ -626,12 +697,12 @@ class ListenerApp {
             <div class="review-item">
                 <div class="review-header">
                     <div>
-                        <div class="review-user">${review.user_name || 'Аноним'}</div>
+                        <div class="review-user">${this.escapeHtml(review.user_name || 'Аноним')}</div>
                         <div class="review-date">${this.formatDate(review.created_at)}</div>
                     </div>
                     <div class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</div>
                 </div>
-                <div class="review-text">${review.comment || 'Без комментария'}</div>
+                <div class="review-text">${this.escapeHtml(review.comment || 'Без комментария')}</div>
             </div>
         `).join('');
     }
@@ -640,10 +711,11 @@ class ListenerApp {
         const reviewsList = document.getElementById('reviewsList');
         if (reviewsList) {
             reviewsList.innerHTML = `
-                <div class="empty-state">
+                <div class="empty-state error">
                     <i>❌</i>
                     <h3>Ошибка загрузки отзывов</h3>
                     <p>Попробуйте обновить страницу</p>
+                    <button onclick="window.listenerApp.loadReviews()" class="retry-btn">Повторить</button>
                 </div>
             `;
         }
@@ -651,8 +723,8 @@ class ListenerApp {
 
     async loadStatistics() {
         try {
-            console.log('Загрузка статистики...');
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            console.log('📈 Загрузка статистики...');
+            const token = localStorage.getItem('auth_token');
             
             const response = await fetch('/api/listener/statistics', {
                 headers: {
@@ -662,28 +734,22 @@ class ListenerApp {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('✅ Статистика загружена:', data);
                 this.renderStatistics(data);
             } else {
-                this.renderStatistics({
-                    totalSessions: 0,
-                    completedChats: 0,
-                    averageSessionTime: 0,
-                    weeklyActivity: {}
-                });
+                console.error('❌ Ошибка загрузки статистики:', response.status);
+                this.renderStatistics(this.getDefaultStats());
             }
             
         } catch (error) {
-            console.error('Ошибка загрузки статистики:', error);
-            this.renderStatistics({
-                totalSessions: 0,
-                completedChats: 0,
-                averageSessionTime: 0,
-                weeklyActivity: {}
-            });
+            console.error('❌ Ошибка загрузки статистики:', error);
+            this.renderStatistics(this.getDefaultStats());
         }
     }
 
     renderStatistics(data) {
+        console.log('📊 Отрисовка статистики:', data);
+        
         const totalSessions = document.getElementById('statTotalSessions');
         const completedChats = document.getElementById('statCompletedChats');
         const avgSessionTime = document.getElementById('statAvgSessionTime');
@@ -698,7 +764,7 @@ class ListenerApp {
             totalTime.textContent = `${totalHours} ч`;
         }
 
-        this.renderActivityChart(data.weeklyActivity);
+        this.renderActivityChart(data.weeklyActivity || {});
         this.renderRatingDistribution(data);
     }
 
@@ -707,7 +773,7 @@ class ListenerApp {
         if (!chartContainer) return;
 
         const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-        const values = days.map(day => weeklyActivity?.[day] || 0);
+        const values = days.map(day => weeklyActivity[day] || 0);
         const maxValue = Math.max(...values, 1);
 
         chartContainer.innerHTML = `
@@ -730,11 +796,12 @@ class ListenerApp {
         const distributionContainer = document.getElementById('ratingDistribution');
         if (!distributionContainer) return;
 
+        // Временные данные для демонстрации
         const ratings = [
-            { stars: 5, count: 0, percentage: 0 },
-            { stars: 4, count: 0, percentage: 0 },
-            { stars: 3, count: 0, percentage: 0 },
-            { stars: 2, count: 0, percentage: 0 },
+            { stars: 5, count: 12, percentage: 60 },
+            { stars: 4, count: 6, percentage: 30 },
+            { stars: 3, count: 1, percentage: 5 },
+            { stars: 2, count: 1, percentage: 5 },
             { stars: 1, count: 0, percentage: 0 }
         ];
 
@@ -755,8 +822,10 @@ class ListenerApp {
 
     async toggleOnlineStatus(online) {
         try {
+            console.log('🔄 Изменение онлайн статуса на:', online);
+            
             this.isOnline = online;
-            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const token = localStorage.getItem('auth_token');
             
             const response = await fetch('/api/listener/status', {
                 method: 'POST',
@@ -775,14 +844,16 @@ class ListenerApp {
                     `Статус изменен: ${online ? 'онлайн' : 'оффлайн'}`,
                     'success'
                 );
+                console.log('✅ Статус успешно обновлен');
             } else {
+                console.error('❌ Ошибка сервера при изменении статуса:', response.status);
                 this.isOnline = !online;
                 document.getElementById('onlineToggle').checked = !online;
                 this.showNotification('Ошибка изменения статуса', 'error');
             }
             
         } catch (error) {
-            console.error('Ошибка изменения статуса:', error);
+            console.error('❌ Ошибка изменения статуса:', error);
             this.isOnline = !online;
             document.getElementById('onlineToggle').checked = !online;
             this.showNotification('Ошибка соединения', 'error');
@@ -800,17 +871,41 @@ class ListenerApp {
         }
     }
 
+    refreshCurrentTab() {
+        console.log('🔄 Обновление вкладки:', this.currentTab);
+        
+        switch(this.currentTab) {
+            case 'dashboard':
+                this.loadDashboardData();
+                break;
+            case 'chats':
+                this.loadChats();
+                break;
+            case 'listeners-chat':
+                this.loadListenersChat();
+                break;
+            case 'reviews':
+                this.loadReviews();
+                break;
+            case 'statistics':
+                this.loadStatistics();
+                break;
+        }
+        this.showNotification('Данные обновлены', 'success');
+    }
+
     setupSocketConnection() {
-        console.log('Настройка Socket.io подключения...');
+        console.log('🔌 Настройка Socket.io подключения...');
         
         if (typeof io !== 'undefined') {
             this.initializeSocket();
         } else {
+            console.log('⏳ Socket.io не загружен, повторная попытка через 1 секунду...');
             setTimeout(() => {
                 if (typeof io !== 'undefined') {
                     this.initializeSocket();
                 } else {
-                    console.error('Socket.io не удалось загрузить');
+                    console.error('❌ Socket.io не удалось загрузить');
                 }
             }, 1000);
         }
@@ -818,19 +913,23 @@ class ListenerApp {
 
     initializeSocket() {
         try {
-            console.log('Инициализация Socket.io...');
+            console.log('🚀 Инициализация Socket.io...');
             
             if (typeof io === 'undefined') {
                 throw new Error('Socket.io не доступен');
             }
             
-            this.socket = io();
-            console.log('Socket.io подключен');
+            this.socket = io({
+                auth: {
+                    token: localStorage.getItem('auth_token')
+                }
+            });
             
+            console.log('✅ Socket.io подключен');
             this.setupSocketListeners();
             
         } catch (error) {
-            console.error('Ошибка подключения Socket.io:', error);
+            console.error('❌ Ошибка подключения Socket.io:', error);
         }
     }
 
@@ -838,29 +937,33 @@ class ListenerApp {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
-            console.log('Подключение к серверу установлено');
+            console.log('✅ Подключение к серверу установлено');
             
             if (this.currentUser) {
                 this.socket.emit('user_connected', {
                     id: this.currentUser.id,
                     username: this.currentUser.username,
                     role: this.currentUser.role,
-                    is_listener: this.currentUser.role === 'listener'
+                    is_listener: true
                 });
             }
         });
 
-        this.socket.on('disconnect', () => {
-            console.log('Отключение от сервера');
+        this.socket.on('disconnect', (reason) => {
+            console.log('🔌 Отключение от сервера:', reason);
+        });
+
+        this.socket.on('connect_error', (error) => {
+            console.error('❌ Ошибка подключения Socket.io:', error);
         });
 
         this.socket.on('new_message', (data) => {
-            console.log('Новое сообщение:', data);
+            console.log('📨 Новое сообщение:', data);
             this.handleNewMessage(data);
         });
 
         this.socket.on('new_listeners_message', (data) => {
-            console.log('Новое сообщение в чате слушателей:', data);
+            console.log('👥 Новое сообщение в чате слушателей:', data);
             this.addMessageToChat({
                 ...data,
                 is_outgoing: data.sender_id === this.currentUser.id
@@ -868,26 +971,26 @@ class ListenerApp {
         });
 
         this.socket.on('user_online', (userData) => {
-            console.log('Пользователь онлайн:', userData.username);
-            if (userData.is_listener) {
+            console.log('🟢 Пользователь онлайн:', userData.username);
+            if (userData.is_listener && this.currentTab === 'listeners-chat') {
                 this.updateOnlineListeners();
             }
         });
 
         this.socket.on('user_offline', (userData) => {
-            console.log('Пользователь оффлайн:', userData.username);
-            if (userData.is_listener) {
+            console.log('🔴 Пользователь оффлайн:', userData.username);
+            if (userData.is_listener && this.currentTab === 'listeners-chat') {
                 this.updateOnlineListeners();
             }
         });
 
         this.socket.on('chat_accepted', (data) => {
-            console.log('Чат принят:', data);
+            console.log('✅ Чат принят:', data);
             this.showNotification(`Новый чат #${data.chatId}`, 'info');
             this.loadChats();
         });
 
-        console.log('Socket слушатели настроены');
+        console.log('✅ Socket слушатели настроены');
     }
 
     handleNewMessage(data) {
@@ -907,6 +1010,13 @@ class ListenerApp {
     formatTime(dateString) {
         try {
             const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) return 'только что';
+            if (diffMins < 60) return `${diffMins} мин назад`;
+            
             return date.toLocaleTimeString('ru-RU', { 
                 hour: '2-digit', 
                 minute: '2-digit' 
@@ -930,8 +1040,13 @@ class ListenerApp {
     }
 
     showNotification(message, type = 'info') {
+        console.log(`📢 Уведомление [${type}]:`, message);
+        
         const container = document.getElementById('notificationsContainer');
-        if (!container) return;
+        if (!container) {
+            console.warn('⚠️ Контейнер уведомлений не найден');
+            return;
+        }
 
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -942,6 +1057,7 @@ class ListenerApp {
 
         container.appendChild(notification);
 
+        // Автоматическое скрытие
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.style.animation = 'slideOutRight 0.3s ease';
@@ -963,9 +1079,27 @@ class ListenerApp {
         };
         return icons[type] || 'ℹ️';
     }
+
+    // Метод для ручного выхода
+    logout() {
+        console.log('🚪 Выход из системы...');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        this.showNotification('Выход выполнен', 'info');
+        
+        setTimeout(() => {
+            window.location.href = '/index.html';
+        }, 1000);
+    }
 }
 
+// Инициализация при загрузке DOM
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM загружен, инициализация приложения слушателя');
+    console.log('🎯 DOM загружен, инициализация приложения слушателя');
     window.listenerApp = new ListenerApp();
+    
+    // Добавляем глобальный обработчик ошибок
+    window.addEventListener('error', function(e) {
+        console.error('🚨 Глобальная ошибка:', e.error);
+    });
 });
