@@ -1118,3 +1118,75 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+// В начале класса ListenerApp добавьте метод hideLoadingOverlay
+hideLoadingOverlay() {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+        console.log('✅ Loading overlay скрыт');
+    }
+}
+
+// В методе checkAuthAndLoad после успешной аутентификации добавьте:
+async checkAuthAndLoad() {
+    try {
+        console.log('🔐 Проверка аутентификации...');
+        
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            console.log('❌ Токен не найден, перенаправление на вход');
+            this.redirectToLogin();
+            return;
+        }
+
+        const userData = localStorage.getItem('user_data');
+        if (!userData) {
+            console.log('❌ Данные пользователя не найдены');
+            this.redirectToLogin();
+            return;
+        }
+
+        this.currentUser = JSON.parse(userData);
+        
+        if (this.currentUser.role !== 'listener') {
+            console.log('❌ Недостаточно прав: требуется роль listener');
+            this.redirectToLogin();
+            return;
+        }
+
+        console.log('✅ Пользователь аутентифицирован:', this.currentUser.username);
+        
+        // Скрываем loading overlay ДО инициализации интерфейса
+        this.hideLoadingOverlay();
+        
+        this.initializeInterface();
+        
+    } catch (error) {
+        console.error('❌ Ошибка проверки аутентификации:', error);
+        this.hideLoadingOverlay(); // Скрываем даже при ошибке
+        this.redirectToLogin();
+    }
+}
+
+// Также добавьте в метод initializeInterface:
+initializeInterface() {
+    if (this.isInitialized) {
+        console.log('⚠️ Интерфейс уже инициализирован');
+        return;
+    }
+
+    console.log('🎨 Инициализация интерфейса...');
+    
+    this.updateUserInterface();
+    this.bindEvents();
+    this.setupSocketConnection();
+    this.loadDashboardData();
+    
+    this.isInitialized = true;
+    console.log('✅ Интерфейс успешно инициализирован');
+    
+    // Дублируем скрытие на всякий случай
+    setTimeout(() => {
+        this.hideLoadingOverlay();
+    }, 1000);
+}
