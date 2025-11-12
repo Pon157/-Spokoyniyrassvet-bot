@@ -6,6 +6,13 @@ class ChatApp {
         this.currentChat = null;
         this.chats = [];
         
+        // Проверяем не инициализирован ли уже ChatApp
+        if (window.chatAppInstance) {
+            console.log('⚠️ ChatApp уже инициализирован');
+            return window.chatAppInstance;
+        }
+        window.chatAppInstance = this;
+        
         this.init();
     }
 
@@ -20,7 +27,6 @@ class ChatApp {
         } catch (error) {
             console.error('❌ Ошибка инициализации ChatApp:', error);
             this.showNotification('Ошибка загрузки данных. Пожалуйста, войдите снова.', 'error');
-            // Перенаправляем на страницу входа только при критической ошибке
             setTimeout(() => {
                 window.location.href = '/index.html';
             }, 3000);
@@ -75,7 +81,6 @@ class ChatApp {
             userAvatarElement.src = this.currentUser.avatar_url || '/images/default-avatar.svg';
         }
 
-        // Показываем соответствующие вкладки для роли
         this.showRoleSpecificTabs();
     }
 
@@ -93,7 +98,6 @@ class ChatApp {
     showRoleSpecificTabs() {
         const role = this.currentUser.role;
         
-        // Показываем вкладки в зависимости от роли
         const listenersTab = document.getElementById('listenersTab');
         const reviewsTab = document.getElementById('reviewsTab');
         const adminTab = document.getElementById('adminTab');
@@ -101,9 +105,8 @@ class ChatApp {
         const ownerTab = document.getElementById('ownerTab');
 
         if (listenersTab) listenersTab.style.display = role === 'user' ? 'flex' : 'none';
-        if (reviewsTab) reviewsTab.style.display = 'flex'; // Все могут видеть отзывы
+        if (reviewsTab) reviewsTab.style.display = 'flex';
         
-        // Админские вкладки
         if (adminTab) adminTab.style.display = ['admin', 'coowner', 'owner'].includes(role) ? 'flex' : 'none';
         if (coownerTab) coownerTab.style.display = ['coowner', 'owner'].includes(role) ? 'flex' : 'none';
         if (ownerTab) ownerTab.style.display = role === 'owner' ? 'flex' : 'none';
@@ -137,7 +140,7 @@ class ChatApp {
             this.socket.on('chat_created', (data) => {
                 console.log('✅ Чат создан:', data.chat.id);
                 this.showNotification('Чат создан успешно!', 'success');
-                this.loadChats(); // Обновляем список чатов
+                this.loadChats();
             });
 
             this.socket.on('error', (error) => {
@@ -196,7 +199,6 @@ class ChatApp {
     }
 
     switchTab(tabName) {
-        // Скрыть все вкладки
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -205,7 +207,6 @@ class ChatApp {
             tab.classList.remove('active');
         });
 
-        // Показать выбранную вкладку
         const targetTab = document.getElementById(`${tabName}Tab`);
         const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
         
@@ -213,7 +214,6 @@ class ChatApp {
             targetTab.classList.add('active');
             targetButton.classList.add('active');
             
-            // Загружаем данные для вкладки
             this.loadTabData(tabName);
         }
     }
@@ -224,12 +224,10 @@ class ChatApp {
                 this.loadChats();
                 break;
             case 'listeners':
-                // Загрузка слушателей будет через ListenersUI
                 break;
             case 'reviews':
                 this.loadReviews();
                 break;
-            // Остальные вкладки...
         }
     }
 
@@ -245,16 +243,22 @@ class ChatApp {
             });
 
             if (!response.ok) {
-                throw new Error('Ошибка загрузки чатов');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка загрузки чатов');
             }
 
             const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Ошибка загрузки чатов');
+            }
+
             this.chats = data.chats || [];
             this.renderChatsList();
             
         } catch (error) {
             console.error('❌ Ошибка загрузки чатов:', error);
-            this.showNotification('Ошибка загрузки чатов', 'error');
+            this.showNotification(error.message || 'Ошибка загрузки чатов', 'error');
             this.renderChatsError();
         }
     }
@@ -294,7 +298,6 @@ class ChatApp {
             </div>
         `).join('');
 
-        // Добавляем обработчики клика
         chatsList.querySelectorAll('.chat-item').forEach(item => {
             item.addEventListener('click', () => {
                 const chatId = item.dataset.chatId;
@@ -311,7 +314,7 @@ class ChatApp {
                     <i class="fas fa-exclamation-triangle"></i>
                     <h3>Ошибка загрузки</h3>
                     <p>Не удалось загрузить чаты</p>
-                    <button class="btn btn-sm btn-primary" onclick="window.app.loadChats()">
+                    <button class="btn btn-sm btn-primary" onclick="window.chatApp.loadChats()">
                         Попробовать снова
                     </button>
                 </div>
@@ -330,11 +333,9 @@ class ChatApp {
 
             this.currentChat = chat;
 
-            // Обновляем UI
             document.getElementById('chatPlaceholder').classList.remove('active');
             document.getElementById('chatContainer').classList.add('active');
 
-            // Обновляем информацию о партнере
             document.getElementById('partnerName').textContent = chat.partner_name;
             document.getElementById('partnerAvatar').src = chat.partner_avatar;
             document.getElementById('partnerStatus').innerHTML = `
@@ -342,10 +343,8 @@ class ChatApp {
                 <span>${chat.partner_online ? 'online' : 'offline'}</span>
             `;
 
-            // Загружаем сообщения
             await this.loadMessages(chatId);
 
-            // Присоединяемся к комнате чата
             if (this.socket) {
                 this.socket.emit('join_chat', chatId);
             }
@@ -366,15 +365,21 @@ class ChatApp {
             });
 
             if (!response.ok) {
-                throw new Error('Ошибка загрузки сообщений');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка загрузки сообщений');
             }
 
             const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Ошибка загрузки сообщений');
+            }
+
             this.renderMessages(data.messages || []);
             
         } catch (error) {
             console.error('❌ Ошибка загрузки сообщений:', error);
-            this.showNotification('Ошибка загрузки сообщений', 'error');
+            this.showNotification(error.message || 'Ошибка загрузки сообщений', 'error');
         }
     }
 
@@ -401,14 +406,12 @@ class ChatApp {
         }
 
         try {
-            // Отправляем через сокет
             this.socket.emit('send_message', {
                 chat_id: this.currentChat.id,
                 content: content,
                 message_type: 'text'
             });
 
-            // Очищаем поле ввода
             messageInput.value = '';
 
         } catch (error) {
@@ -419,11 +422,9 @@ class ChatApp {
 
     handleNewMessage(message) {
         if (this.currentChat && message.chat_id === this.currentChat.id) {
-            // Добавляем сообщение в текущий чат
             this.addMessageToChat(message);
         }
         
-        // Обновляем список чатов
         this.loadChats();
     }
 
@@ -450,7 +451,6 @@ class ChatApp {
     }
 
     createNewChat() {
-        // Переключаемся на вкладку слушателей
         this.switchTab('listeners');
         this.showNotification('Выберите слушателя для начала чата', 'info');
     }
@@ -460,11 +460,9 @@ class ChatApp {
     }
 
     loadReviews() {
-        // Заглушка для загрузки отзывов
         console.log('📝 Загрузка отзывов...');
     }
 
-    // Вспомогательные методы
     formatTime(dateString) {
         try {
             const date = new Date(dateString);
@@ -501,12 +499,10 @@ class ChatApp {
 
         container.appendChild(notification);
 
-        // Закрытие по кнопке
         notification.querySelector('.notification-close').addEventListener('click', () => {
             notification.remove();
         });
 
-        // Автоматическое закрытие
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.remove();
@@ -515,7 +511,6 @@ class ChatApp {
     }
 
     hasPermission(permission) {
-        // Упрощенная проверка прав
         const permissions = {
             'user': ['chat.basic', 'media.send', 'stickers.use'],
             'listener': ['chat.basic', 'media.send', 'stickers.use', 'chat.moderate'],
@@ -533,8 +528,14 @@ class ChatApp {
     }
 }
 
-// Инициализация приложения
+// Инициализация приложения с проверкой
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Запуск приложения...');
-    window.app = new ChatApp();
+    
+    // Проверяем не инициализирован ли уже ChatApp
+    if (!window.chatApp) {
+        window.chatApp = new ChatApp();
+    } else {
+        console.log('⚠️ ChatApp уже инициализирован');
+    }
 });
