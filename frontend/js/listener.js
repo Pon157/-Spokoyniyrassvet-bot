@@ -1,4 +1,4 @@
-// listener.js - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ БЕЗ ЗАГРУЗКИ
+// listener.js - ФИНАЛЬНАЯ ВЕРСИЯ БЕЗ ЗАГРУЗКИ
 class ListenerApp {
     constructor() {
         this.socket = null;
@@ -112,7 +112,6 @@ class ListenerApp {
     bindEvents() {
         console.log('🎯 Привязка событий...');
 
-        // Навигация
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -124,7 +123,6 @@ class ListenerApp {
             });
         });
 
-        // Быстрые действия
         const quickChatsBtn = document.getElementById('quickChats');
         const quickListenersBtn = document.getElementById('quickListenersChat');
         const quickStatsBtn = document.getElementById('quickStats');
@@ -135,7 +133,6 @@ class ListenerApp {
         if (quickStatsBtn) quickStatsBtn.addEventListener('click', () => this.switchTab('statistics'));
         if (quickReviewsBtn) quickReviewsBtn.addEventListener('click', () => this.switchTab('reviews'));
 
-        // Статус онлайн
         const onlineToggle = document.getElementById('onlineToggle');
         if (onlineToggle) {
             onlineToggle.checked = this.isOnline;
@@ -145,7 +142,6 @@ class ListenerApp {
             });
         }
 
-        // Кнопки заголовка
         const refreshBtn = document.getElementById('refreshBtn');
         const notificationsBtn = document.getElementById('notificationsBtn');
         const settingsBtn = document.getElementById('settingsBtn');
@@ -154,13 +150,11 @@ class ListenerApp {
         if (notificationsBtn) notificationsBtn.addEventListener('click', () => this.showNotifications());
         if (settingsBtn) settingsBtn.addEventListener('click', () => this.showSettings());
 
-        // Обновление чатов
         const refreshChatsBtn = document.getElementById('refreshChatsBtn');
         if (refreshChatsBtn) {
             refreshChatsBtn.addEventListener('click', () => this.loadChats());
         }
 
-        // Чат слушателей
         const chatInput = document.getElementById('listenersChatInput');
         const sendButton = document.getElementById('sendListenersMessage');
         
@@ -173,7 +167,6 @@ class ListenerApp {
             });
         }
 
-        // Статистика
         const statsPeriod = document.getElementById('statsPeriod');
         if (statsPeriod) {
             statsPeriod.addEventListener('change', () => {
@@ -182,7 +175,6 @@ class ListenerApp {
             });
         }
 
-        // Выход
         const logoutBtn = document.querySelector('.logout-btn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', (e) => {
@@ -197,7 +189,6 @@ class ListenerApp {
     switchTab(tabName) {
         console.log('📑 Переключение на вкладку:', tabName);
         
-        // Обновляем навигацию
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
@@ -207,7 +198,6 @@ class ListenerApp {
             activeNavItem.classList.add('active');
         }
 
-        // Обновляем контент
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
@@ -217,7 +207,6 @@ class ListenerApp {
             targetTab.classList.add('active');
         }
 
-        // Обновляем заголовок
         const pageTitle = document.getElementById('pageTitle');
         if (pageTitle) {
             const titles = {
@@ -232,7 +221,6 @@ class ListenerApp {
 
         this.currentTab = tabName;
 
-        // Загружаем данные для вкладки
         switch(tabName) {
             case 'dashboard':
                 this.loadDashboardData();
@@ -382,7 +370,6 @@ class ListenerApp {
             </div>
         `).join('');
 
-        // Добавляем обработчики кликов на чаты
         chatsList.querySelectorAll('.chat-item').forEach(item => {
             item.addEventListener('click', () => {
                 const chatId = item.dataset.chatId;
@@ -390,7 +377,6 @@ class ListenerApp {
             });
         });
 
-        // Обновляем бейдж с количеством непрочитанных
         const totalUnread = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
         this.updateChatsBadge(totalUnread);
     }
@@ -472,7 +458,6 @@ class ListenerApp {
         try {
             console.log('📨 Загрузка истории чата...');
             
-            // В реальном приложении здесь был бы запрос к API для получения истории сообщений
             this.renderChatHistory([]);
             
         } catch (error) {
@@ -516,29 +501,22 @@ class ListenerApp {
         console.log('📤 Отправка сообщения:', message);
 
         try {
-            // В реальном приложении здесь был бы запрос к API для отправки сообщения
             console.log('✅ Сообщение отправлено (имитация)');
             this.showNotification('Сообщение отправлено', 'success');
-            
-            // Очищаем поле ввода
-            input.value = '';
-            input.focus();
             
         } catch (error) {
             console.error('❌ Ошибка отправки сообщения:', error);
             this.showNotification('Ошибка отправки сообщения', 'error');
+            return;
         }
+
+        input.value = '';
+        input.focus();
     }
 
     addMessageToChat(messageData) {
         const messagesContainer = document.getElementById('listenersChatMessages');
         if (!messagesContainer) return;
-
-        // Убираем приветственное сообщение если оно есть
-        const welcomeMessage = messagesContainer.querySelector('.welcome-message');
-        if (welcomeMessage) {
-            welcomeMessage.remove();
-        }
 
         const messageElement = document.createElement('div');
         messageElement.className = `message ${messageData.is_outgoing ? 'outgoing' : 'incoming'}`;
@@ -744,7 +722,6 @@ class ListenerApp {
             
         } catch (error) {
             console.error('❌ Ошибка изменения статуса:', error);
-            // Откатываем изменения в UI
             this.isOnline = !online;
             document.getElementById('onlineToggle').checked = !online;
             this.showNotification('Ошибка изменения статуса', 'error');
@@ -797,8 +774,6 @@ class ListenerApp {
 
     setupSocketConnection() {
         console.log('🔌 Настройка Socket.io подключения...');
-        
-        // Socket.io временно отключен для избежания ошибок 502
         console.log('ℹ️ Socket.io временно отключен для избежания ошибок 502');
     }
 
@@ -841,10 +816,7 @@ class ListenerApp {
         console.log(`📢 Уведомление [${type}]:`, message);
         
         const container = document.getElementById('notificationsContainer');
-        if (!container) {
-            console.warn('⚠️ Контейнер уведомлений не найден');
-            return;
-        }
+        if (!container) return;
 
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
@@ -857,7 +829,6 @@ class ListenerApp {
 
         container.appendChild(notification);
 
-        // Автоматическое скрытие через 5 секунд
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.remove();
