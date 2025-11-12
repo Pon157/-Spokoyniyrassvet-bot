@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Слушатель - Спокойный рассвет</title>
     <link rel="stylesheet" href="/css/listener.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="/js/listener.js"></script>
 </head>
@@ -14,7 +15,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="app-logo">
-                    <div class="logo-icon">🌅</div>
+                    <div class="logo-icon"><i class="fas fa-sun"></i></div>
                     <span class="logo-text">Спокойный Рассвет</span>
                 </div>
                 <div class="user-role-badge">Слушатель</div>
@@ -28,7 +29,7 @@
                 <a href="#chats" class="nav-item" data-tab="chats">
                     <i class="fas fa-comments nav-icon"></i>
                     <span class="nav-text">Мои чаты</span>
-                    <span class="nav-badge" id="chatsBadge">0</span>
+                    <span class="nav-badge hidden" id="chatsBadge">0</span>
                 </a>
                 <a href="#listeners-chat" class="nav-item" data-tab="listeners-chat">
                     <i class="fas fa-users nav-icon"></i>
@@ -160,9 +161,12 @@
                         <div class="recent-activity">
                             <h3>Недавняя активность</h3>
                             <div class="activity-list" id="recentActivity">
-                                <div class="loading-state">
-                                    <div class="loading-spinner"></div>
-                                    <p>Загрузка активности...</p>
+                                <div class="activity-item">
+                                    <div class="activity-icon"><i class="fas fa-comments"></i></div>
+                                    <div class="activity-content">
+                                        <div class="activity-text">Загрузка активности...</div>
+                                        <div class="activity-time">Только что</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -183,9 +187,10 @@
                         </div>
                         <div class="chats-list-container">
                             <div class="chats-list" id="chatsList">
-                                <div class="loading-state">
-                                    <div class="loading-spinner"></div>
-                                    <p>Загрузка чатов...</p>
+                                <div class="empty-state">
+                                    <i class="fas fa-comments"></i>
+                                    <h3>Загрузка чатов...</h3>
+                                    <p>Пожалуйста, подождите</p>
                                 </div>
                             </div>
                         </div>
@@ -242,9 +247,10 @@
                             </div>
                         </div>
                         <div class="reviews-list" id="reviewsList">
-                            <div class="loading-state">
-                                <div class="loading-spinner"></div>
-                                <p>Загрузка отзывов...</p>
+                            <div class="empty-state">
+                                <i class="fas fa-star"></i>
+                                <h3>Загрузка отзывов...</h3>
+                                <p>Пожалуйста, подождите</p>
                             </div>
                         </div>
                     </div>
@@ -295,9 +301,10 @@
                                 </div>
                                 <div class="stat-content">
                                     <div class="activity-chart" id="detailedActivityChart">
-                                        <div class="loading-state">
-                                            <div class="loading-spinner"></div>
-                                            <p>Загрузка графика...</p>
+                                        <div class="empty-state">
+                                            <i class="fas fa-chart-bar"></i>
+                                            <h3>Загрузка графика...</h3>
+                                            <p>Пожалуйста, подождите</p>
                                         </div>
                                     </div>
                                 </div>
@@ -309,9 +316,10 @@
                                 </div>
                                 <div class="stat-content">
                                     <div class="rating-distribution" id="ratingDistribution">
-                                        <div class="loading-state">
-                                            <div class="loading-spinner"></div>
-                                            <p>Загрузка рейтингов...</p>
+                                        <div class="empty-state">
+                                            <i class="fas fa-star"></i>
+                                            <h3>Загрузка рейтингов...</h3>
+                                            <p>Пожалуйста, подождите</p>
                                         </div>
                                     </div>
                                 </div>
@@ -326,20 +334,15 @@
     <!-- Уведомления -->
     <div class="notifications-container" id="notificationsContainer"></div>
 
-    <!-- Загрузочный экран -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-content">
-            <div class="loading-spinner large"></div>
-            <h3>Загрузка приложения...</h3>
-            <p>Пожалуйста, подождите</p>
-        </div>
-    </div>
-    <div class="loading-overlay" id="loadingOverlay">
-    <div class="loading-content">
-        <div class="loading-spinner large"></div>
-        <h3>Загрузка приложения...</h3>
-        <p>Пожалуйста, подождите</p>
-    </div>
-</div>
+    <script>
+        // Предотвращение FOUC
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.add('loaded');
+            setTimeout(() => {
+                const app = document.querySelector('.listener-app');
+                if (app) app.classList.add('loaded');
+            }, 100);
+        });
+    </script>
 </body>
 </html>
