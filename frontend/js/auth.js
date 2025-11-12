@@ -6,9 +6,23 @@ class AuthManager {
     }
 
     init() {
-        this.setupEventListeners();
-        this.checkExistingAuth();
-        this.initializeAnimations();
+        console.log('🎯 Инициализация AuthManager');
+        this.waitForDOM().then(() => {
+            this.setupEventListeners();
+            this.checkExistingAuth();
+        }).catch(error => {
+            console.error('❌ Ошибка инициализации:', error);
+        });
+    }
+
+    waitForDOM() {
+        return new Promise((resolve) => {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', resolve);
+            } else {
+                resolve();
+            }
+        });
     }
 
     setupEventListeners() {
@@ -16,18 +30,23 @@ class AuthManager {
 
         // Основное переключение между входом и регистрацией
         const switchBtn = document.getElementById('switchBtn');
-        const switchText = document.getElementById('switchText');
-
-        if (switchBtn && switchText) {
-            switchBtn.addEventListener('click', () => {
+        console.log('switchBtn элемент:', switchBtn);
+        
+        if (switchBtn) {
+            switchBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('🔄 Кнопка переключения нажата');
                 this.switchForm();
             });
+        } else {
+            console.error('❌ switchBtn не найден');
         }
 
         // Кнопка "Назад к входу" из формы восстановления
         const backToLogin = document.getElementById('backToLogin');
         if (backToLogin) {
-            backToLogin.addEventListener('click', () => {
+            backToLogin.addEventListener('click', (e) => {
+                e.preventDefault();
                 this.showForm('login');
             });
         }
@@ -46,9 +65,13 @@ class AuthManager {
         const registerForm = document.getElementById('registerForm');
         const forgotPasswordForm = document.getElementById('forgotPasswordForm');
 
+        console.log('loginForm элемент:', loginForm);
+        console.log('registerForm элемент:', registerForm);
+
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
+                console.log('📤 Форма входа отправлена');
                 this.handleLogin();
             });
         }
@@ -56,6 +79,7 @@ class AuthManager {
         if (registerForm) {
             registerForm.addEventListener('submit', (e) => {
                 e.preventDefault();
+                console.log('📤 Форма регистрации отправлена');
                 this.handleRegister();
             });
         }
@@ -77,6 +101,7 @@ class AuthManager {
     }
 
     switchForm() {
+        console.log('🔄 Переключение формы');
         if (this.currentForm === 'login') {
             this.showForm('register');
         } else {
@@ -89,12 +114,16 @@ class AuthManager {
         
         // Скрываем все формы
         const forms = document.querySelectorAll('.auth-form');
-        forms.forEach(form => form.classList.remove('active'));
+        forms.forEach(form => {
+            form.classList.remove('active');
+            console.log('Скрыта форма:', form.id);
+        });
 
         // Показываем нужную форму
         const targetForm = document.getElementById(formName + 'Form');
         if (targetForm) {
             targetForm.classList.add('active');
+            console.log('Показана форма:', targetForm.id);
         }
 
         // Обновляем текст переключателя
@@ -102,21 +131,40 @@ class AuthManager {
         const switchText = document.getElementById('switchText');
 
         if (formName === 'login') {
-            if (switchText) switchText.textContent = 'Нет аккаунта?';
-            if (switchBtn) switchBtn.textContent = 'Создать аккаунт';
+            if (switchText) {
+                switchText.textContent = 'Нет аккаунта?';
+                console.log('Текст переключателя обновлен: Нет аккаунта?');
+            }
+            if (switchBtn) {
+                switchBtn.textContent = 'Создать аккаунт';
+                console.log('Текст кнопки обновлен: Создать аккаунт');
+            }
             this.currentForm = 'login';
+            
+            // Показываем переключатель
+            const authSwitch = document.querySelector('.auth-switch');
+            if (authSwitch) authSwitch.style.display = 'block';
         } else if (formName === 'register') {
-            if (switchText) switchText.textContent = 'Уже есть аккаунт?';
-            if (switchBtn) switchBtn.textContent = 'Войти';
+            if (switchText) {
+                switchText.textContent = 'Уже есть аккаунт?';
+                console.log('Текст переключателя обновлен: Уже есть аккаунт?');
+            }
+            if (switchBtn) {
+                switchBtn.textContent = 'Войти';
+                console.log('Текст кнопки обновлен: Войти');
+            }
             this.currentForm = 'register';
+            
+            // Показываем переключатель
+            const authSwitch = document.querySelector('.auth-switch');
+            if (authSwitch) authSwitch.style.display = 'block';
         } else if (formName === 'forgot') {
             // Скрываем переключатель для формы восстановления
             const authSwitch = document.querySelector('.auth-switch');
-            if (authSwitch) authSwitch.style.display = 'none';
-        } else {
-            // Показываем переключатель для других форм
-            const authSwitch = document.querySelector('.auth-switch');
-            if (authSwitch) authSwitch.style.display = 'block';
+            if (authSwitch) {
+                authSwitch.style.display = 'none';
+                console.log('Переключатель скрыт для формы восстановления');
+            }
         }
 
         this.clearErrors();
@@ -229,25 +277,6 @@ class AuthManager {
         this.showNotification('Условия приняты', 'success');
     }
 
-    initializeAnimations() {
-        // Инициализация анимированных полей ввода
-        const inputs = document.querySelectorAll('.animated-input input');
-        inputs.forEach(input => {
-            // Помечаем поле как заполненное если есть значение
-            if (input.value) {
-                input.classList.add('filled');
-            }
-
-            input.addEventListener('blur', () => {
-                if (input.value) {
-                    input.classList.add('filled');
-                } else {
-                    input.classList.remove('filled');
-                }
-            });
-        });
-    }
-
     clearErrors() {
         // Очищаем все сообщения об ошибках
         const errorMessages = document.querySelectorAll('.error-message');
@@ -287,27 +316,44 @@ class AuthManager {
     }
 
     async handleLogin() {
-        const username = document.getElementById('loginUsername').value;
-        const password = document.getElementById('loginPassword').value;
+        console.log('🔐 Обработка входа...');
+        
+        const username = document.getElementById('loginUsername');
+        const password = document.getElementById('loginPassword');
         const loginBtn = document.getElementById('loginBtn');
 
-        console.log('🔐 Попытка входа:', username);
-
         if (!username || !password) {
+            console.error('❌ Поля ввода не найдены');
+            this.showNotification('Ошибка: поля ввода не найдены', 'error');
+            return;
+        }
+
+        const usernameValue = username.value;
+        const passwordValue = password.value;
+
+        console.log('Введенные данные:', { username: usernameValue, password: '***' });
+
+        if (!usernameValue || !passwordValue) {
             this.showNotification('Заполните все поля', 'error');
             return;
         }
 
         try {
             this.setLoading(loginBtn, true);
+            console.log('🔄 Отправка запроса на вход...');
 
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ 
+                    username: usernameValue, 
+                    password: passwordValue 
+                })
             });
+
+            console.log('📊 Статус ответа:', response.status);
 
             const data = await response.json();
             console.log('📨 Ответ сервера:', data);
@@ -323,7 +369,9 @@ class AuthManager {
                 
                 // Перенаправляем на указанную страницу
                 setTimeout(() => {
-                    window.location.href = data.redirectTo || this.getRedirectPageForRole(data.user.role);
+                    const redirectTo = data.redirectTo || this.getRedirectPageForRole(data.user.role);
+                    console.log('🎯 Перенаправление на:', redirectTo);
+                    window.location.href = redirectTo;
                 }, 1000);
                 
             } else {
@@ -339,48 +387,69 @@ class AuthManager {
     }
 
     async handleRegister() {
-        const username = document.getElementById('registerUsername').value;
-        const telegram = document.getElementById('registerTelegram').value;
-        const password = document.getElementById('registerPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-        const acceptTerms = document.getElementById('acceptTerms').checked;
+        console.log('👤 Обработка регистрации...');
+        
+        const username = document.getElementById('registerUsername');
+        const telegram = document.getElementById('registerTelegram');
+        const password = document.getElementById('registerPassword');
+        const confirmPassword = document.getElementById('confirmPassword');
+        const acceptTerms = document.getElementById('acceptTerms');
         const registerBtn = document.getElementById('registerBtn');
 
-        console.log('👤 Попытка регистрации:', username);
+        if (!username || !telegram || !password || !confirmPassword || !acceptTerms) {
+            console.error('❌ Не все поля регистрации найдены');
+            this.showNotification('Ошибка: не все поля найдены', 'error');
+            return;
+        }
+
+        const usernameValue = username.value;
+        const telegramValue = telegram.value;
+        const passwordValue = password.value;
+        const confirmPasswordValue = confirmPassword.value;
+        const acceptTermsValue = acceptTerms.checked;
+
+        console.log('Введенные данные:', { 
+            username: usernameValue, 
+            telegram: telegramValue,
+            password: '***',
+            confirmPassword: '***',
+            acceptTerms: acceptTermsValue
+        });
 
         // Валидация
-        if (!username || !telegram || !password || !confirmPassword) {
+        if (!usernameValue || !telegramValue || !passwordValue || !confirmPasswordValue) {
             this.showNotification('Заполните все поля', 'error');
             return;
         }
 
-        if (username.length < 2) {
+        if (usernameValue.length < 2) {
             this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
             return;
         }
 
-        if (!telegram.startsWith('@')) {
+        if (!telegramValue.startsWith('@')) {
             this.showNotification('Telegram должен начинаться с @', 'error');
             return;
         }
 
-        if (password.length < 6) {
+        if (passwordValue.length < 6) {
             this.showNotification('Пароль должен содержать минимум 6 символов', 'error');
             return;
         }
 
-        if (password !== confirmPassword) {
+        if (passwordValue !== confirmPasswordValue) {
             this.showNotification('Пароли не совпадают', 'error');
             return;
         }
 
-        if (!acceptTerms) {
+        if (!acceptTermsValue) {
             this.showNotification('Необходимо принять условия использования', 'error');
             return;
         }
 
         try {
             this.setLoading(registerBtn, true);
+            console.log('🔄 Отправка запроса на регистрацию...');
 
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
@@ -388,11 +457,13 @@ class AuthManager {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    username,
-                    telegram_username: telegram,
-                    password
+                    username: usernameValue,
+                    telegram_username: telegramValue,
+                    password: passwordValue
                 })
             });
+
+            console.log('📊 Статус ответа:', response.status);
 
             const data = await response.json();
             console.log('📨 Ответ сервера:', data);
@@ -473,14 +544,19 @@ class AuthManager {
     }
 
     setLoading(button, isLoading) {
-        if (!button) return;
+        if (!button) {
+            console.error('❌ Кнопка не найдена для установки состояния загрузки');
+            return;
+        }
         
         if (isLoading) {
             button.classList.add('loading');
             button.disabled = true;
+            console.log('🔄 Установлено состояние загрузки для кнопки:', button.id);
         } else {
             button.classList.remove('loading');
             button.disabled = false;
+            console.log('✅ Снято состояние загрузки для кнопки:', button.id);
         }
     }
 
@@ -540,6 +616,18 @@ class AuthManager {
                     gap: 8px;
                     flex: 1;
                 }
+                .notification-icon {
+                    font-size: 18px;
+                }
+                .notification.success .notification-icon {
+                    color: #10b981;
+                }
+                .notification.error .notification-icon {
+                    color: #ef4444;
+                }
+                .notification.warning .notification-icon {
+                    color: #f59e0b;
+                }
                 .notification-close {
                     background: none;
                     border: none;
@@ -551,6 +639,10 @@ class AuthManager {
                 @keyframes slideInRight {
                     from { transform: translateX(100%); opacity: 0; }
                     to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOutRight {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
                 }
             `;
             document.head.appendChild(styles);
