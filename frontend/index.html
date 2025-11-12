@@ -277,7 +277,6 @@
     <script>
         console.log('🚀 Инициализация системы аутентификации...');
 
-        // Простой менеджер аутентификации
         class AuthManager {
             constructor() {
                 this.currentForm = 'login';
@@ -506,9 +505,31 @@
                         body: JSON.stringify({ username, password })
                     });
 
+                    console.log('📊 Статус ответа:', response.status);
+
+                    if (response.status === 502 || response.status === 503) {
+                        throw new Error('Сервер временно недоступен. Попробуйте позже.');
+                    }
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('❌ Ошибка сервера:', errorText);
+                        
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            throw new Error(errorData.error || `Ошибка ${response.status}`);
+                        } catch (e) {
+                            if (errorText.includes('html') || errorText.includes('<!DOCTYPE')) {
+                                throw new Error('Проблема с сервером. Попробуйте позже.');
+                            } else {
+                                throw new Error(`Ошибка сервера: ${response.status}`);
+                            }
+                        }
+                    }
+
                     const data = await response.json();
 
-                    if (response.ok && data.success) {
+                    if (data.success) {
                         this.showNotification('Вход выполнен успешно!', 'success');
                         
                         localStorage.setItem('auth_token', data.token);
@@ -522,8 +543,8 @@
                         this.showNotification(data.error || 'Ошибка входа', 'error');
                     }
                 } catch (error) {
-                    console.error('Ошибка:', error);
-                    this.showNotification('Ошибка соединения с сервером', 'error');
+                    console.error('❌ Ошибка входа:', error);
+                    this.showNotification(error.message || 'Ошибка соединения с сервером', 'error');
                 } finally {
                     this.setLoading(loginBtn, false);
                 }
@@ -583,14 +604,18 @@
                         })
                     });
 
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText.includes('html') ? 'Ошибка сервера' : errorText);
+                    }
+
                     const data = await response.json();
 
-                    if (response.ok && data.success) {
+                    if (data.success) {
                         this.showNotification('Регистрация успешна! Теперь вы можете войти.', 'success');
                         
                         setTimeout(() => {
                             this.showForm('login');
-                            // Очищаем форму
                             document.getElementById('registerUsername').value = '';
                             document.getElementById('registerTelegram').value = '';
                             document.getElementById('registerPassword').value = '';
@@ -719,14 +744,6 @@
             console.log('🎯 DOM загружен, запуск AuthManager');
             window.authManager = new AuthManager();
         });
-
-        // Резервная инициализация
-        setTimeout(() => {
-            if (!window.authManager) {
-                console.log('🔄 Резервная инициализация AuthManager');
-                window.authManager = new AuthManager();
-            }
-        }, 1000);
     </script>
 </body>
 </html>
