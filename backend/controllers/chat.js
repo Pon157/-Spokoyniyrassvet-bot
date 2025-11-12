@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
-const { logAction } = require('../middleware');
+const { authenticateToken, logAction } = require('../middleware');
 
 const router = express.Router();
 const supabase = createClient(
@@ -39,27 +39,10 @@ const upload = multer({
   }
 });
 
-// Middleware для проверки JWT (добавляем)
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ 
-      success: false,
-      error: 'Токен отсутствует' 
-    });
-  }
-
-  // В реальном приложении здесь должна быть проверка JWT
-  // Для упрощения пока пропускаем
-  next();
-};
-
 // 🔄 НОВЫЕ ENDPOINTS ДЛЯ АКТИВНЫХ СЛУШАТЕЛЕЙ
 
 // Получение активных слушателей с пагинацией
-router.get('/active-listeners', async (req, res) => {
+router.get('/active-listeners', authenticateToken, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -130,7 +113,7 @@ router.get('/active-listeners', async (req, res) => {
 });
 
 // Поиск слушателей по специализации
-router.get('/listeners/search', async (req, res) => {
+router.get('/listeners/search', authenticateToken, async (req, res) => {
   try {
     const { query, specialty, language, min_rating } = req.query;
     
@@ -212,7 +195,7 @@ router.get('/listeners/search', async (req, res) => {
 });
 
 // Получение подробной информации о слушателе
-router.get('/listeners/:id/profile', async (req, res) => {
+router.get('/listeners/:id/profile', authenticateToken, async (req, res) => {
   try {
     const listenerId = req.params.id;
     
@@ -308,9 +291,9 @@ router.get('/listeners/:id/profile', async (req, res) => {
 });
 
 // Создание чата с конкретным слушателем
-router.post('/create-with-listener', async (req, res) => {
+router.post('/create-with-listener', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { listener_id } = req.body;
 
     if (!listener_id) {
@@ -407,7 +390,7 @@ router.post('/create-with-listener', async (req, res) => {
 });
 
 // Получение статистики слушателя для пользователя
-router.get('/listeners/:id/stats', async (req, res) => {
+router.get('/listeners/:id/stats', authenticateToken, async (req, res) => {
   try {
     const listenerId = req.params.id;
 
@@ -469,7 +452,7 @@ router.get('/listeners/:id/stats', async (req, res) => {
 });
 
 // Получение доступных специализаций
-router.get('/specialties', async (req, res) => {
+router.get('/specialties', authenticateToken, async (req, res) => {
   try {
     const { data: listeners, error } = await supabase
       .from('users')
@@ -506,7 +489,7 @@ router.get('/specialties', async (req, res) => {
 });
 
 // Получение доступных языков
-router.get('/languages', async (req, res) => {
+router.get('/languages', authenticateToken, async (req, res) => {
   try {
     const { data: listeners, error } = await supabase
       .from('users')
@@ -547,7 +530,9 @@ router.get('/languages', async (req, res) => {
 // Получение списка чатов пользователя
 router.get('/chats', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
+
+    console.log('💬 Загрузка чатов для пользователя:', userId);
 
     let query = supabase
       .from('chats')
@@ -564,7 +549,7 @@ router.get('/chats', authenticateToken, async (req, res) => {
     if (error) throw error;
 
     // Форматируем данные чатов
-    const formattedChats = chats.map(chat => {
+    const formattedChats = chats ? chats.map(chat => {
       const isUser = chat.user_id === userId;
       const partner = isUser ? chat.listener : chat.user;
       
@@ -575,11 +560,13 @@ router.get('/chats', authenticateToken, async (req, res) => {
         partner_avatar: partner?.avatar_url,
         partner_online: partner?.is_online || false,
         status: chat.status,
-        last_message: chat.last_message,
+        last_message: chat.last_message || 'Чат создан',
         last_message_time: chat.updated_at,
         unread_count: chat.unread_count || 0
       };
-    });
+    }) : [];
+
+    console.log(`✅ Загружено ${formattedChats.length} чатов`);
 
     res.json({ 
       success: true,
@@ -598,7 +585,7 @@ router.get('/chats', authenticateToken, async (req, res) => {
 router.get('/messages/:chatId', authenticateToken, async (req, res) => {
   try {
     const { chatId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Проверяем доступ к чату
     const { data: chat, error: chatError } = await supabase
@@ -637,7 +624,7 @@ router.get('/messages/:chatId', authenticateToken, async (req, res) => {
 
     res.json({ 
       success: true,
-      messages 
+      messages: messages || []
     });
   } catch (error) {
     console.error('Ошибка получения сообщений:', error);
@@ -651,7 +638,7 @@ router.get('/messages/:chatId', authenticateToken, async (req, res) => {
 // Создание нового чата
 router.post('/create', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { listener_id } = req.body;
 
     // Для пользователей - находим свободного слушателя
@@ -728,7 +715,7 @@ router.post('/upload-media', upload.single('media'), authenticateToken, async (r
     }
 
     const { chat_id } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Проверяем доступ к чату
     const { data: chat } = await supabase
@@ -777,7 +764,7 @@ router.post('/upload-voice', upload.single('audio'), authenticateToken, async (r
     }
 
     const { chat_id } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Проверяем доступ к чату
     const { data: chat } = await supabase
@@ -884,7 +871,7 @@ router.get('/stickers', authenticateToken, async (req, res) => {
 // Добавление отзыва
 router.post('/review', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { chat_id, rating, comment } = req.body;
 
     if (!chat_id || !rating) {
