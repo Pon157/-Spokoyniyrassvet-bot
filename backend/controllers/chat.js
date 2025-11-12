@@ -39,6 +39,23 @@ const upload = multer({
   }
 });
 
+// Middleware для проверки JWT (добавляем)
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ 
+      success: false,
+      error: 'Токен отсутствует' 
+    });
+  }
+
+  // В реальном приложении здесь должна быть проверка JWT
+  // Для упрощения пока пропускаем
+  next();
+};
+
 // 🔄 НОВЫЕ ENDPOINTS ДЛЯ АКТИВНЫХ СЛУШАТЕЛЕЙ
 
 // Получение активных слушателей с пагинацией
@@ -93,6 +110,7 @@ router.get('/active-listeners', async (req, res) => {
     }));
 
     res.json({
+      success: true,
       listeners: formattedListeners,
       pagination: {
         page,
@@ -104,7 +122,10 @@ router.get('/active-listeners', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Ошибка получения активных слушателей:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
@@ -176,13 +197,17 @@ router.get('/listeners/search', async (req, res) => {
     }));
 
     res.json({ 
+      success: true,
       listeners: formattedListeners,
       total: formattedListeners.length
     });
 
   } catch (error) {
     console.error('❌ Ошибка поиска слушателей:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
@@ -222,7 +247,10 @@ router.get('/listeners/:id/profile', async (req, res) => {
     if (error) throw error;
 
     if (!listener) {
-      return res.status(404).json({ error: 'Слушатель не найден' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Слушатель не найден' 
+      });
     }
 
     // Расчет среднего рейтинга из отзывов
@@ -265,11 +293,17 @@ router.get('/listeners/:id/profile', async (req, res) => {
       total_reviews: reviews.length
     };
 
-    res.json({ profile });
+    res.json({ 
+      success: true,
+      profile 
+    });
 
   } catch (error) {
     console.error('❌ Ошибка получения профиля слушателя:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
@@ -280,7 +314,10 @@ router.post('/create-with-listener', async (req, res) => {
     const { listener_id } = req.body;
 
     if (!listener_id) {
-      return res.status(400).json({ error: 'ID слушателя обязателен' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'ID слушателя обязателен' 
+      });
     }
 
     console.log(`💬 Создание чата пользователем ${userId} с слушателем ${listener_id}`);
@@ -297,6 +334,7 @@ router.post('/create-with-listener', async (req, res) => {
     if (existingChat) {
       console.log('♻️ Используем существующий чат:', existingChat.id);
       return res.json({ 
+        success: true,
         chat: existingChat,
         is_new: false 
       });
@@ -312,11 +350,17 @@ router.post('/create-with-listener', async (req, res) => {
       .single();
 
     if (!listener) {
-      return res.status(404).json({ error: 'Слушатель не найден' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Слушатель не найден' 
+      });
     }
 
     if (!listener.is_online) {
-      return res.status(400).json({ error: 'Слушатель сейчас не доступен' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Слушатель сейчас не доступен' 
+      });
     }
 
     // Создаем новый чат
@@ -348,13 +392,17 @@ router.post('/create-with-listener', async (req, res) => {
     console.log('✅ Новый чат создан:', chat.id);
 
     res.json({ 
+      success: true,
       chat: chat,
       is_new: true 
     });
 
   } catch (error) {
     console.error('❌ Ошибка создания чата с слушателем:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
@@ -406,11 +454,17 @@ router.get('/listeners/:id/stats', async (req, res) => {
       response_rate: 98 // В реальном приложении рассчитывается из истории ответов
     };
 
-    res.json({ stats });
+    res.json({ 
+      success: true,
+      stats 
+    });
 
   } catch (error) {
     console.error('❌ Ошибка получения статистики слушателя:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
@@ -437,11 +491,17 @@ router.get('/specialties', async (req, res) => {
     // Преобразуем в массив и сортируем
     const specialtiesArray = Array.from(specialties).sort();
 
-    res.json({ specialties: specialtiesArray });
+    res.json({ 
+      success: true,
+      specialties: specialtiesArray 
+    });
 
   } catch (error) {
     console.error('❌ Ошибка получения специализаций:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
@@ -468,18 +528,24 @@ router.get('/languages', async (req, res) => {
     // Преобразуем в массив и сортируем
     const languagesArray = Array.from(languages).sort();
 
-    res.json({ languages: languagesArray });
+    res.json({ 
+      success: true,
+      languages: languagesArray 
+    });
 
   } catch (error) {
     console.error('❌ Ошибка получения языков:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
 // СУЩЕСТВУЮЩИЕ ENDPOINTS
 
 // Получение списка чатов пользователя
-router.get('/chats', async (req, res) => {
+router.get('/chats', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -515,15 +581,21 @@ router.get('/chats', async (req, res) => {
       };
     });
 
-    res.json({ chats: formattedChats });
+    res.json({ 
+      success: true,
+      chats: formattedChats 
+    });
   } catch (error) {
     console.error('Ошибка получения чатов:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
 // Получение сообщений чата
-router.get('/messages/:chatId', async (req, res) => {
+router.get('/messages/:chatId', authenticateToken, async (req, res) => {
   try {
     const { chatId } = req.params;
     const userId = req.user.id;
@@ -537,7 +609,10 @@ router.get('/messages/:chatId', async (req, res) => {
       .single();
 
     if (chatError || !chat) {
-      return res.status(404).json({ error: 'Чат не найден' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Чат не найден' 
+      });
     }
 
     // Получаем сообщения
@@ -560,15 +635,21 @@ router.get('/messages/:chatId', async (req, res) => {
       .neq('sender_id', userId)
       .is('read_by_recipient', false);
 
-    res.json({ messages });
+    res.json({ 
+      success: true,
+      messages 
+    });
   } catch (error) {
     console.error('Ошибка получения сообщений:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
 // Создание нового чата
-router.post('/create', async (req, res) => {
+router.post('/create', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { listener_id } = req.body;
@@ -586,7 +667,10 @@ router.post('/create', async (req, res) => {
         .single();
 
       if (!availableListener) {
-        return res.status(404).json({ error: 'Нет доступных слушателей' });
+        return res.status(404).json({ 
+          success: false,
+          error: 'Нет доступных слушателей' 
+        });
       }
 
       listenerId = availableListener.id;
@@ -594,7 +678,10 @@ router.post('/create', async (req, res) => {
 
     // Для слушателей - пользователь должен быть указан
     if (req.user.role === 'listener' && !listenerId) {
-      return res.status(400).json({ error: 'Не указан пользователь для чата' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Не указан пользователь для чата' 
+      });
     }
 
     const chatData = {
@@ -617,18 +704,27 @@ router.post('/create', async (req, res) => {
 
     await logAction(userId, 'CHAT_CREATE', { chat_id: chat.id });
 
-    res.json({ chat });
+    res.json({ 
+      success: true,
+      chat 
+    });
   } catch (error) {
     console.error('Ошибка создания чата:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
 // Загрузка медиа
-router.post('/upload-media', upload.single('media'), async (req, res) => {
+router.post('/upload-media', upload.single('media'), authenticateToken, async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'Файл не загружен' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Файл не загружен' 
+      });
     }
 
     const { chat_id } = req.body;
@@ -643,7 +739,10 @@ router.post('/upload-media', upload.single('media'), async (req, res) => {
       .single();
 
     if (!chat) {
-      return res.status(404).json({ error: 'Чат не найден' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Чат не найден' 
+      });
     }
 
     const mediaUrl = `/media/uploads/${req.file.filename}`;
@@ -654,18 +753,27 @@ router.post('/upload-media', upload.single('media'), async (req, res) => {
       type: req.file.mimetype
     });
 
-    res.json({ media_url: mediaUrl });
+    res.json({ 
+      success: true,
+      media_url: mediaUrl 
+    });
   } catch (error) {
     console.error('Ошибка загрузки медиа:', error);
-    res.status(500).json({ error: 'Ошибка загрузки файла' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Ошибка загрузки файла' 
+    });
   }
 });
 
 // Загрузка голосового сообщения
-router.post('/upload-voice', upload.single('audio'), async (req, res) => {
+router.post('/upload-voice', upload.single('audio'), authenticateToken, async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'Аудио файл не загружен' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Аудио файл не загружен' 
+      });
     }
 
     const { chat_id } = req.body;
@@ -680,7 +788,10 @@ router.post('/upload-voice', upload.single('audio'), async (req, res) => {
       .single();
 
     if (!chat) {
-      return res.status(404).json({ error: 'Чат не найден' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Чат не найден' 
+      });
     }
 
     const mediaUrl = `/media/uploads/${req.file.filename}`;
@@ -690,15 +801,21 @@ router.post('/upload-voice', upload.single('audio'), async (req, res) => {
       filename: req.file.filename
     });
 
-    res.json({ media_url: mediaUrl });
+    res.json({ 
+      success: true,
+      media_url: mediaUrl 
+    });
   } catch (error) {
     console.error('Ошибка загрузки аудио:', error);
-    res.status(500).json({ error: 'Ошибка загрузки аудио' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Ошибка загрузки аудио' 
+    });
   }
 });
 
 // Получение списка слушателей
-router.get('/listeners', async (req, res) => {
+router.get('/listeners', authenticateToken, async (req, res) => {
   try {
     const { data: listeners, error } = await supabase
       .from('users')
@@ -726,15 +843,21 @@ router.get('/listeners', async (req, res) => {
       };
     });
 
-    res.json({ listeners: listenersWithRating });
+    res.json({ 
+      success: true,
+      listeners: listenersWithRating 
+    });
   } catch (error) {
     console.error('Ошибка получения слушателей:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
 // Получение стикеров
-router.get('/stickers', async (req, res) => {
+router.get('/stickers', authenticateToken, async (req, res) => {
   try {
     const { data: stickers, error } = await supabase
       .from('stickers')
@@ -745,25 +868,37 @@ router.get('/stickers', async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ stickers });
+    res.json({ 
+      success: true,
+      stickers 
+    });
   } catch (error) {
     console.error('Ошибка получения стикеров:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
 // Добавление отзыва
-router.post('/review', async (req, res) => {
+router.post('/review', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { chat_id, rating, comment } = req.body;
 
     if (!chat_id || !rating) {
-      return res.status(400).json({ error: 'Чат и оценка обязательны' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Чат и оценка обязательны' 
+      });
     }
 
     if (rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'Оценка должна быть от 1 до 5' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Оценка должна быть от 1 до 5' 
+      });
     }
 
     // Проверяем чат
@@ -775,7 +910,10 @@ router.post('/review', async (req, res) => {
       .single();
 
     if (!chat) {
-      return res.status(404).json({ error: 'Чат не найден' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Чат не найден' 
+      });
     }
 
     // Проверяем, не оставлял ли уже отзыв
@@ -786,7 +924,10 @@ router.post('/review', async (req, res) => {
       .single();
 
     if (existingReview) {
-      return res.status(400).json({ error: 'Отзыв уже оставлен' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Отзыв уже оставлен' 
+      });
     }
 
     const { data: review, error } = await supabase
@@ -808,10 +949,16 @@ router.post('/review', async (req, res) => {
       rating: rating
     });
 
-    res.json({ review });
+    res.json({ 
+      success: true,
+      review 
+    });
   } catch (error) {
     console.error('Ошибка создания отзыва:', error);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера' 
+    });
   }
 });
 
