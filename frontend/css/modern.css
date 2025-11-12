@@ -1070,3 +1070,213 @@ body::before {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(102, 126, 234, 0.5);
 }
+
+/* Увеличиваем поле ввода сообщения */
+.message-input-container {
+    display: flex;
+    align-items: flex-end;
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    gap: 16px;
+}
+
+.message-input-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    transition: var(--transition);
+    min-height: 60px;
+    max-height: 150px;
+}
+
+.message-input-wrapper:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.message-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    min-height: 24px;
+    max-height: 100px;
+    padding: 0;
+}
+
+.message-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Убираем кнопки видео/аудио вызовов */
+.chat-actions .btn-icon:not(.btn-send) {
+    display: none !important;
+}
+
+/* Кнопка отправки */
+.btn-send {
+    width: 50px;
+    height: 50px;
+    border: none;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.btn-send:hover:not(:disabled) {
+    background: var(--primary-dark);
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-send:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.btn-send:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Стили для эмодзи и вложений (если нужно оставить) */
+.message-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-emoji, .btn-attach {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.btn-emoji:hover, .btn-attach:hover {
+    background: rgba(102, 126, 234, 0.1);
+    color: var(--primary-color);
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .message-input-container {
+        padding: 15px 20px;
+        gap: 12px;
+    }
+    
+    .message-input-wrapper {
+        padding: 12px 16px;
+        min-height: 50px;
+        max-height: 120px;
+    }
+    
+    .message-input {
+        font-size: 15px;
+    }
+    
+    .btn-send {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .btn-emoji, .btn-attach {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+/* Стили для пустого состояния */
+.no-chats, .no-listeners {
+    text-align: center;
+    padding: 60px 40px;
+    color: var(--text-secondary);
+}
+
+.no-chats i, .no-listeners i {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.no-chats h3, .no-listeners h3 {
+    font-size: 20px;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+}
+
+.no-chats p, .no-listeners p {
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+/* Анимация появления поля ввода */
+@keyframes inputExpand {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-input-container {
+    animation: inputExpand 0.4s ease-out;
+}
+
+/* Кастомный скроллбар для textarea */
+.message-input::-webkit-scrollbar {
+    width: 4px;
+}
+
+.message-input::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.message-input::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.3);
+    border-radius: 2px;
+}
+
+.message-input::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 126, 234, 0.5);
+}
+
+/* Плавное изменение высоты textarea */
+.message-input {
+    transition: height 0.2s ease;
+}
+
+/* Стили для активного чата */
+.chat-container.active .message-input-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(30px);
+}
