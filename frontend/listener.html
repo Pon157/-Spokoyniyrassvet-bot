@@ -6,18 +6,8 @@
     <title>Слушатель - Спокойный рассвет</title>
     <link rel="stylesheet" href="/css/listener.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- Overlay загрузки -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">
-            <div>Загрузка приложения...</div>
-            <div style="font-size: 14px; margin-top: 5px;">Пожалуйста, подождите</div>
-        </div>
-    </div>
-
     <div class="listener-app">
         <!-- Боковая панель -->
         <aside class="sidebar">
@@ -74,7 +64,7 @@
                     <img src="/images/default-avatar.svg" alt="Аватар" id="userAvatar" onerror="this.src='/images/default-avatar.svg'">
                 </div>
                 <div class="user-info">
-                    <div class="user-name" id="userName">Загрузка...</div>
+                    <div class="user-name" id="userName">Слушатель</div>
                     <div class="user-stats">
                         <span class="stat" id="userRating"><i class="fas fa-star"></i> 0.0</span>
                         <span class="stat" id="userSessions"><i class="fas fa-comment"></i> 0</span>
@@ -169,12 +159,9 @@
                         <div class="recent-activity">
                             <h3>Недавняя активность</h3>
                             <div class="activity-list" id="recentActivity">
-                                <div class="activity-item">
-                                    <div class="activity-icon"><i class="fas fa-comments"></i></div>
-                                    <div class="activity-content">
-                                        <div class="activity-text">Загрузка активности...</div>
-                                        <div class="activity-time">Только что</div>
-                                    </div>
+                                <div class="empty-state">
+                                    <i class="fas fa-info-circle"></i>
+                                    <p>Активность отсутствует</p>
                                 </div>
                             </div>
                         </div>
@@ -197,8 +184,8 @@
                             <div class="chats-list" id="chatsList">
                                 <div class="empty-state">
                                     <i class="fas fa-comments"></i>
-                                    <h3>Загрузка чатов...</h3>
-                                    <p>Пожалуйста, подождите</p>
+                                    <h3>Нет активных чатов</h3>
+                                    <p>Когда пользователи начнут с вами чат, они появятся здесь</p>
                                 </div>
                             </div>
                         </div>
@@ -248,17 +235,13 @@
                                     <div class="stat-value" id="reviewsTotal">0</div>
                                     <div class="stat-label">Всего отзывов</div>
                                 </div>
-                                <div class="review-stat-card">
-                                    <div class="stat-value" id="reviewsHelpfulness">0%</div>
-                                    <div class="stat-label">Полезность</div>
-                                </div>
                             </div>
                         </div>
                         <div class="reviews-list" id="reviewsList">
                             <div class="empty-state">
                                 <i class="fas fa-star"></i>
-                                <h3>Загрузка отзывов...</h3>
-                                <p>Пожалуйста, подождите</p>
+                                <h3>Пока нет отзывов</h3>
+                                <p>Отзывы от пользователей появятся здесь после завершения чатов</p>
                             </div>
                         </div>
                     </div>
@@ -296,10 +279,6 @@
                                         <span class="stat-name">Среднее время сессии:</span>
                                         <span class="stat-value" id="statAvgSessionTime">0 мин</span>
                                     </div>
-                                    <div class="stat-item">
-                                        <span class="stat-name">Общее время консультаций:</span>
-                                        <span class="stat-value" id="statTotalTime">0 ч</span>
-                                    </div>
                                 </div>
                             </div>
 
@@ -311,8 +290,7 @@
                                     <div class="activity-chart" id="detailedActivityChart">
                                         <div class="empty-state">
                                             <i class="fas fa-chart-bar"></i>
-                                            <h3>Загрузка графика...</h3>
-                                            <p>Пожалуйста, подождите</p>
+                                            <p>Данные активности отсутствуют</p>
                                         </div>
                                     </div>
                                 </div>
@@ -326,8 +304,7 @@
                                     <div class="rating-distribution" id="ratingDistribution">
                                         <div class="empty-state">
                                             <i class="fas fa-star"></i>
-                                            <h3>Загрузка рейтингов...</h3>
-                                            <p>Пожалуйста, подождите</p>
+                                            <p>Данные рейтингов отсутствуют</p>
                                         </div>
                                     </div>
                                 </div>
