@@ -1,4 +1,4 @@
-// listener.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// listener.js - ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 class ListenerApp {
     constructor() {
         this.socket = null;
@@ -13,14 +13,26 @@ class ListenerApp {
     }
 
     init() {
+        // Автоматически скрываем загрузку через 3 секунды на всякий случай
+        setTimeout(() => {
+            this.hideLoadingOverlay();
+        }, 3000);
+        
         this.checkAuthAndLoad();
+    }
+
+    hideLoadingOverlay() {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+            console.log('✅ Loading overlay скрыт');
+        }
     }
 
     async checkAuthAndLoad() {
         try {
             console.log('🔐 Проверка аутентификации...');
             
-            // Проверяем токен
             const token = localStorage.getItem('auth_token');
             if (!token) {
                 console.log('❌ Токен не найден, перенаправление на вход');
@@ -28,7 +40,6 @@ class ListenerApp {
                 return;
             }
 
-            // Проверяем валидность токена
             const userData = localStorage.getItem('user_data');
             if (!userData) {
                 console.log('❌ Данные пользователя не найдены');
@@ -36,10 +47,8 @@ class ListenerApp {
                 return;
             }
 
-            // Парсим данные пользователя
             this.currentUser = JSON.parse(userData);
             
-            // Проверяем роль
             if (this.currentUser.role !== 'listener') {
                 console.log('❌ Недостаточно прав: требуется роль listener');
                 this.redirectToLogin();
@@ -48,11 +57,14 @@ class ListenerApp {
 
             console.log('✅ Пользователь аутентифицирован:', this.currentUser.username);
             
-            // Инициализируем интерфейс
+            // Скрываем loading overlay
+            this.hideLoadingOverlay();
+            
             this.initializeInterface();
             
         } catch (error) {
             console.error('❌ Ошибка проверки аутентификации:', error);
+            this.hideLoadingOverlay();
             this.redirectToLogin();
         }
     }
@@ -86,7 +98,6 @@ class ListenerApp {
     updateUserInterface() {
         console.log('👤 Обновление интерфейса пользователя');
         
-        // Обновляем информацию пользователя
         const userNameElement = document.getElementById('userName');
         const userAvatarElement = document.getElementById('userAvatar');
         const userRatingElement = document.getElementById('userRating');
@@ -112,14 +123,12 @@ class ListenerApp {
             userSessionsElement.textContent = `💬 ${this.currentUser.total_sessions || '0'}`;
         }
 
-        // Обновляем статус онлайн
         this.updateStatusUI(this.isOnline);
     }
 
     bindEvents() {
         console.log('🎯 Привязка событий...');
 
-        // Навигация по вкладкам
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -131,7 +140,6 @@ class ListenerApp {
             });
         });
 
-        // Быстрые действия на дашборде
         const quickChatsBtn = document.getElementById('quickChats');
         const quickListenersBtn = document.getElementById('quickListenersChat');
         const quickStatsBtn = document.getElementById('quickStats');
@@ -142,7 +150,6 @@ class ListenerApp {
         if (quickStatsBtn) quickStatsBtn.addEventListener('click', () => this.switchTab('statistics'));
         if (quickReviewsBtn) quickReviewsBtn.addEventListener('click', () => this.switchTab('reviews'));
 
-        // Переключатель онлайн статуса
         const onlineToggle = document.getElementById('onlineToggle');
         if (onlineToggle) {
             onlineToggle.checked = this.isOnline;
@@ -152,7 +159,6 @@ class ListenerApp {
             });
         }
 
-        // Кнопки в хедере
         const refreshBtn = document.getElementById('refreshBtn');
         const notificationsBtn = document.getElementById('notificationsBtn');
         const settingsBtn = document.getElementById('settingsBtn');
@@ -161,13 +167,11 @@ class ListenerApp {
         if (notificationsBtn) notificationsBtn.addEventListener('click', () => this.showNotifications());
         if (settingsBtn) settingsBtn.addEventListener('click', () => this.showSettings());
 
-        // Кнопка обновления чатов
         const refreshChatsBtn = document.getElementById('refreshChatsBtn');
         if (refreshChatsBtn) {
             refreshChatsBtn.addEventListener('click', () => this.loadChats());
         }
 
-        // Чат слушателей
         const chatInput = document.getElementById('listenersChatInput');
         const sendButton = document.getElementById('sendListenersMessage');
         
@@ -180,7 +184,6 @@ class ListenerApp {
             });
         }
 
-        // Период статистики
         const statsPeriod = document.getElementById('statsPeriod');
         if (statsPeriod) {
             statsPeriod.addEventListener('change', () => {
@@ -189,7 +192,6 @@ class ListenerApp {
             });
         }
 
-        // Кнопка выхода (если есть в HTML)
         const logoutBtn = document.querySelector('.logout-btn');
         if (logoutBtn) {
             logoutBtn.addEventListener('click', (e) => {
@@ -204,7 +206,6 @@ class ListenerApp {
     switchTab(tabName) {
         console.log('📑 Переключение на вкладку:', tabName);
         
-        // Обновляем навигацию
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
@@ -214,18 +215,15 @@ class ListenerApp {
             activeNavItem.classList.add('active');
         }
 
-        // Скрываем все вкладки
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
 
-        // Показываем целевую вкладку
         const targetTab = document.getElementById(`${tabName}Tab`);
         if (targetTab) {
             targetTab.classList.add('active');
         }
 
-        // Обновляем заголовок
         const pageTitle = document.getElementById('pageTitle');
         if (pageTitle) {
             const titles = {
@@ -240,7 +238,6 @@ class ListenerApp {
 
         this.currentTab = tabName;
 
-        // Загружаем данные для вкладки
         switch(tabName) {
             case 'dashboard':
                 this.loadDashboardData();
@@ -264,7 +261,6 @@ class ListenerApp {
         try {
             console.log('📊 Загрузка данных дашборда...');
             
-            // Имитация загрузки данных с сервера
             const mockData = {
                 activeChats: 3,
                 averageRating: 4.8,
@@ -351,7 +347,6 @@ class ListenerApp {
         try {
             console.log('💬 Загрузка чатов...');
             
-            // Имитация загрузки чатов
             const mockChats = [
                 {
                     id: 1,
@@ -432,7 +427,6 @@ class ListenerApp {
             </div>
         `).join('');
 
-        // Добавляем обработчики событий для чатов
         chatsList.querySelectorAll('.chat-item').forEach(item => {
             item.addEventListener('click', () => {
                 const chatId = item.dataset.chatId;
@@ -440,7 +434,6 @@ class ListenerApp {
             });
         });
 
-        // Обновляем бейджи
         const totalUnread = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
         this.updateChatsBadge(totalUnread);
     }
@@ -456,9 +449,6 @@ class ListenerApp {
         console.log('💬 Открытие чата:', chatId);
         this.activeChatId = chatId;
         this.showNotification(`Чат #${chatId} открыт`, 'success');
-        
-        // Здесь можно добавить логику открытия модального окна чата
-        // this.openChatModal(chatId);
     }
 
     updateChatsBadge(count) {
@@ -502,7 +492,6 @@ class ListenerApp {
         try {
             console.log('👥 Загрузка чата слушателей...');
             
-            // Имитация загрузки онлайн слушателей
             const mockListeners = [
                 { id: 1, username: 'Мария', is_online: true },
                 { id: 2, username: 'Алексей', is_online: true },
@@ -534,7 +523,6 @@ class ListenerApp {
         try {
             console.log('📨 Загрузка истории чата...');
             
-            // Имитация истории сообщений
             const mockMessages = [
                 {
                     id: 1,
@@ -601,13 +589,11 @@ class ListenerApp {
         const messagesContainer = document.getElementById('listenersChatMessages');
         if (!messagesContainer) return;
 
-        // Убираем приветственное сообщение
         const welcomeMessage = messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) {
             welcomeMessage.remove();
         }
 
-        // Временно добавляем сообщение
         const tempMessage = {
             id: 'temp_' + Date.now(),
             content: message,
@@ -620,16 +606,13 @@ class ListenerApp {
         this.addMessageToChat(tempMessage);
 
         try {
-            // Имитация отправки на сервер
             setTimeout(() => {
                 console.log('✅ Сообщение отправлено (имитация)');
                 
-                // Если есть WebSocket соединение, отправляем через него
                 if (this.socket) {
                     this.socket.emit('send_listeners_message', tempMessage);
                 }
                 
-                // Убираем временный ID
                 const messageElement = messagesContainer.querySelector(`[data-message-id="${tempMessage.id}"]`);
                 if (messageElement) {
                     messageElement.setAttribute('data-message-id', 'sent_' + Date.now());
@@ -640,7 +623,6 @@ class ListenerApp {
             console.error('❌ Ошибка отправки сообщения:', error);
             this.showNotification('Ошибка отправки сообщения', 'error');
             
-            // Удаляем временное сообщение
             const messageElement = messagesContainer.querySelector(`[data-message-id="${tempMessage.id}"]`);
             if (messageElement) {
                 messageElement.remove();
@@ -677,7 +659,6 @@ class ListenerApp {
         try {
             console.log('⭐ Загрузка отзывов...');
             
-            // Имитация загрузки отзывов
             const mockReviews = {
                 averageRating: 4.8,
                 totalReviews: 12,
@@ -771,7 +752,6 @@ class ListenerApp {
         try {
             console.log('📈 Загрузка статистики...');
             
-            // Имитация данных статистики
             const mockStats = {
                 totalSessions: 47,
                 completedChats: 45,
@@ -872,7 +852,6 @@ class ListenerApp {
             
             this.isOnline = online;
             
-            // Имитация запроса к серверу
             setTimeout(() => {
                 this.updateStatusUI(online);
                 this.showNotification(
@@ -1062,7 +1041,6 @@ class ListenerApp {
 
         container.appendChild(notification);
 
-        // Автоматическое скрытие
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.style.animation = 'slideOutRight 0.3s ease';
@@ -1102,12 +1080,10 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 DOM загружен, инициализация приложения слушателя');
     window.listenerApp = new ListenerApp();
     
-    // Добавляем глобальный обработчик ошибок
     window.addEventListener('error', function(e) {
         console.error('🚨 Глобальная ошибка:', e.error);
     });
     
-    // Добавляем обработчик для кнопки выхода в HTML
     const logoutBtn = document.querySelector('.logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function(e) {
@@ -1118,75 +1094,3 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-// В начале класса ListenerApp добавьте метод hideLoadingOverlay
-hideLoadingOverlay() {
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    if (loadingOverlay) {
-        loadingOverlay.style.display = 'none';
-        console.log('✅ Loading overlay скрыт');
-    }
-}
-
-// В методе checkAuthAndLoad после успешной аутентификации добавьте:
-async checkAuthAndLoad() {
-    try {
-        console.log('🔐 Проверка аутентификации...');
-        
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-            console.log('❌ Токен не найден, перенаправление на вход');
-            this.redirectToLogin();
-            return;
-        }
-
-        const userData = localStorage.getItem('user_data');
-        if (!userData) {
-            console.log('❌ Данные пользователя не найдены');
-            this.redirectToLogin();
-            return;
-        }
-
-        this.currentUser = JSON.parse(userData);
-        
-        if (this.currentUser.role !== 'listener') {
-            console.log('❌ Недостаточно прав: требуется роль listener');
-            this.redirectToLogin();
-            return;
-        }
-
-        console.log('✅ Пользователь аутентифицирован:', this.currentUser.username);
-        
-        // Скрываем loading overlay ДО инициализации интерфейса
-        this.hideLoadingOverlay();
-        
-        this.initializeInterface();
-        
-    } catch (error) {
-        console.error('❌ Ошибка проверки аутентификации:', error);
-        this.hideLoadingOverlay(); // Скрываем даже при ошибке
-        this.redirectToLogin();
-    }
-}
-
-// Также добавьте в метод initializeInterface:
-initializeInterface() {
-    if (this.isInitialized) {
-        console.log('⚠️ Интерфейс уже инициализирован');
-        return;
-    }
-
-    console.log('🎨 Инициализация интерфейса...');
-    
-    this.updateUserInterface();
-    this.bindEvents();
-    this.setupSocketConnection();
-    this.loadDashboardData();
-    
-    this.isInitialized = true;
-    console.log('✅ Интерфейс успешно инициализирован');
-    
-    // Дублируем скрытие на всякий случай
-    setTimeout(() => {
-        this.hideLoadingOverlay();
-    }, 1000);
-}
