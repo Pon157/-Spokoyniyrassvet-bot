@@ -6,6 +6,23 @@
     <title>Слушатель - Спокойный рассвет</title>
     <link rel="stylesheet" href="/css/listener.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Скрываем все элементы загрузки */
+        .loading-overlay,
+        .loading-spinner,
+        .loading-text,
+        [class*="loading"],
+        [class*="loader"],
+        [class*="spinner"] {
+            display: none !important;
+        }
+        
+        /* Убедимся, что основное приложение видно */
+        .listener-app {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+    </style>
 </head>
 <body>
     <div class="listener-app">
