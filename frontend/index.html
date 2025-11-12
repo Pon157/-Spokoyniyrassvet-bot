@@ -8,6 +8,58 @@
     <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Стили для уведомлений */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            max-width: 400px;
+            z-index: 10000;
+            animation: slideInRight 0.3s ease;
+            border-left: 4px solid #ff7e5f;
+        }
+        .notification.success {
+            border-left-color: #10b981;
+        }
+        .notification.error {
+            border-left-color: #ef4444;
+        }
+        .notification.warning {
+            border-left-color: #f59e0b;
+        }
+        .notification-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    </style>
 </head>
 <body>
     <div class="auth-background">
@@ -222,6 +274,459 @@
     <!-- Уведомления -->
     <div id="notificationsContainer"></div>
 
-    <script src="js/auth.js"></script>
+    <script>
+        console.log('🚀 Инициализация системы аутентификации...');
+
+        // Простой менеджер аутентификации
+        class AuthManager {
+            constructor() {
+                this.currentForm = 'login';
+                this.init();
+            }
+
+            init() {
+                console.log('🎯 Настройка обработчиков событий...');
+                this.setupEventListeners();
+                this.setupPasswordToggles();
+                this.setupTermsModal();
+                this.checkExistingAuth();
+            }
+
+            setupEventListeners() {
+                // Переключение между входом и регистрацией
+                const switchBtn = document.getElementById('switchBtn');
+                if (switchBtn) {
+                    switchBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.switchForm();
+                    });
+                }
+
+                // Забыли пароль
+                const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+                if (forgotPasswordLink) {
+                    forgotPasswordLink.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.showForm('forgot');
+                    });
+                }
+
+                // Назад к входу
+                const backToLogin = document.getElementById('backToLogin');
+                if (backToLogin) {
+                    backToLogin.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.showForm('login');
+                    });
+                }
+
+                // Обработчики форм
+                const loginForm = document.getElementById('loginForm');
+                const registerForm = document.getElementById('registerForm');
+                const forgotForm = document.getElementById('forgotPasswordForm');
+
+                if (loginForm) {
+                    loginForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.handleLogin();
+                    });
+                }
+
+                if (registerForm) {
+                    registerForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.handleRegister();
+                    });
+                }
+
+                if (forgotForm) {
+                    forgotForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.handleForgotPassword();
+                    });
+                }
+
+                console.log('✅ Все обработчики настроены');
+            }
+
+            switchForm() {
+                if (this.currentForm === 'login') {
+                    this.showForm('register');
+                } else {
+                    this.showForm('login');
+                }
+            }
+
+            showForm(formName) {
+                console.log('🔄 Переключение на форму:', formName);
+                
+                // Скрываем все формы
+                document.querySelectorAll('.auth-form').forEach(form => {
+                    form.classList.remove('active');
+                });
+
+                // Показываем нужную форму
+                const targetForm = document.getElementById(formName + 'Form');
+                if (targetForm) {
+                    targetForm.classList.add('active');
+                }
+
+                // Обновляем UI
+                const switchBtn = document.getElementById('switchBtn');
+                const switchText = document.getElementById('switchText');
+                const authSwitch = document.querySelector('.auth-switch');
+
+                if (formName === 'login') {
+                    if (switchText) switchText.textContent = 'Нет аккаунта?';
+                    if (switchBtn) switchBtn.textContent = 'Создать аккаунт';
+                    this.currentForm = 'login';
+                    if (authSwitch) authSwitch.style.display = 'block';
+                } else if (formName === 'register') {
+                    if (switchText) switchText.textContent = 'Уже есть аккаунт?';
+                    if (switchBtn) switchBtn.textContent = 'Войти';
+                    this.currentForm = 'register';
+                    if (authSwitch) authSwitch.style.display = 'block';
+                } else if (formName === 'forgot') {
+                    if (authSwitch) authSwitch.style.display = 'none';
+                }
+            }
+
+            setupPasswordToggles() {
+                const toggleLogin = document.getElementById('toggleLoginPassword');
+                const toggleRegister = document.getElementById('toggleRegisterPassword');
+
+                if (toggleLogin) {
+                    toggleLogin.addEventListener('click', () => {
+                        this.togglePasswordVisibility('loginPassword', toggleLogin);
+                    });
+                }
+
+                if (toggleRegister) {
+                    toggleRegister.addEventListener('click', () => {
+                        this.togglePasswordVisibility('registerPassword', toggleRegister);
+                    });
+                }
+            }
+
+            togglePasswordVisibility(fieldId, button) {
+                const field = document.getElementById(fieldId);
+                const icon = button.querySelector('i');
+                
+                if (field.type === 'password') {
+                    field.type = 'text';
+                    icon.className = 'fas fa-eye-slash';
+                } else {
+                    field.type = 'password';
+                    icon.className = 'fas fa-eye';
+                }
+            }
+
+            setupTermsModal() {
+                const termsLink = document.getElementById('termsLink');
+                const closeModal = document.getElementById('closeTermsModal');
+                const acceptBtn = document.getElementById('acceptTermsBtn');
+                const cancelBtn = document.getElementById('cancelTermsBtn');
+                const modalCheckbox = document.getElementById('modalAcceptTerms');
+                const modal = document.getElementById('termsModal');
+
+                if (termsLink) {
+                    termsLink.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        this.showTermsModal();
+                    });
+                }
+
+                if (closeModal) {
+                    closeModal.addEventListener('click', () => this.hideTermsModal());
+                }
+
+                if (cancelBtn) {
+                    cancelBtn.addEventListener('click', () => this.hideTermsModal());
+                }
+
+                if (modalCheckbox) {
+                    modalCheckbox.addEventListener('change', () => {
+                        const acceptBtn = document.getElementById('acceptTermsBtn');
+                        if (acceptBtn) acceptBtn.disabled = !modalCheckbox.checked;
+                    });
+                }
+
+                if (acceptBtn) {
+                    acceptBtn.addEventListener('click', () => this.acceptTerms());
+                }
+
+                if (modal) {
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) this.hideTermsModal();
+                    });
+                }
+            }
+
+            showTermsModal() {
+                const modal = document.getElementById('termsModal');
+                if (modal) {
+                    modal.classList.add('show');
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+
+            hideTermsModal() {
+                const modal = document.getElementById('termsModal');
+                if (modal) {
+                    modal.classList.remove('show');
+                    document.body.style.overflow = '';
+                }
+            }
+
+            acceptTerms() {
+                const checkbox = document.getElementById('acceptTerms');
+                if (checkbox) checkbox.checked = true;
+                this.hideTermsModal();
+                this.showNotification('Условия приняты', 'success');
+            }
+
+            async handleLogin() {
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                const loginBtn = document.getElementById('loginBtn');
+
+                if (!username || !password) {
+                    this.showNotification('Заполните все поля', 'error');
+                    return;
+                }
+
+                try {
+                    this.setLoading(loginBtn, true);
+
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        this.showNotification('Вход выполнен успешно!', 'success');
+                        
+                        localStorage.setItem('auth_token', data.token);
+                        localStorage.setItem('user_data', JSON.stringify(data.user));
+                        
+                        setTimeout(() => {
+                            window.location.href = data.redirectTo || this.getRedirectPage(data.user.role);
+                        }, 1000);
+                        
+                    } else {
+                        this.showNotification(data.error || 'Ошибка входа', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    this.showNotification('Ошибка соединения с сервером', 'error');
+                } finally {
+                    this.setLoading(loginBtn, false);
+                }
+            }
+
+            async handleRegister() {
+                const username = document.getElementById('registerUsername').value;
+                const telegram = document.getElementById('registerTelegram').value;
+                const password = document.getElementById('registerPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                const acceptTerms = document.getElementById('acceptTerms').checked;
+                const registerBtn = document.getElementById('registerBtn');
+
+                // Валидация
+                if (!username || !telegram || !password || !confirmPassword) {
+                    this.showNotification('Заполните все поля', 'error');
+                    return;
+                }
+
+                if (username.length < 2) {
+                    this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
+                    return;
+                }
+
+                if (!telegram.startsWith('@')) {
+                    this.showNotification('Telegram должен начинаться с @', 'error');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    this.showNotification('Пароль должен содержать минимум 6 символов', 'error');
+                    return;
+                }
+
+                if (password !== confirmPassword) {
+                    this.showNotification('Пароли не совпадают', 'error');
+                    return;
+                }
+
+                if (!acceptTerms) {
+                    this.showNotification('Необходимо принять условия использования', 'error');
+                    return;
+                }
+
+                try {
+                    this.setLoading(registerBtn, true);
+
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            username,
+                            telegram_username: telegram,
+                            password
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        this.showNotification('Регистрация успешна! Теперь вы можете войти.', 'success');
+                        
+                        setTimeout(() => {
+                            this.showForm('login');
+                            // Очищаем форму
+                            document.getElementById('registerUsername').value = '';
+                            document.getElementById('registerTelegram').value = '';
+                            document.getElementById('registerPassword').value = '';
+                            document.getElementById('confirmPassword').value = '';
+                            document.getElementById('acceptTerms').checked = false;
+                        }, 2000);
+                        
+                    } else {
+                        this.showNotification(data.error || 'Ошибка регистрации', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    this.showNotification('Ошибка соединения с сервером', 'error');
+                } finally {
+                    this.setLoading(registerBtn, false);
+                }
+            }
+
+            handleForgotPassword() {
+                const telegram = document.getElementById('forgotTelegram').value;
+                const forgotBtn = document.getElementById('forgotBtn');
+
+                if (!telegram || !telegram.startsWith('@')) {
+                    this.showNotification('Введите корректный Telegram username', 'error');
+                    return;
+                }
+
+                this.setLoading(forgotBtn, true);
+
+                // Имитация запроса
+                setTimeout(() => {
+                    this.showNotification(
+                        'Запрос отправлен! Ожидайте сообщение в Telegram в течение дня.',
+                        'success'
+                    );
+                    this.setLoading(forgotBtn, false);
+                    
+                    setTimeout(() => {
+                        document.getElementById('forgotTelegram').value = '';
+                        this.showForm('login');
+                    }, 2000);
+                }, 1500);
+            }
+
+            checkExistingAuth() {
+                const token = localStorage.getItem('auth_token');
+                const userData = localStorage.getItem('user_data');
+                
+                if (token && userData) {
+                    try {
+                        const user = JSON.parse(userData);
+                        console.log('🔐 Автоматический вход для:', user.username);
+                        setTimeout(() => {
+                            window.location.href = this.getRedirectPage(user.role);
+                        }, 500);
+                    } catch (error) {
+                        this.clearAuth();
+                    }
+                }
+            }
+
+            getRedirectPage(role) {
+                const routes = {
+                    'owner': '/owner.html',
+                    'admin': '/admin.html',
+                    'coowner': '/coowner.html',
+                    'listener': '/listener.html',
+                    'user': '/chat.html'
+                };
+                return routes[role] || '/chat.html';
+            }
+
+            setLoading(button, isLoading) {
+                if (!button) return;
+                
+                if (isLoading) {
+                    button.classList.add('loading');
+                    button.disabled = true;
+                } else {
+                    button.classList.remove('loading');
+                    button.disabled = false;
+                }
+            }
+
+            showNotification(message, type = 'info') {
+                const container = document.getElementById('notificationsContainer');
+                if (!container) return;
+
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.innerHTML = `
+                    <div class="notification-content">
+                        <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info'}-circle"></i>
+                        <span>${message}</span>
+                    </div>
+                    <button class="notification-close">&times;</button>
+                `;
+
+                container.appendChild(notification);
+
+                const closeBtn = notification.querySelector('.notification-close');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', () => notification.remove());
+                }
+
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.style.animation = 'slideOutRight 0.3s ease';
+                        setTimeout(() => {
+                            if (notification.parentNode) {
+                                notification.parentNode.removeChild(notification);
+                            }
+                        }, 300);
+                    }
+                }, 5000);
+            }
+
+            clearAuth() {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user_data');
+            }
+        }
+
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 DOM загружен, запуск AuthManager');
+            window.authManager = new AuthManager();
+        });
+
+        // Резервная инициализация
+        setTimeout(() => {
+            if (!window.authManager) {
+                console.log('🔄 Резервная инициализация AuthManager');
+                window.authManager = new AuthManager();
+            }
+        }, 1000);
+    </script>
 </body>
 </html>
