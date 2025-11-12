@@ -1,4 +1,4 @@
-// listener.js - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ БЕЗ ДЕМО-ДАННЫХ
+// listener.js - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ БЕЗ ЗАГРУЗКИ
 class ListenerApp {
     constructor() {
         this.socket = null;
@@ -406,7 +406,6 @@ class ListenerApp {
         console.log('💬 Открытие чата:', chatId);
         this.activeChatId = chatId;
         this.showNotification(`Чат #${chatId} открыт`, 'success');
-        // Здесь можно добавить логику для открытия окна чата
     }
 
     updateChatsBadge(count) {
@@ -474,7 +473,6 @@ class ListenerApp {
             console.log('📨 Загрузка истории чата...');
             
             // В реальном приложении здесь был бы запрос к API для получения истории сообщений
-            // Пока просто показываем приветственное сообщение
             this.renderChatHistory([]);
             
         } catch (error) {
@@ -500,7 +498,6 @@ class ListenerApp {
             return;
         }
 
-        // Отображаем сообщения если они есть
         messages.forEach(message => {
             this.addMessageToChat(message);
         });
@@ -801,65 +798,8 @@ class ListenerApp {
     setupSocketConnection() {
         console.log('🔌 Настройка Socket.io подключения...');
         
-        // Временно отключаем Socket.io чтобы избежать ошибок 502
+        // Socket.io временно отключен для избежания ошибок 502
         console.log('ℹ️ Socket.io временно отключен для избежания ошибок 502');
-        return;
-
-        // Код ниже для будущего использования когда Socket.io будет работать
-        if (typeof io !== 'undefined') {
-            try {
-                this.socket = io({
-                    auth: {
-                        token: localStorage.getItem('auth_token')
-                    },
-                    timeout: 5000,
-                    transports: ['websocket']
-                });
-                
-                this.setupSocketListeners();
-                
-            } catch (error) {
-                console.log('⚠️ Socket.io не подключен:', error.message);
-            }
-        } else {
-            console.log('ℹ️ Socket.io не доступен');
-        }
-    }
-
-    setupSocketListeners() {
-        if (!this.socket) return;
-
-        this.socket.on('connect', () => {
-            console.log('✅ Подключение к серверу установлено');
-            this.showNotification('Подключено к серверу', 'success');
-        });
-
-        this.socket.on('disconnect', (reason) => {
-            console.log('🔌 Отключение от сервера:', reason);
-            this.showNotification('Соединение с сервером потеряно', 'warning');
-        });
-
-        this.socket.on('connect_error', (error) => {
-            console.log('⚠️ Ошибка подключения Socket.io:', error.message);
-        });
-
-        this.socket.on('new_chat_request', (data) => {
-            console.log('💬 Новый запрос чата:', data);
-            this.showNotification('Новый запрос чата!', 'info');
-            this.loadChats();
-        });
-
-        this.socket.on('new_listeners_message', (data) => {
-            console.log('👥 Новое сообщение в чате слушателей:', data);
-            if (this.currentTab === 'listeners-chat') {
-                this.addMessageToChat({
-                    ...data,
-                    is_outgoing: data.sender_id === this.currentUser?.id
-                });
-            }
-        });
-
-        console.log('✅ Socket слушатели настроены');
     }
 
     formatTime(dateString) {
@@ -950,17 +890,5 @@ class ListenerApp {
 // Инициализация при загрузке DOM
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 DOM загружен, инициализация приложения слушателя');
-    
-    // Создаем экземпляр приложения
     window.listenerApp = new ListenerApp();
-    
-    // Глобальная обработка ошибок
-    window.addEventListener('error', function(e) {
-        console.error('🚨 Глобальная ошибка:', e.error);
-    });
-    
-    // Обработка необработанных промисов
-    window.addEventListener('unhandledrejection', function(e) {
-        console.error('🚨 Необработанный промис:', e.reason);
-    });
 });
