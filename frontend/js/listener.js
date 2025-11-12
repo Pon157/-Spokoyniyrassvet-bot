@@ -1,4 +1,4 @@
-// listener.js - ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ SOCKET.IO ОШИБОК
+// listener.js - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ
 class ListenerApp {
     constructor() {
         this.socket = null;
@@ -62,7 +62,7 @@ class ListenerApp {
         
         this.updateUserInterface();
         this.bindEvents();
-        this.setupSocketConnection(); // Безопасное подключение
+        this.setupSocketConnection();
         this.loadDashboardData();
         
         this.isInitialized = true;
@@ -302,22 +302,22 @@ class ListenerApp {
 
         const activities = [
             {
-                icon: '💬',
+                icon: '<i class="fas fa-comments"></i>',
                 text: `Завершен чат с пользователем`,
                 time: '2 минуты назад'
             },
             {
-                icon: '⭐',
+                icon: '<i class="fas fa-star"></i>',
                 text: `Получен новый отзыв (${stats.averageRating || 5}⭐)`,
                 time: '1 час назад'
             },
             {
-                icon: '👥',
+                icon: '<i class="fas fa-users"></i>',
                 text: 'Присоединились к общему чату',
                 time: '2 часа назад'
             },
             {
-                icon: '📊',
+                icon: '<i class="fas fa-chart-line"></i>',
                 text: `Проведено ${stats.totalSessions || 0} сессий`,
                 time: 'Сегодня'
             }
