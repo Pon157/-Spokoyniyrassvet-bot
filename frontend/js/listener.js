@@ -1,4 +1,4 @@
-// listener.js - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ
+// listener.js - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ С УДАЛЕНИЕМ ЗАГРУЗКИ
 class ListenerApp {
     constructor() {
         this.socket = null;
@@ -9,10 +9,39 @@ class ListenerApp {
         this.isInitialized = false;
         
         console.log('🎧 Инициализация приложения слушателя');
+        this.hideLoading(); // Немедленно скрываем загрузку
         this.init();
     }
 
+    // Метод для скрытия загрузки
+    hideLoading() {
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        if (loadingOverlay) {
+            loadingOverlay.classList.add('hidden');
+            // Удаляем элемент после анимации
+            setTimeout(() => {
+                if (loadingOverlay.parentNode) {
+                    loadingOverlay.parentNode.removeChild(loadingOverlay);
+                }
+            }, 300);
+        }
+        
+        // Принудительно показываем основное приложение
+        const app = document.querySelector('.listener-app');
+        if (app) {
+            app.style.opacity = '1';
+            app.style.visibility = 'visible';
+        }
+        
+        console.log('✅ Загрузка скрыта');
+    }
+
     init() {
+        // Устанавливаем таймаут - если загрузка затянется, все равно скрываем overlay
+        setTimeout(() => {
+            this.hideLoading();
+        }, 5000); // 5 секунд максимум
+        
         this.checkAuthAndLoad();
     }
 
@@ -48,6 +77,7 @@ class ListenerApp {
             
         } catch (error) {
             console.error('❌ Ошибка проверки аутентификации:', error);
+            this.hideLoading(); // Скрываем загрузку даже при ошибке
             this.redirectToLogin();
         }
     }
@@ -67,6 +97,9 @@ class ListenerApp {
         
         this.isInitialized = true;
         console.log('✅ Интерфейс успешно инициализирован');
+        
+        // Гарантированно скрываем загрузку после инициализации
+        setTimeout(() => this.hideLoading(), 1000);
     }
 
     redirectToLogin() {
@@ -1082,19 +1115,18 @@ class ListenerApp {
 // Инициализация при загрузке DOM
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 DOM загружен, инициализация приложения слушателя');
+    
+    // Немедленно скрываем любые элементы загрузки
+    const loadingElements = document.querySelectorAll('[class*="loading"], [class*="loader"]');
+    loadingElements.forEach(el => {
+        if (el.id !== 'loadingOverlay') {
+            el.style.display = 'none';
+        }
+    });
+    
     window.listenerApp = new ListenerApp();
     
     window.addEventListener('error', function(e) {
         console.error('🚨 Глобальная ошибка:', e.error);
     });
-    
-    const logoutBtn = document.querySelector('.logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (window.listenerApp) {
-                window.listenerApp.logout();
-            }
-        });
-    }
 });
