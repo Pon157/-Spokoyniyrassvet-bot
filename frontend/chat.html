@@ -6,9 +6,7 @@
     <title>Чат - Спокойный рассвет</title>
     <link rel="stylesheet" href="/css/common.css">
     <link rel="stylesheet" href="/css/modern.css">
-    <!-- ТОЛЬКО ЭТИ СКРИПТЫ -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="/js/app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
@@ -16,7 +14,7 @@
         <div class="sidebar glass-effect">
             <div class="sidebar-header">
                 <div class="user-info">
-                    <img src="images/default-avatar.svg" alt="Avatar" class="avatar" id="userAvatar">
+                    <img src="/images/default-avatar.svg" alt="Avatar" class="avatar" id="userAvatar">
                     <div class="user-details">
                         <h3 id="username">Пользователь</h3>
                         <span class="user-role" id="userRole">user</span>
@@ -78,8 +76,70 @@
                 </div>
             </div>
 
-            <!-- Остальные вкладки остаются без изменений -->
-            <!-- ... -->
+            <!-- Слушатели -->
+            <div class="tab-content" id="listenersTab">
+                <div class="listeners-container">
+                    <div class="listeners-header">
+                        <h2>🎧 Слушатели</h2>
+                        <p>Выберите слушателя для начала консультации</p>
+                    </div>
+                    <div class="listeners-filters">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="listenerSearch" placeholder="Поиск по имени или специализации...">
+                        </div>
+                        <select id="specialtyFilter" class="filter-select">
+                            <option value="all">Все специализации</option>
+                        </select>
+                        <select id="languageFilter" class="filter-select">
+                            <option value="all">Все языки</option>
+                        </select>
+                        <select id="ratingFilter" class="filter-select">
+                            <option value="0">Любой рейтинг</option>
+                            <option value="4.5">4.5+ ⭐</option>
+                            <option value="4.0">4.0+ ⭐</option>
+                            <option value="3.5">3.5+ ⭐</option>
+                        </select>
+                        <label class="toggle-offline">
+                            <input type="checkbox" id="showOfflineToggle">
+                            <span class="toggle-slider"></span>
+                            <span>Показать офлайн</span>
+                        </label>
+                        <button class="btn btn-primary" id="refreshListeners">
+                            <i class="fas fa-sync-alt"></i>
+                            Обновить
+                        </button>
+                    </div>
+                    <div class="listeners-stats" id="listenersStats">
+                        <div class="stats-info">
+                            <span id="activeListenersCount">0 слушателей онлайн</span>
+                            <span class="last-updated">Обновлено: только что</span>
+                        </div>
+                    </div>
+                    <div class="listeners-grid" id="listenersList">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <p>Загрузка слушателей...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Отзывы -->
+            <div class="tab-content" id="reviewsTab">
+                <div class="reviews-container">
+                    <h3>Мои отзывы</h3>
+                    <p>Функционал отзывов в разработке...</p>
+                </div>
+            </div>
+
+            <!-- Админ-панель -->
+            <div class="tab-content" id="adminTab">
+                <div class="admin-container">
+                    <h3>Админ-панель</h3>
+                    <p>Функционал админ-панели в разработке...</p>
+                </div>
+            </div>
         </div>
 
         <!-- Основной контент -->
@@ -103,7 +163,7 @@
             <div class="chat-container" id="chatContainer">
                 <div class="chat-header">
                     <div class="chat-partner-info">
-                        <img src="images/default-avatar.svg" alt="Avatar" class="avatar" id="partnerAvatar">
+                        <img src="/images/default-avatar.svg" alt="Avatar" class="avatar" id="partnerAvatar">
                         <div class="partner-details">
                             <h4 id="partnerName">Имя пользователя</h4>
                             <span class="status" id="partnerStatus">
@@ -269,9 +329,10 @@
     <!-- Уведомления -->
     <div id="notificationsContainer"></div>
 
+    <!-- ПОДКЛЮЧЕНИЕ СКРИПТОВ -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="js/app.js"></script>
-    <script src="js/chat.js"></script>
-    <script src="js/socket-client.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/chat.js"></script>
+    <script src="/js/socket-client.js"></script>
 </body>
 </html>
