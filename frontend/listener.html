@@ -7,9 +7,17 @@
     <link rel="stylesheet" href="/css/listener.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="/js/listener.js"></script>
 </head>
 <body>
+    <!-- Overlay загрузки -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">
+            <div>Загрузка приложения...</div>
+            <div style="font-size: 14px; margin-top: 5px;">Пожалуйста, подождите</div>
+        </div>
+    </div>
+
     <div class="listener-app">
         <!-- Боковая панель -->
         <aside class="sidebar">
@@ -334,23 +342,6 @@
     <!-- Уведомления -->
     <div class="notifications-container" id="notificationsContainer"></div>
 
-    <script>
-        // Предотвращение FOUC
-        document.addEventListener('DOMContentLoaded', function() {
-            document.body.classList.add('loaded');
-            setTimeout(() => {
-                const app = document.querySelector('.listener-app');
-                if (app) app.classList.add('loaded');
-            }, 100);
-        });
-    </script>
-    <!-- Добавьте этот код перед закрывающим </body> в listener.html -->
-<div class="loading-overlay" id="loadingOverlay">
-    <div class="loading-spinner"></div>
-    <div class="loading-text">
-        <div>Загрузка приложения...</div>
-        <div style="font-size: 14px; margin-top: 5px;">Пожалуйста, подождите</div>
-    </div>
-</div>
+    <script src="/js/listener.js"></script>
 </body>
 </html>
