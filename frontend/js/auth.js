@@ -2,23 +2,17 @@ class AuthManager {
     constructor() {
         console.log('🚀 AuthManager запущен');
         this.currentForm = 'login';
-        this.API_BASE = '/api/auth'; // Используем относительные пути
-        this.isOnline = true;
         this.init();
     }
 
     init() {
         console.log('🎯 Инициализация AuthManager');
-        this.waitForDOM()
-            .then(() => {
-                this.setupEventListeners();
-                this.checkExistingAuth();
-                this.checkServerStatus();
-            })
-            .catch(error => {
-                console.error('❌ Ошибка инициализации:', error);
-                this.showNotification('Ошибка инициализации системы', 'error');
-            });
+        this.waitForDOM().then(() => {
+            this.setupEventListeners();
+            this.checkExistingAuth();
+        }).catch(error => {
+            console.error('❌ Ошибка инициализации:', error);
+        });
     }
 
     waitForDOM() {
@@ -34,170 +28,76 @@ class AuthManager {
     setupEventListeners() {
         console.log('🎯 Настройка обработчиков событий...');
 
-        try {
-            // Основные элементы
-            const elements = {
-                switchBtn: document.getElementById('switchBtn'),
-                backToLogin: document.getElementById('backToLogin'),
-                forgotPasswordLink: document.getElementById('forgotPasswordLink'),
-                loginForm: document.getElementById('loginForm'),
-                registerForm: document.getElementById('registerForm'),
-                forgotPasswordForm: document.getElementById('forgotPasswordForm')
-            };
-
-            // Проверка наличия элементов
-            Object.entries(elements).forEach(([name, element]) => {
-                if (!element) {
-                    console.error(`❌ Элемент ${name} не найден`);
-                }
-            });
-
-            // Обработчики событий
-            if (elements.switchBtn) {
-                elements.switchBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    this.switchForm();
-                });
-            }
-
-            if (elements.backToLogin) {
-                elements.backToLogin.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    this.showForm('login');
-                });
-            }
-
-            if (elements.forgotPasswordLink) {
-                elements.forgotPasswordLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    this.showForm('forgot');
-                });
-            }
-
-            // Обработчики форм
-            if (elements.loginForm) {
-                elements.loginForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleLogin();
-                });
-            }
-
-            if (elements.registerForm) {
-                elements.registerForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleRegister();
-                });
-            }
-
-            if (elements.forgotPasswordForm) {
-                elements.forgotPasswordForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleForgotPassword();
-                });
-            }
-
-            // Дополнительные настройки
-            this.setupPasswordToggles();
-            this.setupTermsModal();
-            this.setupInputValidation();
-
-            console.log('✅ Все обработчики событий настроены');
-
-        } catch (error) {
-            console.error('❌ Ошибка настройки обработчиков:', error);
-            this.showNotification('Ошибка инициализации интерфейса', 'error');
-        }
-    }
-
-    setupInputValidation() {
-        // Валидация в реальном времени
-        const inputs = document.querySelectorAll('input[required]');
-        inputs.forEach(input => {
-            input.addEventListener('blur', () => this.validateField(input));
-            input.addEventListener('input', () => this.clearFieldError(input));
-        });
-
-        // Валидация Telegram username
-        const telegramInput = document.getElementById('registerTelegram');
-        if (telegramInput) {
-            telegramInput.addEventListener('input', (e) => {
-                const value = e.target.value;
-                if (value && !value.startsWith('@')) {
-                    e.target.value = '@' + value.replace('@', '');
-                }
-            });
-        }
-    }
-
-    validateField(field) {
-        const value = field.value.trim();
-        let isValid = true;
-        let message = '';
-
-        switch (field.type) {
-            case 'text':
-                if (field.id.includes('username') && value.length < 2) {
-                    isValid = false;
-                    message = 'Минимум 2 символа';
-                }
-                break;
-            case 'password':
-                if (value.length < 6) {
-                    isValid = false;
-                    message = 'Минимум 6 символов';
-                }
-                break;
-        }
-
-        if (!isValid) {
-            this.showFieldError(field, message);
-        }
-
-        return isValid;
-    }
-
-    showFieldError(field, message) {
-        this.clearFieldError(field);
+        // Основное переключение между входом и регистрацией
+        const switchBtn = document.getElementById('switchBtn');
+        console.log('switchBtn элемент:', switchBtn);
         
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'field-error';
-        errorDiv.textContent = message;
-        errorDiv.style.cssText = `
-            color: #ef4444;
-            font-size: 12px;
-            margin-top: 4px;
-        `;
-        
-        field.parentNode.appendChild(errorDiv);
-        field.style.borderColor = '#ef4444';
-    }
-
-    clearFieldError(field) {
-        const existingError = field.parentNode.querySelector('.field-error');
-        if (existingError) {
-            existingError.remove();
-        }
-        field.style.borderColor = '';
-    }
-
-    async checkServerStatus() {
-        try {
-            const response = await fetch('/health', {
-                method: 'GET',
-                timeout: 5000
+        if (switchBtn) {
+            switchBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('🔄 Кнопка переключения нажата');
+                this.switchForm();
             });
-            
-            if (response.ok) {
-                this.isOnline = true;
-                console.log('✅ Сервер доступен');
-            } else {
-                this.isOnline = false;
-                console.warn('⚠️ Сервер отвечает с ошибкой');
-            }
-        } catch (error) {
-            this.isOnline = false;
-            console.error('❌ Сервер недоступен:', error);
+        } else {
+            console.error('❌ switchBtn не найден');
         }
+
+        // Кнопка "Назад к входу" из формы восстановления
+        const backToLogin = document.getElementById('backToLogin');
+        if (backToLogin) {
+            backToLogin.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showForm('login');
+            });
+        }
+
+        // Ссылка "Забыли пароль?"
+        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+        if (forgotPasswordLink) {
+            forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showForm('forgot');
+            });
+        }
+
+        // Обработчики отправки форм
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+
+        console.log('loginForm элемент:', loginForm);
+        console.log('registerForm элемент:', registerForm);
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                console.log('📤 Форма входа отправлена');
+                this.handleLogin();
+            });
+        }
+
+        if (registerForm) {
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                console.log('📤 Форма регистрации отправлена');
+                this.handleRegister();
+            });
+        }
+
+        if (forgotPasswordForm) {
+            forgotPasswordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleForgotPassword();
+            });
+        }
+
+        // Переключение видимости пароля
+        this.setupPasswordToggles();
+
+        // Модальное окно условий использования
+        this.setupTermsModal();
+
+        console.log('✅ Все обработчики событий настроены');
     }
 
     switchForm() {
@@ -428,7 +328,7 @@ class AuthManager {
             return;
         }
 
-        const usernameValue = username.value.trim();
+        const usernameValue = username.value;
         const passwordValue = password.value;
 
         console.log('Введенные данные:', { username: usernameValue, password: '***' });
@@ -440,22 +340,13 @@ class AuthManager {
 
         try {
             this.setLoading(loginBtn, true);
-
-            // Проверка доступности сервера
-            if (!this.isOnline) {
-                await this.checkServerStatus();
-                if (!this.isOnline) {
-                    this.showNotification('Сервер недоступен. Проверьте подключение и запустите сервер.', 'error');
-                    return;
-                }
-            }
-
             console.log('🔄 Отправка запроса на вход...');
 
-            const response = await fetch(`${this.API_BASE}/login`, {
+            // ИСПРАВЛЕННАЯ СТРОКА - используем относительный путь
+            const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
                     username: usernameValue, 
@@ -475,13 +366,28 @@ class AuthManager {
             console.log('📨 Ответ сервера:', data);
 
             if (data.success) {
-                await this.handleSuccessfulAuth(data);
+                console.log('✅ Вход успешен:', data.user.username);
+                
+                // Сохраняем токен и данные пользователя
+                localStorage.setItem('auth_token', data.token);
+                localStorage.setItem('user_data', JSON.stringify(data.user));
+                
+                this.showNotification('Вход выполнен успешно!', 'success');
+                
+                // Перенаправляем на указанную страницу
+                setTimeout(() => {
+                    const redirectTo = this.getRedirectPageForRole(data.user.role);
+                    console.log('🎯 Перенаправление на:', redirectTo);
+                    window.location.href = redirectTo;
+                }, 1000);
+                
             } else {
-                this.handleAuthError(data.error || 'Ошибка входа');
+                console.log('❌ Ошибка входа:', data.error);
+                this.showNotification(data.error || 'Ошибка входа', 'error');
             }
         } catch (error) {
             console.error('❌ Ошибка входа:', error);
-            this.handleNetworkError(error);
+            this.showNotification('Ошибка соединения с сервером. Убедитесь, что сервер запущен.', 'error');
         } finally {
             this.setLoading(loginBtn, false);
         }
@@ -490,46 +396,78 @@ class AuthManager {
     async handleRegister() {
         console.log('👤 Обработка регистрации...');
         
-        const formData = {
-            username: document.getElementById('registerUsername')?.value.trim(),
-            telegram: document.getElementById('registerTelegram')?.value.trim(),
-            password: document.getElementById('registerPassword')?.value,
-            confirmPassword: document.getElementById('confirmPassword')?.value,
-            acceptTerms: document.getElementById('acceptTerms')?.checked
-        };
-
+        const username = document.getElementById('registerUsername');
+        const telegram = document.getElementById('registerTelegram');
+        const password = document.getElementById('registerPassword');
+        const confirmPassword = document.getElementById('confirmPassword');
+        const acceptTerms = document.getElementById('acceptTerms');
         const registerBtn = document.getElementById('registerBtn');
 
+        if (!username || !telegram || !password || !confirmPassword || !acceptTerms) {
+            console.error('❌ Не все поля регистрации найдены');
+            this.showNotification('Ошибка: не все поля найдены', 'error');
+            return;
+        }
+
+        const usernameValue = username.value;
+        const telegramValue = telegram.value;
+        const passwordValue = password.value;
+        const confirmPasswordValue = confirmPassword.value;
+        const acceptTermsValue = acceptTerms.checked;
+
+        console.log('Введенные данные:', { 
+            username: usernameValue, 
+            telegram: telegramValue,
+            password: '***',
+            confirmPassword: '***',
+            acceptTerms: acceptTermsValue
+        });
+
         // Валидация
-        const validation = this.validateRegistration(formData);
-        if (!validation.isValid) {
-            this.showNotification(validation.message, 'error');
+        if (!usernameValue || !telegramValue || !passwordValue || !confirmPasswordValue) {
+            this.showNotification('Заполните все поля', 'error');
+            return;
+        }
+
+        if (usernameValue.length < 2) {
+            this.showNotification('Имя пользователя должно содержать минимум 2 символа', 'error');
+            return;
+        }
+
+        if (!telegramValue.startsWith('@')) {
+            this.showNotification('Telegram должен начинаться с @', 'error');
+            return;
+        }
+
+        if (passwordValue.length < 6) {
+            this.showNotification('Пароль должен содержать минимум 6 символов', 'error');
+            return;
+        }
+
+        if (passwordValue !== confirmPasswordValue) {
+            this.showNotification('Пароли не совпадают', 'error');
+            return;
+        }
+
+        if (!acceptTermsValue) {
+            this.showNotification('Необходимо принять условия использования', 'error');
             return;
         }
 
         try {
             this.setLoading(registerBtn, true);
-
-            // Проверка доступности сервера
-            if (!this.isOnline) {
-                await this.checkServerStatus();
-                if (!this.isOnline) {
-                    this.showNotification('Сервер недоступен. Проверьте подключение и запустите сервер.', 'error');
-                    return;
-                }
-            }
-
             console.log('🔄 Отправка запроса на регистрацию...');
 
-            const response = await fetch(`${this.API_BASE}/register`, {
+            // ИСПРАВЛЕННАЯ СТРОКА - используем относительный путь
+            const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    username: formData.username,
-                    telegram_username: formData.telegram,
-                    password: formData.password
+                    username: usernameValue,
+                    telegram_username: telegramValue,
+                    password: passwordValue
                 })
             });
 
@@ -545,113 +483,38 @@ class AuthManager {
             console.log('📨 Ответ сервера:', data);
 
             if (data.success) {
-                await this.handleSuccessfulRegistration(data);
+                console.log('✅ Регистрация успешна:', data.user.username);
+                this.showNotification('Регистрация успешна! Теперь вы можете войти.', 'success');
+                
+                // Переключаем на форму логина
+                setTimeout(() => {
+                    this.showForm('login');
+                    
+                    // Очищаем форму регистрации
+                    document.getElementById('registerUsername').value = '';
+                    document.getElementById('registerTelegram').value = '';
+                    document.getElementById('registerPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                    document.getElementById('acceptTerms').checked = false;
+                }, 2000);
+                
             } else {
-                this.handleAuthError(data.error || 'Ошибка регистрации');
+                console.log('❌ Ошибка регистрации от сервера:', data.error);
+                this.showNotification(data.error || 'Ошибка регистрации', 'error');
             }
         } catch (error) {
             console.error('❌ Ошибка регистрации:', error);
-            this.handleNetworkError(error);
+            this.showNotification('Ошибка соединения с сервером. Убедитесь, что сервер запущен.', 'error');
         } finally {
             this.setLoading(registerBtn, false);
         }
     }
 
-    validateRegistration(formData) {
-        const { username, telegram, password, confirmPassword, acceptTerms } = formData;
-
-        if (!username || !telegram || !password || !confirmPassword) {
-            return { isValid: false, message: 'Заполните все поля' };
-        }
-
-        if (username.length < 2) {
-            return { isValid: false, message: 'Имя пользователя должно содержать минимум 2 символа' };
-        }
-
-        if (!telegram.startsWith('@')) {
-            return { isValid: false, message: 'Telegram должен начинаться с @' };
-        }
-
-        if (password.length < 6) {
-            return { isValid: false, message: 'Пароль должен содержать минимум 6 символов' };
-        }
-
-        if (password !== confirmPassword) {
-            return { isValid: false, message: 'Пароли не совпадают' };
-        }
-
-        if (!acceptTerms) {
-            return { isValid: false, message: 'Необходимо принять условия использования' };
-        }
-
-        return { isValid: true };
-    }
-
-    async handleSuccessfulAuth(data) {
-        console.log('✅ Вход успешен:', data.user.username);
-        
-        // Сохраняем данные аутентификации
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('user_data', JSON.stringify(data.user));
-        
-        this.showNotification('Вход выполнен успешно!', 'success');
-        
-        // Задержка для отображения уведомления
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Перенаправление
-        const redirectTo = data.redirectTo || this.getRedirectPageForRole(data.user.role);
-        console.log('🎯 Перенаправление на:', redirectTo);
-        window.location.href = redirectTo;
-    }
-
-    async handleSuccessfulRegistration(data) {
-        console.log('✅ Регистрация успешна:', data.user.username);
-        
-        this.showNotification('Регистрация успешна! Теперь вы можете войти.', 'success');
-        
-        // Очищаем форму и переключаем на вход
-        setTimeout(() => {
-            this.showForm('login');
-            this.clearRegistrationForm();
-        }, 2000);
-    }
-
-    clearRegistrationForm() {
-        const fields = [
-            'registerUsername',
-            'registerTelegram', 
-            'registerPassword',
-            'confirmPassword'
-        ];
-        
-        fields.forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) field.value = '';
-        });
-        
-        const acceptTerms = document.getElementById('acceptTerms');
-        if (acceptTerms) acceptTerms.checked = false;
-    }
-
-    handleAuthError(error) {
-        console.log('❌ Ошибка аутентификации:', error);
-        this.showNotification(error, 'error');
-    }
-
-    handleNetworkError(error) {
-        console.error('🌐 Ошибка сети:', error);
-        
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            this.showNotification('Ошибка соединения с сервером. Проверьте, запущен ли сервер на порту 3006.', 'error');
-        } else {
-            this.showNotification('Временные технические неполадки. Попробуйте позже.', 'error');
-        }
-    }
-
     async handleForgotPassword() {
-        const telegram = document.getElementById('forgotTelegram')?.value.trim();
+        const telegram = document.getElementById('forgotTelegram').value;
         const forgotBtn = document.getElementById('forgotBtn');
+
+        console.log('🔑 Восстановление пароля для:', telegram);
 
         if (!telegram || !telegram.startsWith('@')) {
             this.showNotification('Введите корректный Telegram username', 'error');
@@ -661,30 +524,19 @@ class AuthManager {
         try {
             this.setLoading(forgotBtn, true);
 
-            // Здесь будет реальный API вызов
-            const response = await fetch(`${this.API_BASE}/forgot-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ telegram_username: telegram })
-            });
+            // Временная реализация - имитация запроса
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-            if (response.ok) {
-                this.showNotification(
-                    'Запрос отправлен! Ожидайте сообщение в Telegram в течение дня.',
-                    'success'
-                );
+            this.showNotification(
+                'Запрос отправлен! Ожидайте сообщение в Telegram в течение дня.',
+                'success'
+            );
 
-                setTimeout(() => {
-                    if (document.getElementById('forgotTelegram')) {
-                        document.getElementById('forgotTelegram').value = '';
-                    }
-                    this.showForm('login');
-                }, 3000);
-            } else {
-                this.showNotification('Ошибка при отправке запроса', 'error');
-            }
+            // Очищаем поле и возвращаем к форме входа
+            setTimeout(() => {
+                document.getElementById('forgotTelegram').value = '';
+                this.showForm('login');
+            }, 3000);
 
         } catch (error) {
             console.error('❌ Ошибка восстановления пароля:', error);
@@ -735,7 +587,7 @@ class AuthManager {
         notification.className = `notification ${type}`;
         notification.innerHTML = `
             <div class="notification-content">
-                <i class="notification-icon ${this.getNotificationIcon(type)}"></i>
+                <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info'}-circle"></i>
                 <span>${message}</span>
             </div>
             <button class="notification-close">&times;</button>
@@ -764,16 +616,6 @@ class AuthManager {
         }, 5000);
     }
 
-    getNotificationIcon(type) {
-        const icons = {
-            'success': 'fas fa-check-circle',
-            'error': 'fas fa-exclamation-circle',
-            'warning': 'fas fa-exclamation-triangle',
-            'info': 'fas fa-info-circle'
-        };
-        return icons[type] || 'fas fa-info-circle';
-    }
-
     clearAuth() {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
@@ -784,9 +626,4 @@ class AuthManager {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 DOM загружен, инициализация AuthManager');
     window.authManager = new AuthManager();
-});
-
-// Глобальный обработчик ошибок
-window.addEventListener('error', function(e) {
-    console.error('🚨 Глобальная ошибка:', e.error);
 });
