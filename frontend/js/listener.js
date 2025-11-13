@@ -1,4 +1,4 @@
-// listener.js - ФИНАЛЬНАЯ ВЕРСИЯ БЕЗ ЗАГРУЗКИ
+// /var/www/html/js/listener.js - ПОЛНАЯ ВЕРСИЯ
 class ListenerApp {
     constructor() {
         this.socket = null;
@@ -7,6 +7,7 @@ class ListenerApp {
         this.currentTab = 'dashboard';
         this.activeChatId = null;
         this.isInitialized = false;
+        this.listenersChatMessages = [];
         
         console.log('🎧 Инициализация приложения слушателя');
         this.init();
@@ -240,6 +241,64 @@ class ListenerApp {
         }
     }
 
+    setupSocketConnection() {
+        console.log('🔌 Настройка Socket.io подключения...');
+        
+        try {
+            this.socket = io();
+            
+            this.socket.on('connect', () => {
+                console.log('✅ Socket.io подключен');
+                
+                // Аутентифицируем пользователя
+                this.socket.emit('authenticate', {
+                    userId: this.currentUser.id,
+                    username: this.currentUser.username,
+                    role: this.currentUser.role
+                });
+                
+                // Присоединяемся к комнате слушателей
+                this.socket.emit('join_listeners_room');
+            });
+
+            // Новое сообщение в общем чате слушателей
+            this.socket.on('new_listeners_message', (message) => {
+                console.log('👥 Новое сообщение в общем чате:', message);
+                this.addListenersChatMessage(message);
+            });
+
+            // Новое сообщение в личном чате
+            this.socket.on('new_message', (message) => {
+                console.log('💬 Новое сообщение в чате:', message);
+                if (this.activeChatId === message.chat_id) {
+                    this.addMessageToChat(message);
+                }
+                // Обновляем список чатов
+                this.loadChats();
+            });
+
+            // Пользователь печатает
+            this.socket.on('user_typing', (data) => {
+                this.showTypingIndicator(data.userId);
+            });
+
+            this.socket.on('user_stop_typing', (data) => {
+                this.hideTypingIndicator(data.userId);
+            });
+
+            this.socket.on('disconnect', () => {
+                console.log('❌ Socket.io отключен');
+            });
+
+            this.socket.on('connect_error', (error) => {
+                console.error('❌ Ошибка подключения Socket.io:', error);
+            });
+
+        } catch (error) {
+            console.error('❌ Ошибка настройки Socket.io:', error);
+        }
+    }
+
     async loadDashboardData() {
         try {
             console.log('📊 Загрузка данных дашборда...');
@@ -381,67 +440,40 @@ class ListenerApp {
         this.updateChatsBadge(totalUnread);
     }
 
-    escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    openChat(chatId) {
-        console.log('💬 Открытие чата:', chatId);
-        this.activeChatId = chatId;
-        this.showNotification(`Чат #${chatId} открыт`, 'success');
-    }
-
-    updateChatsBadge(count) {
-        const chatsBadge = document.getElementById('chatsBadge');
-        const globalBadge = document.getElementById('globalNotificationBadge');
-        
-        if (chatsBadge) {
-            if (count > 0) {
-                chatsBadge.textContent = count > 99 ? '99+' : count;
-                chatsBadge.classList.remove('hidden');
-            } else {
-                chatsBadge.classList.add('hidden');
-            }
-        }
-
-        if (globalBadge) {
-            if (count > 0) {
-                globalBadge.textContent = count > 99 ? '99+' : count;
-                globalBadge.classList.remove('hidden');
-            } else {
-                globalBadge.classList.add('hidden');
-            }
-        }
-    }
-
     async loadListenersChat() {
         try {
             console.log('👥 Загрузка чата слушателей...');
             
             const token = localStorage.getItem('auth_token');
-            const response = await fetch('/api/listener/online-listeners', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const [listenersResponse, messagesResponse] = await Promise.all([
+                fetch('/api/listener/online-listeners', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }),
+                fetch('/api/listener/listeners-chat-messages', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+            ]);
 
-            if (response.ok) {
-                const data = await response.json();
-                console.log(`✅ Онлайн слушателей: ${data.listeners?.length || 0}`);
+            if (listenersResponse.ok) {
+                const data = await listenersResponse.json();
                 this.updateOnlineListenersCount(data.listeners || []);
             } else {
-                console.error('❌ Ошибка загрузки онлайн слушателей:', response.status);
+                console.error('❌ Ошибка загрузки онлайн слушателей:', listenersResponse.status);
                 this.updateOnlineListenersCount([]);
             }
 
-            this.loadChatHistory();
+            if (messagesResponse.ok) {
+                const data = await messagesResponse.json();
+                this.renderListenersChatHistory(data.messages || []);
+            } else {
+                console.error('❌ Ошибка загрузки истории чата:', messagesResponse.status);
+                this.renderListenersChatHistory([]);
+            }
             
         } catch (error) {
             console.error('❌ Ошибка загрузки чата слушателей:', error);
             this.updateOnlineListenersCount([]);
+            this.renderListenersChatHistory([]);
         }
     }
 
@@ -454,19 +486,7 @@ class ListenerApp {
         }
     }
 
-    async loadChatHistory() {
-        try {
-            console.log('📨 Загрузка истории чата...');
-            
-            this.renderChatHistory([]);
-            
-        } catch (error) {
-            console.error('❌ Ошибка загрузки истории чата:', error);
-            this.renderChatHistory([]);
-        }
-    }
-
-    renderChatHistory(messages) {
+    renderListenersChatHistory(messages) {
         const messagesContainer = document.getElementById('listenersChatMessages');
         if (!messagesContainer) return;
 
@@ -484,55 +504,65 @@ class ListenerApp {
         }
 
         messages.forEach(message => {
-            this.addMessageToChat(message);
+            this.addListenersChatMessage(message, false);
         });
 
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    async sendListenersMessage() {
-        const input = document.getElementById('listenersChatInput');
-        if (!input || !input.value.trim()) {
-            console.log('⚠️ Пустое сообщение, отправка отменена');
-            return;
-        }
-
-        const message = input.value.trim();
-        console.log('📤 Отправка сообщения:', message);
-
-        try {
-            console.log('✅ Сообщение отправлено (имитация)');
-            this.showNotification('Сообщение отправлено', 'success');
-            
-        } catch (error) {
-            console.error('❌ Ошибка отправки сообщения:', error);
-            this.showNotification('Ошибка отправки сообщения', 'error');
-            return;
-        }
-
-        input.value = '';
-        input.focus();
-    }
-
-    addMessageToChat(messageData) {
+    addListenersChatMessage(messageData, scroll = true) {
         const messagesContainer = document.getElementById('listenersChatMessages');
         if (!messagesContainer) return;
 
+        const welcomeMessage = messagesContainer.querySelector('.welcome-message');
+        if (welcomeMessage) {
+            welcomeMessage.remove();
+        }
+
         const messageElement = document.createElement('div');
-        messageElement.className = `message ${messageData.is_outgoing ? 'outgoing' : 'incoming'}`;
+        const isOwnMessage = messageData.sender_id === this.currentUser.id;
+        
+        messageElement.className = `message ${isOwnMessage ? 'outgoing' : 'incoming'}`;
         messageElement.setAttribute('data-message-id', messageData.id);
         messageElement.innerHTML = `
             <div class="message-bubble">
                 <div class="message-content">${this.escapeHtml(messageData.content)}</div>
                 <div class="message-meta">
-                    <span class="message-sender">${this.escapeHtml(messageData.sender_name)}</span>
+                    <span class="message-sender">${this.escapeHtml(messageData.sender?.username || 'Слушатель')}</span>
                     <span class="message-time">${this.formatTime(messageData.created_at)}</span>
                 </div>
             </div>
         `;
 
         messagesContainer.appendChild(messageElement);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        if (scroll) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
+
+    async sendListenersMessage() {
+        const input = document.getElementById('listenersChatInput');
+        if (!input || !input.value.trim() || !this.socket) {
+            console.log('⚠️ Пустое сообщение или нет подключения');
+            return;
+        }
+
+        const message = input.value.trim();
+        console.log('📤 Отправка сообщения в общий чат:', message);
+
+        try {
+            this.socket.emit('send_listeners_message', {
+                content: message
+            });
+
+            input.value = '';
+            input.focus();
+            
+        } catch (error) {
+            console.error('❌ Ошибка отправки сообщения:', error);
+            this.showNotification('Ошибка отправки сообщения', 'error');
+        }
     }
 
     async loadReviews() {
@@ -772,9 +802,55 @@ class ListenerApp {
         this.showNotification('Настройки пока не реализованы', 'info');
     }
 
-    setupSocketConnection() {
-        console.log('🔌 Настройка Socket.io подключения...');
-        console.log('ℹ️ Socket.io временно отключен для избежания ошибок 502');
+    openChat(chatId) {
+        console.log('💬 Открытие чата:', chatId);
+        this.activeChatId = chatId;
+        this.showNotification(`Чат #${chatId} открыт`, 'success');
+    }
+
+    updateChatsBadge(count) {
+        const chatsBadge = document.getElementById('chatsBadge');
+        const globalBadge = document.getElementById('globalNotificationBadge');
+        
+        if (chatsBadge) {
+            if (count > 0) {
+                chatsBadge.textContent = count > 99 ? '99+' : count;
+                chatsBadge.classList.remove('hidden');
+            } else {
+                chatsBadge.classList.add('hidden');
+            }
+        }
+
+        if (globalBadge) {
+            if (count > 0) {
+                globalBadge.textContent = count > 99 ? '99+' : count;
+                globalBadge.classList.remove('hidden');
+            } else {
+                globalBadge.classList.add('hidden');
+            }
+        }
+    }
+
+    showTypingIndicator(userId) {
+        // Реализация индикатора набора текста
+        console.log(`✍️ Пользователь ${userId} печатает...`);
+    }
+
+    hideTypingIndicator(userId) {
+        // Скрытие индикатора набора текста
+        console.log(`✅ Пользователь ${userId} закончил печатать`);
+    }
+
+    addMessageToChat(messageData) {
+        // Добавление сообщения в личный чат
+        console.log('➕ Добавление сообщения в личный чат:', messageData);
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     formatTime(dateString) {
