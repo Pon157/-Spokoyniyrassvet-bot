@@ -1,3 +1,4 @@
+// auth.js
 class AuthManager {
     constructor() {
         console.log('🚀 AuthManager запущен');
@@ -342,7 +343,7 @@ class AuthManager {
             this.setLoading(loginBtn, true);
             console.log('🔄 Отправка запроса на вход...');
 
-            // ИСПРАВЛЕННАЯ СТРОКА - используем относительный путь
+            // ВАЖНО: используем ОТНОСИТЕЛЬНЫЙ путь
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
@@ -387,7 +388,7 @@ class AuthManager {
             }
         } catch (error) {
             console.error('❌ Ошибка входа:', error);
-            this.showNotification('Ошибка соединения с сервером. Убедитесь, что сервер запущен.', 'error');
+            this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoading(loginBtn, false);
         }
@@ -458,7 +459,7 @@ class AuthManager {
             this.setLoading(registerBtn, true);
             console.log('🔄 Отправка запроса на регистрацию...');
 
-            // ИСПРАВЛЕННАЯ СТРОКА - используем относительный путь
+            // ВАЖНО: используем ОТНОСИТЕЛЬНЫЙ путь
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
@@ -504,7 +505,7 @@ class AuthManager {
             }
         } catch (error) {
             console.error('❌ Ошибка регистрации:', error);
-            this.showNotification('Ошибка соединения с сервером. Убедитесь, что сервер запущен.', 'error');
+            this.showNotification('Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoading(registerBtn, false);
         }
@@ -626,4 +627,9 @@ class AuthManager {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 DOM загружен, инициализация AuthManager');
     window.authManager = new AuthManager();
+});
+
+// Глобальный обработчик ошибок
+window.addEventListener('error', function(e) {
+    console.error('🚨 Глобальная ошибка:', e.error);
 });
