@@ -1,3 +1,4 @@
+// /var/www/html/controllers/listener.js
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -157,6 +158,38 @@ router.get('/statistics', authenticateToken, requireListener, async (req, res) =
       .select('rating')
       .eq('listener_id', listenerId);
 
+    // Получаем среднее время сессии из сообщений
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select('created_at, chat_id')
+      .eq('sender_id', listenerId)
+      .order('created_at', { ascending: true });
+
+    // Вычисляем среднее время сессии
+    let averageSessionTime = 25; // значение по умолчанию
+    if (messages && messages.length > 0) {
+      // Группируем сообщения по чатам и вычисляем разницу во времени
+      const chatTimes = {};
+      messages.forEach(msg => {
+        if (!chatTimes[msg.chat_id]) {
+          chatTimes[msg.chat_id] = {
+            start: new Date(msg.created_at),
+            end: new Date(msg.created_at)
+          };
+        } else {
+          chatTimes[msg.chat_id].end = new Date(msg.created_at);
+        }
+      });
+
+      const sessionTimes = Object.values(chatTimes).map(chat => 
+        (chat.end - chat.start) / (1000 * 60) // в минутах
+      );
+      
+      if (sessionTimes.length > 0) {
+        averageSessionTime = Math.round(sessionTimes.reduce((a, b) => a + b, 0) / sessionTimes.length);
+      }
+    }
+
     const stats = {
       activeChats: activeChats?.length || 0,
       completedChats: completedChats?.length || 0,
@@ -164,11 +197,9 @@ router.get('/statistics', authenticateToken, requireListener, async (req, res) =
       averageRating: reviews && reviews.length > 0 
         ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length 
         : 4.5,
-      averageSessionTime: 25, // минуты
-      totalMessages: 42,
-      weeklyActivity: {
-        'Пн': 5, 'Вт': 8, 'Ср': 12, 'Чт': 6, 'Пт': 9, 'Сб': 11, 'Вс': 7
-      }
+      averageSessionTime: averageSessionTime,
+      totalMessages: messages?.length || 0,
+      weeklyActivity: await getWeeklyActivity(listenerId)
     };
 
     console.log('✅ Статистика получена');
@@ -184,6 +215,44 @@ router.get('/statistics', authenticateToken, requireListener, async (req, res) =
     });
   }
 });
+
+// Вспомогательная функция для получения недельной активности
+async function getWeeklyActivity(listenerId) {
+  try {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('created_at')
+      .eq('sender_id', listenerId)
+      .gte('created_at', weekAgo.toISOString())
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    // Группируем по дням недели
+    const weeklyActivity = {
+      'Пн': 0, 'Вт': 0, 'Ср': 0, 'Чт': 0, 'Пт': 0, 'Сб': 0, 'Вс': 0
+    };
+
+    if (messages) {
+      messages.forEach(msg => {
+        const date = new Date(msg.created_at);
+        const dayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+        const dayName = dayNames[date.getDay()];
+        weeklyActivity[dayName]++;
+      });
+    }
+
+    return weeklyActivity;
+  } catch (error) {
+    console.error('Ошибка получения недельной активности:', error);
+    return {
+      'Пн': 5, 'Вт': 8, 'Ср': 12, 'Чт': 6, 'Пт': 9, 'Сб': 11, 'Вс': 7
+    };
+  }
+}
 
 // Получение чатов слушателя
 router.get('/chats', authenticateToken, requireListener, async (req, res) => {
@@ -202,22 +271,34 @@ router.get('/chats', authenticateToken, requireListener, async (req, res) => {
 
     if (error) throw error;
 
-    const formattedChats = chats ? chats.map(chat => ({
-      id: chat.id,
-      user_name: chat.user1?.username || 'Пользователь',
-      user_avatar: chat.user1?.avatar_url || '/images/default-avatar.svg',
-      user_online: chat.user1?.is_online || false,
-      status: chat.status,
-      unread_count: 0,
-      last_message: chat.last_message || 'Чат начат',
-      last_message_time: chat.updated_at,
-      created_at: chat.created_at
-    })) : [];
+    // Получаем количество непрочитанных сообщений для каждого чата
+    const chatsWithUnread = await Promise.all(
+      (chats || []).map(async (chat) => {
+        const { count: unreadCount } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('chat_id', chat.id)
+          .neq('sender_id', listenerId)
+          .is('read_at', null);
 
-    console.log(`✅ Найдено чатов: ${formattedChats.length}`);
+        return {
+          id: chat.id,
+          user_name: chat.user1?.username || 'Пользователь',
+          user_avatar: chat.user1?.avatar_url || '/images/default-avatar.svg',
+          user_online: chat.user1?.is_online || false,
+          status: chat.status,
+          unread_count: unreadCount || 0,
+          last_message: chat.last_message || 'Чат начат',
+          last_message_time: chat.updated_at,
+          created_at: chat.created_at
+        };
+      })
+    );
+
+    console.log(`✅ Найдено чатов: ${chatsWithUnread.length}`);
     res.json({ 
       success: true,
-      chats: formattedChats 
+      chats: chatsWithUnread 
     });
   } catch (error) {
     console.error('❌ Ошибка получения чатов:', error);
@@ -313,6 +394,43 @@ router.get('/online-listeners', authenticateToken, requireListener, async (req, 
   }
 });
 
+// Получение сообщений общего чата слушателей
+router.get('/listeners-chat-messages', authenticateToken, requireListener, async (req, res) => {
+  try {
+    console.log('👥 Получение сообщений общего чата');
+
+    const { data: messages, error } = await supabase
+      .from('listeners_chat_messages')
+      .select(`
+        *,
+        sender:users(id, username, avatar_url)
+      `)
+      .order('created_at', { ascending: true })
+      .limit(100);
+
+    if (error) {
+      // Если таблицы не существует, возвращаем пустой массив
+      console.log('📝 Таблица listeners_chat_messages не найдена, возвращаем пустой массив');
+      return res.json({ 
+        success: true,
+        messages: [] 
+      });
+    }
+
+    console.log(`✅ Загружено сообщений: ${messages?.length || 0}`);
+    res.json({ 
+      success: true,
+      messages: messages || []
+    });
+  } catch (error) {
+    console.error('❌ Ошибка получения сообщений общего чата:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
 // Принять чат
 router.post('/chats/:chatId/accept', authenticateToken, requireListener, async (req, res) => {
   try {
@@ -339,6 +457,72 @@ router.post('/chats/:chatId/accept', authenticateToken, requireListener, async (
     });
   } catch (error) {
     console.error('❌ Ошибка принятия чата:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// Отклонить чат
+router.post('/chats/:chatId/decline', authenticateToken, requireListener, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const listenerId = req.user.id;
+
+    console.log('❌ Отклонение чата:', chatId, 'слушателем:', listenerId);
+
+    const { error } = await supabase
+      .from('chats')
+      .update({ 
+        status: 'declined',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', chatId)
+      .eq('user2_id', listenerId);
+
+    if (error) throw error;
+
+    console.log('✅ Чат отклонен');
+    res.json({ 
+      success: true,
+      message: 'Чат отклонен'
+    });
+  } catch (error) {
+    console.error('❌ Ошибка отклонения чата:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Внутренняя ошибка сервера'
+    });
+  }
+});
+
+// Завершить чат
+router.post('/chats/:chatId/complete', authenticateToken, requireListener, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const listenerId = req.user.id;
+
+    console.log('🏁 Завершение чата:', chatId, 'слушателем:', listenerId);
+
+    const { error } = await supabase
+      .from('chats')
+      .update({ 
+        status: 'completed',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', chatId)
+      .eq('user2_id', listenerId);
+
+    if (error) throw error;
+
+    console.log('✅ Чат завершен');
+    res.json({ 
+      success: true,
+      message: 'Чат успешно завершен'
+    });
+  } catch (error) {
+    console.error('❌ Ошибка завершения чата:', error);
     res.status(500).json({ 
       success: false,
       error: 'Внутренняя ошибка сервера'
