@@ -95,10 +95,36 @@ class AuthManager {
         // Переключение видимости пароля
         this.setupPasswordToggles();
 
+        // Анимированные инпуты
+        this.setupAnimatedInputs();
+
         // Модальное окно условий использования
         this.setupTermsModal();
 
         console.log('✅ Все обработчики событий настроены');
+    }
+
+    setupAnimatedInputs() {
+        const inputs = document.querySelectorAll('.animated-input input');
+        inputs.forEach(input => {
+            // Активируем label если в поле есть значение
+            if (input.value) {
+                input.parentElement.classList.add('filled');
+            }
+
+            input.addEventListener('focus', () => {
+                input.parentElement.classList.add('focused');
+            });
+
+            input.addEventListener('blur', () => {
+                input.parentElement.classList.remove('focused');
+                if (input.value) {
+                    input.parentElement.classList.add('filled');
+                } else {
+                    input.parentElement.classList.remove('filled');
+                }
+            });
+        });
     }
 
     switchForm() {
@@ -144,7 +170,7 @@ class AuthManager {
             
             // Показываем переключатель
             const authSwitch = document.querySelector('.auth-switch');
-            if (authSwitch) authSwitch.style.display = 'block';
+            if (authSwitch) authSwitch.style.display = 'flex';
         } else if (formName === 'register') {
             if (switchText) {
                 switchText.textContent = 'Уже есть аккаунт?';
@@ -158,7 +184,7 @@ class AuthManager {
             
             // Показываем переключатель
             const authSwitch = document.querySelector('.auth-switch');
-            if (authSwitch) authSwitch.style.display = 'block';
+            if (authSwitch) authSwitch.style.display = 'flex';
         } else if (formName === 'forgot') {
             // Скрываем переключатель для формы восстановления
             const authSwitch = document.querySelector('.auth-switch');
@@ -256,7 +282,10 @@ class AuthManager {
     showTermsModal() {
         const termsModal = document.getElementById('termsModal');
         if (termsModal) {
-            termsModal.classList.add('show');
+            termsModal.style.display = 'block';
+            setTimeout(() => {
+                termsModal.classList.add('show');
+            }, 10);
             document.body.style.overflow = 'hidden';
         }
     }
@@ -265,6 +294,9 @@ class AuthManager {
         const termsModal = document.getElementById('termsModal');
         if (termsModal) {
             termsModal.classList.remove('show');
+            setTimeout(() => {
+                termsModal.style.display = 'none';
+            }, 300);
             document.body.style.overflow = '';
         }
     }
@@ -329,7 +361,7 @@ class AuthManager {
             return;
         }
 
-        const usernameValue = username.value;
+        const usernameValue = username.value.trim();
         const passwordValue = password.value;
 
         console.log('Введенные данные:', { username: usernameValue, password: '***' });
@@ -343,7 +375,6 @@ class AuthManager {
             this.setLoading(loginBtn, true);
             console.log('🔄 Отправка запроса на вход...');
 
-            // Используем относительный путь
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
@@ -364,7 +395,13 @@ class AuthManager {
                 if (response.status === 502) {
                     throw new Error('Сервер временно недоступен. Попробуйте позже.');
                 } else {
-                    throw new Error('Ошибка сервера: ' + response.status);
+                    // Пытаемся распарсить JSON ошибки
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        throw new Error(errorData.error || 'Ошибка сервера');
+                    } catch {
+                        throw new Error('Ошибка сервера: ' + response.status);
+                    }
                 }
             }
 
@@ -415,8 +452,8 @@ class AuthManager {
             return;
         }
 
-        const usernameValue = username.value;
-        const telegramValue = telegram.value;
+        const usernameValue = username.value.trim();
+        const telegramValue = telegram.value.trim();
         const passwordValue = password.value;
         const confirmPasswordValue = confirmPassword.value;
         const acceptTermsValue = acceptTerms.checked;
@@ -464,7 +501,6 @@ class AuthManager {
             this.setLoading(registerBtn, true);
             console.log('🔄 Отправка запроса на регистрацию...');
 
-            // Используем относительный путь
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
@@ -486,7 +522,13 @@ class AuthManager {
                 if (response.status === 502) {
                     throw new Error('Сервер временно недоступен. Попробуйте позже.');
                 } else {
-                    throw new Error('Ошибка сервера: ' + response.status);
+                    // Пытаемся распарсить JSON ошибки
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        throw new Error(errorData.error || 'Ошибка сервера');
+                    } catch {
+                        throw new Error('Ошибка сервера: ' + response.status);
+                    }
                 }
             }
 
@@ -507,6 +549,9 @@ class AuthManager {
                     document.getElementById('registerPassword').value = '';
                     document.getElementById('confirmPassword').value = '';
                     document.getElementById('acceptTerms').checked = false;
+                    
+                    // Сбрасываем анимацию инпутов
+                    this.setupAnimatedInputs();
                 }, 2000);
                 
             } else {
@@ -522,7 +567,8 @@ class AuthManager {
     }
 
     async handleForgotPassword() {
-        const telegram = document.getElementById('forgotTelegram').value;
+        const telegramInput = document.getElementById('forgotTelegram');
+        const telegram = telegramInput ? telegramInput.value.trim() : '';
         const forgotBtn = document.getElementById('forgotBtn');
 
         console.log('🔑 Восстановление пароля для:', telegram);
@@ -535,7 +581,6 @@ class AuthManager {
         try {
             this.setLoading(forgotBtn, true);
 
-            // Используем относительный путь
             const response = await fetch('/api/auth/forgot-password', {
                 method: 'POST',
                 headers: {
@@ -555,7 +600,13 @@ class AuthManager {
                 if (response.status === 502) {
                     throw new Error('Сервер временно недоступен. Попробуйте позже.');
                 } else {
-                    throw new Error('Ошибка сервера: ' + response.status);
+                    // Пытаемся распарсить JSON ошибки
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        throw new Error(errorData.error || 'Ошибка сервера');
+                    } catch {
+                        throw new Error('Ошибка сервера: ' + response.status);
+                    }
                 }
             }
 
@@ -570,7 +621,7 @@ class AuthManager {
 
                 // Очищаем поле и возвращаем к форме входа
                 setTimeout(() => {
-                    document.getElementById('forgotTelegram').value = '';
+                    if (telegramInput) telegramInput.value = '';
                     this.showForm('login');
                 }, 3000);
             } else {
@@ -602,13 +653,20 @@ class AuthManager {
             return;
         }
         
+        const btnText = button.querySelector('.btn-text');
+        const btnLoader = button.querySelector('.btn-loader');
+        
         if (isLoading) {
             button.classList.add('loading');
             button.disabled = true;
+            if (btnText) btnText.style.opacity = '0';
+            if (btnLoader) btnLoader.style.display = 'block';
             console.log('🔄 Установлено состояние загрузки для кнопки:', button.id);
         } else {
             button.classList.remove('loading');
             button.disabled = false;
+            if (btnText) btnText.style.opacity = '1';
+            if (btnLoader) btnLoader.style.display = 'none';
             console.log('✅ Снято состояние загрузки для кнопки:', button.id);
         }
     }
