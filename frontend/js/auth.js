@@ -2,7 +2,8 @@ class AuthManager {
     constructor() {
         console.log('🚀 AuthManager запущен');
         this.currentForm = 'login';
-        this.API_BASE = '/api/auth'; // Базовый путь API
+        this.API_BASE = '/api/auth'; // Используем относительные пути
+        this.isOnline = true;
         this.init();
     }
 
@@ -12,7 +13,7 @@ class AuthManager {
             .then(() => {
                 this.setupEventListeners();
                 this.checkExistingAuth();
-                this.setupServiceWorker(); // Для оффлайн работы
+                this.checkServerStatus();
             })
             .catch(error => {
                 console.error('❌ Ошибка инициализации:', error);
@@ -99,7 +100,6 @@ class AuthManager {
             this.setupPasswordToggles();
             this.setupTermsModal();
             this.setupInputValidation();
-            this.setupAutoSave(); // Автосохранение данных форм
 
             console.log('✅ Все обработчики событий настроены');
 
@@ -180,35 +180,239 @@ class AuthManager {
         field.style.borderColor = '';
     }
 
-    setupAutoSave() {
-        // Автосохранение данных форм
-        const forms = ['login', 'register'];
-        forms.forEach(formName => {
-            const form = document.getElementById(`${formName}Form`);
-            if (form) {
-                const inputs = form.querySelectorAll('input');
-                inputs.forEach(input => {
-                    // Восстанавливаем сохраненные значения
-                    const savedValue = localStorage.getItem(`auth_${formName}_${input.name || input.id}`);
-                    if (savedValue && !input.type.includes('password')) {
-                        input.value = savedValue;
-                    }
-
-                    // Сохраняем при вводе
-                    input.addEventListener('input', (e) => {
-                        if (!e.target.type.includes('password')) {
-                            localStorage.setItem(`auth_${formName}_${e.target.name || e.target.id}`, e.target.value);
-                        }
-                    });
-                });
+    async checkServerStatus() {
+        try {
+            const response = await fetch('/health', {
+                method: 'GET',
+                timeout: 5000
+            });
+            
+            if (response.ok) {
+                this.isOnline = true;
+                console.log('✅ Сервер доступен');
+            } else {
+                this.isOnline = false;
+                console.warn('⚠️ Сервер отвечает с ошибкой');
             }
+        } catch (error) {
+            this.isOnline = false;
+            console.error('❌ Сервер недоступен:', error);
+        }
+    }
+
+    switchForm() {
+        console.log('🔄 Переключение формы');
+        if (this.currentForm === 'login') {
+            this.showForm('register');
+        } else {
+            this.showForm('login');
+        }
+    }
+
+    showForm(formName) {
+        console.log('🔄 Переключение на форму:', formName);
+        
+        // Скрываем все формы
+        const forms = document.querySelectorAll('.auth-form');
+        forms.forEach(form => {
+            form.classList.remove('active');
+            console.log('Скрыта форма:', form.id);
+        });
+
+        // Показываем нужную форму
+        const targetForm = document.getElementById(formName + 'Form');
+        if (targetForm) {
+            targetForm.classList.add('active');
+            console.log('Показана форма:', targetForm.id);
+        }
+
+        // Обновляем текст переключателя
+        const switchBtn = document.getElementById('switchBtn');
+        const switchText = document.getElementById('switchText');
+
+        if (formName === 'login') {
+            if (switchText) {
+                switchText.textContent = 'Нет аккаунта?';
+                console.log('Текст переключателя обновлен: Нет аккаунта?');
+            }
+            if (switchBtn) {
+                switchBtn.textContent = 'Создать аккаунт';
+                console.log('Текст кнопки обновлен: Создать аккаунт');
+            }
+            this.currentForm = 'login';
+            
+            // Показываем переключатель
+            const authSwitch = document.querySelector('.auth-switch');
+            if (authSwitch) authSwitch.style.display = 'block';
+        } else if (formName === 'register') {
+            if (switchText) {
+                switchText.textContent = 'Уже есть аккаунт?';
+                console.log('Текст переключателя обновлен: Уже есть аккаунт?');
+            }
+            if (switchBtn) {
+                switchBtn.textContent = 'Войти';
+                console.log('Текст кнопки обновлен: Войти');
+            }
+            this.currentForm = 'register';
+            
+            // Показываем переключатель
+            const authSwitch = document.querySelector('.auth-switch');
+            if (authSwitch) authSwitch.style.display = 'block';
+        } else if (formName === 'forgot') {
+            // Скрываем переключатель для формы восстановления
+            const authSwitch = document.querySelector('.auth-switch');
+            if (authSwitch) {
+                authSwitch.style.display = 'none';
+                console.log('Переключатель скрыт для формы восстановления');
+            }
+        }
+
+        this.clearErrors();
+    }
+
+    setupPasswordToggles() {
+        const toggleLogin = document.getElementById('toggleLoginPassword');
+        const toggleRegister = document.getElementById('toggleRegisterPassword');
+
+        if (toggleLogin) {
+            toggleLogin.addEventListener('click', () => {
+                this.togglePasswordVisibility('loginPassword', toggleLogin);
+            });
+        }
+
+        if (toggleRegister) {
+            toggleRegister.addEventListener('click', () => {
+                this.togglePasswordVisibility('registerPassword', toggleRegister);
+            });
+        }
+    }
+
+    togglePasswordVisibility(passwordFieldId, toggleButton) {
+        const passwordField = document.getElementById(passwordFieldId);
+        const icon = toggleButton.querySelector('i');
+        
+        if (passwordField.type === 'password') {
+            passwordField.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+        } else {
+            passwordField.type = 'password';
+            icon.className = 'fas fa-eye';
+        }
+    }
+
+    setupTermsModal() {
+        const termsLink = document.getElementById('termsLink');
+        const closeTermsModal = document.getElementById('closeTermsModal');
+        const acceptTermsBtn = document.getElementById('acceptTermsBtn');
+        const cancelTermsBtn = document.getElementById('cancelTermsBtn');
+        const modalAcceptTerms = document.getElementById('modalAcceptTerms');
+        const termsModal = document.getElementById('termsModal');
+
+        if (termsLink) {
+            termsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showTermsModal();
+            });
+        }
+
+        if (closeTermsModal) {
+            closeTermsModal.addEventListener('click', () => {
+                this.hideTermsModal();
+            });
+        }
+
+        if (cancelTermsBtn) {
+            cancelTermsBtn.addEventListener('click', () => {
+                this.hideTermsModal();
+            });
+        }
+
+        if (modalAcceptTerms) {
+            modalAcceptTerms.addEventListener('change', () => {
+                const acceptTermsBtn = document.getElementById('acceptTermsBtn');
+                if (acceptTermsBtn) {
+                    acceptTermsBtn.disabled = !modalAcceptTerms.checked;
+                }
+            });
+        }
+
+        if (acceptTermsBtn) {
+            acceptTermsBtn.addEventListener('click', () => {
+                this.acceptTerms();
+            });
+        }
+
+        // Закрытие модального окна при клике вне его
+        if (termsModal) {
+            termsModal.addEventListener('click', (e) => {
+                if (e.target === termsModal) {
+                    this.hideTermsModal();
+                }
+            });
+        }
+    }
+
+    showTermsModal() {
+        const termsModal = document.getElementById('termsModal');
+        if (termsModal) {
+            termsModal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    hideTermsModal() {
+        const termsModal = document.getElementById('termsModal');
+        if (termsModal) {
+            termsModal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    }
+
+    acceptTerms() {
+        const acceptTermsCheckbox = document.getElementById('acceptTerms');
+        if (acceptTermsCheckbox) {
+            acceptTermsCheckbox.checked = true;
+        }
+        this.hideTermsModal();
+        this.showNotification('Условия приняты', 'success');
+    }
+
+    clearErrors() {
+        // Очищаем все сообщения об ошибках
+        const errorMessages = document.querySelectorAll('.error-message');
+        errorMessages.forEach(error => {
+            error.textContent = '';
+            error.classList.remove('show', 'success');
         });
     }
 
-    clearAutoSave() {
-        // Очистка автосохраненных данных
-        const keys = Object.keys(localStorage).filter(key => key.startsWith('auth_'));
-        keys.forEach(key => localStorage.removeItem(key));
+    checkExistingAuth() {
+        const token = localStorage.getItem('auth_token');
+        const userData = localStorage.getItem('user_data');
+        
+        console.log('🔍 Проверка существующей авторизации:', {
+            token: token ? '✅ найден' : '❌ не найден',
+            user: userData ? '✅ найден' : '❌ не найден'
+        });
+
+        if (token && userData) {
+            try {
+                const user = JSON.parse(userData);
+                console.log('🔐 Пользователь уже аутентифицирован:', user.username);
+                
+                // Перенаправляем на правильную страницу
+                const redirectTo = this.getRedirectPageForRole(user.role);
+                console.log('🎯 Автоматическое перенаправление на:', redirectTo);
+                
+                setTimeout(() => {
+                    window.location.href = redirectTo;
+                }, 500);
+                
+            } catch (error) {
+                console.error('❌ Ошибка проверки аутентификации:', error);
+                this.clearAuth();
+            }
+        }
     }
 
     async handleLogin() {
@@ -219,6 +423,7 @@ class AuthManager {
         const loginBtn = document.getElementById('loginBtn');
 
         if (!username || !password) {
+            console.error('❌ Поля ввода не найдены');
             this.showNotification('Ошибка: поля ввода не найдены', 'error');
             return;
         }
@@ -226,18 +431,26 @@ class AuthManager {
         const usernameValue = username.value.trim();
         const passwordValue = password.value;
 
-        // Валидация
+        console.log('Введенные данные:', { username: usernameValue, password: '***' });
+
         if (!usernameValue || !passwordValue) {
             this.showNotification('Заполните все поля', 'error');
             return;
         }
 
-        if (!this.validateField(username) || !this.validateField(password)) {
-            return;
-        }
-
         try {
             this.setLoading(loginBtn, true);
+
+            // Проверка доступности сервера
+            if (!this.isOnline) {
+                await this.checkServerStatus();
+                if (!this.isOnline) {
+                    this.showNotification('Сервер недоступен. Проверьте подключение и запустите сервер.', 'error');
+                    return;
+                }
+            }
+
+            console.log('🔄 Отправка запроса на вход...');
 
             const response = await fetch(`${this.API_BASE}/login`, {
                 method: 'POST',
@@ -250,9 +463,18 @@ class AuthManager {
                 })
             });
 
-            const data = await response.json();
+            console.log('📊 Статус ответа:', response.status);
 
-            if (response.ok && data.success) {
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Ошибка сервера:', errorText);
+                throw new Error('Ошибка сервера: ' + response.status);
+            }
+
+            const data = await response.json();
+            console.log('📨 Ответ сервера:', data);
+
+            if (data.success) {
                 await this.handleSuccessfulAuth(data);
             } else {
                 this.handleAuthError(data.error || 'Ошибка входа');
@@ -288,6 +510,17 @@ class AuthManager {
         try {
             this.setLoading(registerBtn, true);
 
+            // Проверка доступности сервера
+            if (!this.isOnline) {
+                await this.checkServerStatus();
+                if (!this.isOnline) {
+                    this.showNotification('Сервер недоступен. Проверьте подключение и запустите сервер.', 'error');
+                    return;
+                }
+            }
+
+            console.log('🔄 Отправка запроса на регистрацию...');
+
             const response = await fetch(`${this.API_BASE}/register`, {
                 method: 'POST',
                 headers: {
@@ -300,9 +533,18 @@ class AuthManager {
                 })
             });
 
-            const data = await response.json();
+            console.log('📊 Статус ответа:', response.status);
 
-            if (response.ok && data.success) {
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Ошибка сервера:', errorText);
+                throw new Error('Ошибка сервера: ' + response.status);
+            }
+
+            const data = await response.json();
+            console.log('📨 Ответ сервера:', data);
+
+            if (data.success) {
                 await this.handleSuccessfulRegistration(data);
             } else {
                 this.handleAuthError(data.error || 'Ошибка регистрации');
@@ -352,9 +594,6 @@ class AuthManager {
         localStorage.setItem('auth_token', data.token);
         localStorage.setItem('user_data', JSON.stringify(data.user));
         
-        // Очищаем автосохраненные данные
-        this.clearAutoSave();
-        
         this.showNotification('Вход выполнен успешно!', 'success');
         
         // Задержка для отображения уведомления
@@ -375,7 +614,6 @@ class AuthManager {
         setTimeout(() => {
             this.showForm('login');
             this.clearRegistrationForm();
-            this.clearAutoSave();
         }, 2000);
     }
 
@@ -405,7 +643,7 @@ class AuthManager {
         console.error('🌐 Ошибка сети:', error);
         
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            this.showNotification('Ошибка соединения с сервером. Проверьте подключение к интернету.', 'error');
+            this.showNotification('Ошибка соединения с сервером. Проверьте, запущен ли сервер на порту 3006.', 'error');
         } else {
             this.showNotification('Временные технические неполадки. Попробуйте позже.', 'error');
         }
@@ -439,7 +677,9 @@ class AuthManager {
                 );
 
                 setTimeout(() => {
-                    document.getElementById('forgotTelegram').value = '';
+                    if (document.getElementById('forgotTelegram')) {
+                        document.getElementById('forgotTelegram').value = '';
+                    }
                     this.showForm('login');
                 }, 3000);
             } else {
@@ -454,31 +694,99 @@ class AuthManager {
         }
     }
 
-    setupServiceWorker() {
-        // Регистрация Service Worker для оффлайн работы
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(registration => {
-                    console.log('✅ ServiceWorker зарегистрирован');
-                })
-                .catch(error => {
-                    console.log('❌ Ошибка регистрации ServiceWorker:', error);
-                });
+    getRedirectPageForRole(role) {
+        const routes = {
+            'owner': '/owner.html',
+            'admin': '/admin.html',
+            'coowner': '/coowner.html',
+            'listener': '/listener.html',
+            'user': '/chat.html'
+        };
+        return routes[role] || '/chat.html';
+    }
+
+    setLoading(button, isLoading) {
+        if (!button) {
+            console.error('❌ Кнопка не найдена для установки состояния загрузки');
+            return;
+        }
+        
+        if (isLoading) {
+            button.classList.add('loading');
+            button.disabled = true;
+            console.log('🔄 Установлено состояние загрузки для кнопки:', button.id);
+        } else {
+            button.classList.remove('loading');
+            button.disabled = false;
+            console.log('✅ Снято состояние загрузки для кнопки:', button.id);
         }
     }
 
-    // Остальные методы остаются без изменений...
-    // switchForm(), showForm(), setupPasswordToggles(), setupTermsModal(), 
-    // getRedirectPageForRole(), setLoading(), showNotification() и т.д.
-}
+    showNotification(message, type = 'info') {
+        console.log(`📢 Уведомление [${type}]:`, message);
+        
+        const container = document.getElementById('notificationsContainer');
+        if (!container) {
+            console.warn('⚠️ Контейнер уведомлений не найден');
+            return;
+        }
 
-// Глобальный обработчик ошибок
-window.addEventListener('error', function(e) {
-    console.error('🚨 Глобальная ошибка:', e.error);
-});
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <div class="notification-content">
+                <i class="notification-icon ${this.getNotificationIcon(type)}"></i>
+                <span>${message}</span>
+            </div>
+            <button class="notification-close">&times;</button>
+        `;
+
+        container.appendChild(notification);
+
+        // Закрытие при клике
+        const closeBtn = notification.querySelector('.notification-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                notification.remove();
+            });
+        }
+
+        // Автоматическое скрытие
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            'success': 'fas fa-check-circle',
+            'error': 'fas fa-exclamation-circle',
+            'warning': 'fas fa-exclamation-triangle',
+            'info': 'fas fa-info-circle'
+        };
+        return icons[type] || 'fas fa-info-circle';
+    }
+
+    clearAuth() {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+    }
+}
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 DOM загружен, инициализация AuthManager');
     window.authManager = new AuthManager();
+});
+
+// Глобальный обработчик ошибок
+window.addEventListener('error', function(e) {
+    console.error('🚨 Глобальная ошибка:', e.error);
 });
