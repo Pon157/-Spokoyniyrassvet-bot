@@ -343,7 +343,7 @@ class AuthManager {
             this.setLoading(loginBtn, true);
             console.log('🔄 Отправка запроса на вход...');
 
-            // ВАЖНО: используем ОТНОСИТЕЛЬНЫЙ путь
+            // Используем относительный путь
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: {
@@ -360,7 +360,12 @@ class AuthManager {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('❌ Ошибка сервера:', errorText);
-                throw new Error('Ошибка сервера: ' + response.status);
+                
+                if (response.status === 502) {
+                    throw new Error('Сервер временно недоступен. Попробуйте позже.');
+                } else {
+                    throw new Error('Ошибка сервера: ' + response.status);
+                }
             }
 
             const data = await response.json();
@@ -388,7 +393,7 @@ class AuthManager {
             }
         } catch (error) {
             console.error('❌ Ошибка входа:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
+            this.showNotification(error.message || 'Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoading(loginBtn, false);
         }
@@ -459,7 +464,7 @@ class AuthManager {
             this.setLoading(registerBtn, true);
             console.log('🔄 Отправка запроса на регистрацию...');
 
-            // ВАЖНО: используем ОТНОСИТЕЛЬНЫЙ путь
+            // Используем относительный путь
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
@@ -477,7 +482,12 @@ class AuthManager {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('❌ Ошибка сервера:', errorText);
-                throw new Error('Ошибка сервера: ' + response.status);
+                
+                if (response.status === 502) {
+                    throw new Error('Сервер временно недоступен. Попробуйте позже.');
+                } else {
+                    throw new Error('Ошибка сервера: ' + response.status);
+                }
             }
 
             const data = await response.json();
@@ -505,7 +515,7 @@ class AuthManager {
             }
         } catch (error) {
             console.error('❌ Ошибка регистрации:', error);
-            this.showNotification('Ошибка соединения с сервером', 'error');
+            this.showNotification(error.message || 'Ошибка соединения с сервером', 'error');
         } finally {
             this.setLoading(registerBtn, false);
         }
@@ -525,23 +535,51 @@ class AuthManager {
         try {
             this.setLoading(forgotBtn, true);
 
-            // Временная реализация - имитация запроса
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Используем относительный путь
+            const response = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    telegram_username: telegram
+                })
+            });
 
-            this.showNotification(
-                'Запрос отправлен! Ожидайте сообщение в Telegram в течение дня.',
-                'success'
-            );
+            console.log('📊 Статус ответа:', response.status);
 
-            // Очищаем поле и возвращаем к форме входа
-            setTimeout(() => {
-                document.getElementById('forgotTelegram').value = '';
-                this.showForm('login');
-            }, 3000);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Ошибка сервера:', errorText);
+                
+                if (response.status === 502) {
+                    throw new Error('Сервер временно недоступен. Попробуйте позже.');
+                } else {
+                    throw new Error('Ошибка сервера: ' + response.status);
+                }
+            }
+
+            const data = await response.json();
+            console.log('📨 Ответ сервера:', data);
+
+            if (data.success) {
+                this.showNotification(
+                    'Запрос отправлен! Ожидайте сообщение в Telegram в течение дня.',
+                    'success'
+                );
+
+                // Очищаем поле и возвращаем к форме входа
+                setTimeout(() => {
+                    document.getElementById('forgotTelegram').value = '';
+                    this.showForm('login');
+                }, 3000);
+            } else {
+                this.showNotification(data.error || 'Ошибка при отправке запроса', 'error');
+            }
 
         } catch (error) {
             console.error('❌ Ошибка восстановления пароля:', error);
-            this.showNotification('Ошибка при отправке запроса', 'error');
+            this.showNotification(error.message || 'Ошибка при отправке запроса', 'error');
         } finally {
             this.setLoading(forgotBtn, false);
         }
