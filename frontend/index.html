@@ -3,278 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Спокойный рассвет - Вход</title>
-    <link rel="stylesheet" href="/frontend/css/common.css">
-    <link rel="stylesheet" href="/frontend/css/auth.css">
+    <title>Спокойный Рассвет - Аутентификация</title>
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <style>
-        /* Стили для уведомлений */
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: white;
-            padding: 16px 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            max-width: 400px;
-            z-index: 10000;
-            animation: slideInRight 0.3s ease;
-            border-left: 4px solid #ff7e5f;
-        }
-        .notification.success {
-            border-left-color: #10b981;
-        }
-        .notification.error {
-            border-left-color: #ef4444;
-        }
-        .notification.warning {
-            border-left-color: #f59e0b;
-        }
-        .notification-content {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex: 1;
-        }
-        .notification-close {
-            background: none;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            color: #6b7280;
-            padding: 4px;
-        }
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-    </style>
 </head>
 <body>
-    <div class="auth-background">
-        <div class="floating-shapes">
-            <div class="shape shape-1"></div>
-            <div class="shape shape-2"></div>
-            <div class="shape shape-3"></div>
-            <div class="shape shape-4"></div>
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="logo">
+                <i class="fas fa-sun"></i>
+                <h1>Спокойный Рассвет</h1>
+            </div>
+            <p class="tagline">Сообщество поддержки и понимания</p>
         </div>
-        
-        <div class="auth-container">
-            <div class="auth-card">
-                <!-- Логотип и заголовок -->
-                <div class="auth-header">
-                    <div class="logo">
-                        <div class="logo-icon">
-                            <i class="fas fa-sun"></i>
-                        </div>
-                        <span class="logo-text">Спокойный рассвет</span>
+
+        <div class="auth-content">
+            <!-- Форма входа -->
+            <form id="loginForm" class="auth-form active">
+                <h2>Вход в аккаунт</h2>
+                
+                <div class="form-group">
+                    <label for="loginUsername">Имя пользователя</label>
+                    <input type="text" id="loginUsername" placeholder="Введите ваше имя" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">Пароль</label>
+                    <div class="password-input">
+                        <input type="password" id="loginPassword" placeholder="Введите пароль" required>
+                        <button type="button" id="toggleLoginPassword" class="password-toggle">
+                            <i class="fas fa-eye"></i>
+                        </button>
                     </div>
-                    <h1>Добро пожаловать</h1>
-                    <p>Войдите в свою учетную запись чтобы продолжить</p>
                 </div>
 
-                <!-- Формы -->
-                <div class="auth-forms">
-                    <!-- Форма входа -->
-                    <form id="loginForm" class="auth-form active">
-                        <div class="form-group animated-input">
-                            <input type="text" id="loginUsername" required>
-                            <label for="loginUsername">
-                                <i class="fas fa-user"></i>
-                                Имя пользователя или Telegram
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="password" id="loginPassword" required>
-                            <label for="loginPassword">
-                                <i class="fas fa-lock"></i>
-                                Пароль
-                            </label>
-                            <div class="input-line"></div>
-                            <button type="button" class="toggle-password" id="toggleLoginPassword">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-
-                        <div class="form-options">
-                            <label class="checkbox">
-                                <input type="checkbox" id="rememberMe">
-                                <span class="checkmark"></span>
-                                Запомнить меня
-                            </label>
-                            <a href="#" class="forgot-password" id="forgotPasswordLink">Забыли пароль?</a>
-                        </div>
-
-                        <button type="submit" class="btn-primary auth-submit" id="loginBtn">
-                            <span class="btn-text">Войти</span>
-                            <div class="btn-loader">
-                                <div class="loader"></div>
-                            </div>
-                        </button>
-                    </form>
-
-                    <!-- Форма регистрации -->
-                    <form id="registerForm" class="auth-form">
-                        <div class="form-group animated-input">
-                            <input type="text" id="registerUsername" required>
-                            <label for="registerUsername">
-                                <i class="fas fa-user"></i>
-                                Имя пользователя
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="text" id="registerTelegram" required placeholder="@username">
-                            <label for="registerTelegram">
-                                <i class="fab fa-telegram"></i>
-                                Telegram username
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="password" id="registerPassword" required>
-                            <label for="registerPassword">
-                                <i class="fas fa-lock"></i>
-                                Пароль
-                            </label>
-                            <div class="input-line"></div>
-                            <button type="button" class="toggle-password" id="toggleRegisterPassword">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-
-                        <div class="form-group animated-input">
-                            <input type="password" id="confirmPassword" required>
-                            <label for="confirmPassword">
-                                <i class="fas fa-lock"></i>
-                                Подтвердите пароль
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-options">
-                            <label class="checkbox">
-                                <input type="checkbox" id="acceptTerms" required>
-                                <span class="checkmark"></span>
-                                Я принимаю <a href="#" id="termsLink">условия использования</a>
-                            </label>
-                        </div>
-
-                        <button type="submit" class="btn-primary auth-submit" id="registerBtn">
-                            <span class="btn-text">Зарегистрироваться</span>
-                            <div class="btn-loader">
-                                <div class="loader"></div>
-                            </div>
-                        </button>
-                    </form>
-
-                    <!-- Форма восстановления пароля -->
-                    <form id="forgotPasswordForm" class="auth-form">
-                        <div class="form-group animated-input">
-                            <input type="text" id="forgotTelegram" required placeholder="@username">
-                            <label for="forgotTelegram">
-                                <i class="fab fa-telegram"></i>
-                                Ваш Telegram username
-                            </label>
-                            <div class="input-line"></div>
-                        </div>
-
-                        <div class="form-options">
-                            <div class="telegram-info">
-                                <i class="fab fa-telegram telegram-icon"></i>
-                                <p>Ожидайте, в течение дня вам напишут в личные сообщения Telegram с вашим паролем</p>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn-primary auth-submit" id="forgotBtn">
-                            <span class="btn-text">Восстановить пароль</span>
-                            <div class="btn-loader">
-                                <div class="loader"></div>
-                            </div>
-                        </button>
-
-                        <div class="auth-switch" style="margin-top: 20px; border: none; padding-top: 0;">
-                            <button type="button" class="switch-btn" id="backToLogin">
-                                ← Назад к входу
-                            </button>
-                        </div>
-                    </form>
+                <div class="form-options">
+                    <a href="#" id="forgotPasswordLink" class="forgot-password">Забыли пароль?</a>
                 </div>
 
-                <!-- Переключение между формами -->
+                <button type="submit" id="loginBtn" class="auth-btn primary">
+                    <span class="btn-text">Войти</span>
+                    <div class="btn-loader" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                </button>
+
                 <div class="auth-switch">
                     <span id="switchText">Нет аккаунта?</span>
-                    <button id="switchBtn" class="switch-btn">Создать аккаунт</button>
+                    <button type="button" id="switchBtn" class="switch-btn">Создать аккаунт</button>
                 </div>
-            </div>
-        </div>
-    </div>
+            </form>
 
-    <!-- Модальное окно условий использования -->
-    <div id="termsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Условия использования</h2>
-                <button class="modal-close" id="closeTermsModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <h3>1. Общие положения</h3>
-                <p>Настоящие Условия использования регулируют отношения между вами и "Спокойный рассвет"...</p>
+            <!-- Форма регистрации -->
+            <form id="registerForm" class="auth-form">
+                <h2>Создание аккаунта</h2>
                 
-                <h3>2. Регистрация аккаунта</h3>
-                <p>Для использования сервиса необходимо зарегистрировать аккаунт, предоставив имя пользователя и Telegram username...</p>
-                
-                <h3>3. Роли пользователей</h3>
-                <p>Система предусматривает следующие роли пользователей:</p>
-                <ul>
-                    <li><strong>Пользователь</strong> - базовая роль при регистрации</li>
-                    <li><strong>Слушатель</strong> - пользователь с расширенными правами</li>
-                    <li><strong>Совладелец</strong> - пользователь с правами управления</li>
-                    <li><strong>Администратор</strong> - полные права управления системой</li>
-                    <li><strong>Владелец</strong> - высший уровень доступа</li>
-                </ul>
-                
-                <h3>4. Восстановление пароля</h3>
-                <p>В случае утери пароля вы можете восстановить его через Telegram. Для этого укажите ваш Telegram username в форме восстановления.</p>
-                <p>Администратор свяжется с вами в течение 24 часов в личные сообщения Telegram для восстановления доступа.</p>
-                
-                <h3>5. Конфиденциальность</h3>
-                <p>Мы обязуемся защищать ваши персональные данные...</p>
-                
-                <div class="terms-accept">
-                    <label class="checkbox">
-                        <input type="checkbox" id="modalAcceptTerms">
-                        <span class="checkmark"></span>
-                        Я прочитал и принимаю условия использования
+                <div class="form-group">
+                    <label for="registerUsername">Имя пользователя</label>
+                    <input type="text" id="registerUsername" placeholder="Придумайте имя (мин. 2 символа)" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerTelegram">Telegram</label>
+                    <input type="text" id="registerTelegram" placeholder="@username" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="registerPassword">Пароль</label>
+                    <div class="password-input">
+                        <input type="password" id="registerPassword" placeholder="Придумайте пароль (мин. 6 символов)" required>
+                        <button type="button" id="toggleRegisterPassword" class="password-toggle">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Подтверждение пароля</label>
+                    <input type="password" id="confirmPassword" placeholder="Повторите пароль" required>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="acceptTerms" required>
+                    <label for="acceptTerms">
+                        Я принимаю <a href="#" id="termsLink">условия использования</a>
                     </label>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-primary" id="acceptTermsBtn" disabled>Принять условия</button>
-                <button class="btn-secondary" id="cancelTermsBtn">Отклонить</button>
+
+                <button type="submit" id="registerBtn" class="auth-btn primary">
+                    <span class="btn-text">Создать аккаунт</span>
+                    <div class="btn-loader" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                </button>
+
+                <div class="auth-switch">
+                    <span id="switchText">Уже есть аккаунт?</span>
+                    <button type="button" id="switchBtn" class="switch-btn">Войти</button>
+                </div>
+            </form>
+
+            <!-- Форма восстановления пароля -->
+            <form id="forgotPasswordForm" class="auth-form">
+                <h2>Восстановление пароля</h2>
+                
+                <div class="form-group">
+                    <label for="forgotTelegram">Telegram username</label>
+                    <input type="text" id="forgotTelegram" placeholder="@username" required>
+                    <small class="form-hint">Введите ваш Telegram username, с которым вы регистрировались</small>
+                </div>
+
+                <button type="submit" id="forgotBtn" class="auth-btn primary">
+                    <span class="btn-text">Восстановить пароль</span>
+                    <div class="btn-loader" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                </button>
+
+                <div class="auth-switch">
+                    <button type="button" id="backToLogin" class="switch-btn">Назад к входу</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Контейнер для уведомлений -->
+        <div id="notificationsContainer" class="notifications-container"></div>
+
+        <!-- Модальное окно условий использования -->
+        <div id="termsModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Условия использования</h3>
+                    <button id="closeTermsModal" class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="terms-content">
+                        <h4>1. Общие положения</h4>
+                        <p>Сообщество "Спокойный Рассвет" создано для взаимопомощи и поддержки. Мы стремимся создать безопасное пространство для всех участников.</p>
+                        
+                        <h4>2. Правила поведения</h4>
+                        <ul>
+                            <li>Уважайте других участников</li>
+                            <li>Не разглашайте личную информацию</li>
+                            <li>Избегайте оскорбительных высказываний</li>
+                            <li>Соблюдайте конфиденциальность</li>
+                        </ul>
+                        
+                        <h4>3. Конфиденциальность</h4>
+                        <p>Мы защищаем ваши персональные данные и не передаем их третьим лицам.</p>
+                        
+                        <h4>4. Ответственность</h4>
+                        <p>Администрация оставляет за собой право блокировать пользователей, нарушающих правила сообщества.</p>
+                    </div>
+                    
+                    <div class="terms-acceptance">
+                        <input type="checkbox" id="modalAcceptTerms">
+                        <label for="modalAcceptTerms">Я принимаю условия использования</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="cancelTermsBtn" class="btn secondary">Отмена</button>
+                    <button id="acceptTermsBtn" class="btn primary" disabled>Принять</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Уведомления -->
-    <div id="notificationsContainer"></div>
-
-    <!-- ТОЛЬКО ПОДКЛЮЧЕНИЕ ВНЕШНЕГО ФАЙЛА -->
-    <script src="/frontend/js/auth.js"></script>
+    <!-- Подключаем auth.js только один раз -->
+    <script src="auth.js"></script>
 </body>
 </html>
