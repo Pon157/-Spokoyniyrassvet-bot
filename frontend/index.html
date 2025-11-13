@@ -4,10 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Спокойный рассвет - Вход</title>
-    <link rel="stylesheet" href="/frontend/css/common.css">
-    <link rel="stylesheet" href="/frontend/css/auth.css">
+    <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Стили для уведомлений */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            max-width: 400px;
+            z-index: 10000;
+            animation: slideInRight 0.3s ease;
+            border-left: 4px solid #ff7e5f;
+        }
+        .notification.success {
+            border-left-color: #10b981;
+        }
+        .notification.error {
+            border-left-color: #ef4444;
+        }
+        .notification.warning {
+            border-left-color: #f59e0b;
+        }
+        .notification-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    </style>
 </head>
 <body>
     <div class="auth-background">
@@ -66,7 +117,7 @@
                             <a href="#" class="forgot-password" id="forgotPasswordLink">Забыли пароль?</a>
                         </div>
 
-                        <button type="submit" class="btn btn-primary auth-submit" id="loginBtn">
+                        <button type="submit" class="btn-primary auth-submit" id="loginBtn">
                             <span class="btn-text">Войти</span>
                             <div class="btn-loader">
                                 <div class="loader"></div>
@@ -86,7 +137,7 @@
                         </div>
 
                         <div class="form-group animated-input">
-                            <input type="text" id="registerTelegram" required>
+                            <input type="text" id="registerTelegram" required placeholder="@username">
                             <label for="registerTelegram">
                                 <i class="fab fa-telegram"></i>
                                 Telegram username
@@ -123,7 +174,7 @@
                             </label>
                         </div>
 
-                        <button type="submit" class="btn btn-primary auth-submit" id="registerBtn">
+                        <button type="submit" class="btn-primary auth-submit" id="registerBtn">
                             <span class="btn-text">Зарегистрироваться</span>
                             <div class="btn-loader">
                                 <div class="loader"></div>
@@ -134,7 +185,7 @@
                     <!-- Форма восстановления пароля -->
                     <form id="forgotPasswordForm" class="auth-form">
                         <div class="form-group animated-input">
-                            <input type="text" id="forgotTelegram" required>
+                            <input type="text" id="forgotTelegram" required placeholder="@username">
                             <label for="forgotTelegram">
                                 <i class="fab fa-telegram"></i>
                                 Ваш Telegram username
@@ -149,14 +200,14 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary auth-submit" id="forgotBtn">
+                        <button type="submit" class="btn-primary auth-submit" id="forgotBtn">
                             <span class="btn-text">Восстановить пароль</span>
                             <div class="btn-loader">
                                 <div class="loader"></div>
                             </div>
                         </button>
 
-                        <div class="auth-switch">
+                        <div class="auth-switch" style="margin-top: 20px; border: none; padding-top: 0;">
                             <button type="button" class="switch-btn" id="backToLogin">
                                 ← Назад к входу
                             </button>
@@ -213,8 +264,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" id="acceptTermsBtn" disabled>Принять условия</button>
-                <button class="btn btn-secondary" id="cancelTermsBtn">Отклонить</button>
+                <button class="btn-primary" id="acceptTermsBtn" disabled>Принять условия</button>
+                <button class="btn-secondary" id="cancelTermsBtn">Отклонить</button>
             </div>
         </div>
     </div>
@@ -222,6 +273,7 @@
     <!-- Уведомления -->
     <div id="notificationsContainer"></div>
 
-    <script src="/frontend/js/auth.js"></script>
+    <!-- ПОДКЛЮЧЕНИЕ JavaScript -->
+    <script src="js/auth.js"></script>
 </body>
 </html>
