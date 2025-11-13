@@ -1,4 +1,4 @@
-/* listener.css - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ */
+/* listener.css - ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ БЕЗ ЗАГРУЗКИ */
 :root {
     --primary-color: #6366f1;
     --primary-light: #818cf8;
@@ -40,47 +40,14 @@ body {
     overflow-x: hidden;
 }
 
-/* Предотвращение FOUC */
-.listener-app {
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.listener-app.loaded {
-    opacity: 1;
-}
-
-body:not(.loaded) .listener-app {
-    display: none;
-}
-
-body:not(.loaded)::before {
-    content: '';
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 40px;
-    height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #6366f1;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    z-index: 9999;
-}
-
-@keyframes spin {
-    0% { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
-/* Main App Structure */
+/* Main App Structure - ЗАГРУЗКА УДАЛЕНА */
 .listener-app {
     display: grid;
     grid-template-columns: 280px 1fr;
     min-height: 100vh;
     background: var(--bg-secondary);
     width: 100%;
+    opacity: 1;
 }
 
 /* Sidebar */
@@ -1519,5 +1486,3 @@ body:not(.loaded)::before {
         margin: 0;
     }
 }
-
-
