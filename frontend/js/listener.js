@@ -1,4 +1,4 @@
-// /var/www/html/js/listener.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// frontend/js/listener.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 class ListenerApp {
     constructor() {
         this.socket = null;
