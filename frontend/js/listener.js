@@ -1,4 +1,4 @@
-// /var/www/html/js/listener.js - ПОЛНАЯ ВЕРСИЯ
+// /var/www/html/js/listener.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 class ListenerApp {
     constructor() {
         this.socket = null;
@@ -245,6 +245,7 @@ class ListenerApp {
         console.log('🔌 Настройка Socket.io подключения...');
         
         try {
+            // Подключаем Socket.io клиент
             this.socket = io();
             
             this.socket.on('connect', () => {
@@ -277,15 +278,6 @@ class ListenerApp {
                 this.loadChats();
             });
 
-            // Пользователь печатает
-            this.socket.on('user_typing', (data) => {
-                this.showTypingIndicator(data.userId);
-            });
-
-            this.socket.on('user_stop_typing', (data) => {
-                this.hideTypingIndicator(data.userId);
-            });
-
             this.socket.on('disconnect', () => {
                 console.log('❌ Socket.io отключен');
             });
@@ -316,11 +308,13 @@ class ListenerApp {
                 this.updateDashboardStats(data);
             } else {
                 console.error('❌ Ошибка загрузки дашборда:', response.status);
+                // Используем данные по умолчанию
                 this.updateDashboardStats({
                     activeChats: 0,
                     averageRating: 0,
                     averageSessionTime: 0,
-                    totalSessions: 0
+                    totalSessions: 0,
+                    completedChats: 0
                 });
             }
             
@@ -330,7 +324,8 @@ class ListenerApp {
                 activeChats: 0,
                 averageRating: 0,
                 averageSessionTime: 0,
-                totalSessions: 0
+                totalSessions: 0,
+                completedChats: 0
             });
         }
     }
@@ -409,7 +404,7 @@ class ListenerApp {
                 <div class="chat-avatar">
                     ${chat.user_avatar ? 
                         `<img src="${chat.user_avatar}" alt="${chat.user_name}" onerror="this.src='/images/default-avatar.svg'">` : 
-                        `<div class="avatar-placeholder">${(chat.user_name?.charAt(0) || 'U')}</div>`
+                        `<div class="avatar-placeholder">${(chat.user_name?.charAt(0) || 'U').toUpperCase()}</div>`
                     }
                 </div>
                 <div class="chat-info">
@@ -624,7 +619,7 @@ class ListenerApp {
             <div class="review-item">
                 <div class="review-header">
                     <div>
-                        <div class="review-user">${this.escapeHtml(review.user_name || 'Аноним')}</div>
+                        <div class="review-user">${this.escapeHtml(review.user?.username || 'Аноним')}</div>
                         <div class="review-date">${this.formatDate(review.created_at)}</div>
                     </div>
                     <div class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</div>
@@ -753,7 +748,8 @@ class ListenerApp {
         } catch (error) {
             console.error('❌ Ошибка изменения статуса:', error);
             this.isOnline = !online;
-            document.getElementById('onlineToggle').checked = !online;
+            const onlineToggle = document.getElementById('onlineToggle');
+            if (onlineToggle) onlineToggle.checked = !online;
             this.showNotification('Ошибка изменения статуса', 'error');
         }
     }
@@ -805,7 +801,16 @@ class ListenerApp {
     openChat(chatId) {
         console.log('💬 Открытие чата:', chatId);
         this.activeChatId = chatId;
+        
+        // Присоединяемся к комнате чата
+        if (this.socket) {
+            this.socket.emit('join_chat', { chatId: chatId });
+        }
+        
         this.showNotification(`Чат #${chatId} открыт`, 'success');
+        
+        // В реальном приложении здесь должна быть загрузка истории сообщений чата
+        // this.loadChatMessages(chatId);
     }
 
     updateChatsBadge(count) {
@@ -831,19 +836,10 @@ class ListenerApp {
         }
     }
 
-    showTypingIndicator(userId) {
-        // Реализация индикатора набора текста
-        console.log(`✍️ Пользователь ${userId} печатает...`);
-    }
-
-    hideTypingIndicator(userId) {
-        // Скрытие индикатора набора текста
-        console.log(`✅ Пользователь ${userId} закончил печатать`);
-    }
-
     addMessageToChat(messageData) {
         // Добавление сообщения в личный чат
         console.log('➕ Добавление сообщения в личный чат:', messageData);
+        // В реальном приложении здесь должна быть логика отображения сообщения в активном чате
     }
 
     escapeHtml(text) {
@@ -891,13 +887,35 @@ class ListenerApp {
     showNotification(message, type = 'info') {
         console.log(`📢 Уведомление [${type}]:`, message);
         
-        const container = document.getElementById('notificationsContainer');
-        if (!container) return;
+        // Создаем уведомление если нет контейнера
+        let container = document.getElementById('notificationsContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notificationsContainer';
+            container.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                max-width: 300px;
+            `;
+            document.body.appendChild(container);
+        }
 
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
+        notification.style.cssText = `
+            background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : type === 'warning' ? '#fff3cd' : '#d1ecf1'};
+            color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : type === 'warning' ? '#856404' : '#0c5460'};
+            border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'error' ? '#f5c6cb' : type === 'warning' ? '#ffeaa7' : '#bee5eb'};
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        `;
+        
         notification.innerHTML = `
-            <div class="notification-content">
+            <div class="notification-content" style="display: flex; align-items: center; gap: 8px;">
                 <i class="fas fa-${this.getNotificationIcon(type)}"></i>
                 <span>${message}</span>
             </div>
@@ -924,6 +942,19 @@ class ListenerApp {
 
     logout() {
         console.log('🚪 Выход из системы...');
+        
+        // Обновляем статус на оффлайн
+        if (this.currentUser) {
+            fetch('/api/listener/status', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ online: false })
+            }).catch(error => console.error('Ошибка обновления статуса:', error));
+        }
+        
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
         this.showNotification('Выход выполнен', 'info');
