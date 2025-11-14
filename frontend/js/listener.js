@@ -1,4 +1,4 @@
-// frontend/js/listener.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// /js/listener.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
 class ListenerApp {
     constructor() {
         this.socket = null;
@@ -7,7 +7,6 @@ class ListenerApp {
         this.currentTab = 'dashboard';
         this.activeChatId = null;
         this.isInitialized = false;
-        this.listenersChatMessages = [];
         
         console.log('🎧 Инициализация приложения слушателя');
         this.init();
@@ -92,11 +91,9 @@ class ListenerApp {
         }
         
         if (userAvatarElement && this.currentUser) {
-            userAvatarElement.src = this.currentUser.avatar_url || '/images/default-avatar.svg';
+            // Используем встроенный SVG аватар
+            userAvatarElement.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjQwIiByPSIyMCIgZmlsbD0iIzRhNTU2OCIvPgogIDxjaXJjbGUgY3g9IjUwIiBjeT0iMTAwIiByPSI0MCIgZmlsbD0iIzRhNTU2OCIvPgo8L3N2Zz4K";
             userAvatarElement.alt = this.currentUser.username || 'Аватар';
-            userAvatarElement.onerror = function() {
-                this.src = '/images/default-avatar.svg';
-            };
         }
 
         if (userRatingElement) {
@@ -245,7 +242,13 @@ class ListenerApp {
         console.log('🔌 Настройка Socket.io подключения...');
         
         try {
-            // Подключаем Socket.io клиент
+            // Проверяем, доступен ли io
+            if (typeof io === 'undefined') {
+                console.error('❌ Socket.io не загружен');
+                this.showNotification('Socket.io не подключен', 'error');
+                return;
+            }
+            
             this.socket = io();
             
             this.socket.on('connect', () => {
@@ -260,6 +263,8 @@ class ListenerApp {
                 
                 // Присоединяемся к комнате слушателей
                 this.socket.emit('join_listeners_room');
+                
+                this.showNotification('Подключение установлено', 'success');
             });
 
             // Новое сообщение в общем чате слушателей
@@ -280,14 +285,17 @@ class ListenerApp {
 
             this.socket.on('disconnect', () => {
                 console.log('❌ Socket.io отключен');
+                this.showNotification('Соединение разорвано', 'warning');
             });
 
             this.socket.on('connect_error', (error) => {
                 console.error('❌ Ошибка подключения Socket.io:', error);
+                this.showNotification('Ошибка подключения', 'error');
             });
 
         } catch (error) {
             console.error('❌ Ошибка настройки Socket.io:', error);
+            this.showNotification('Ошибка настройки соединения', 'error');
         }
     }
 
@@ -313,8 +321,7 @@ class ListenerApp {
                     activeChats: 0,
                     averageRating: 0,
                     averageSessionTime: 0,
-                    totalSessions: 0,
-                    completedChats: 0
+                    totalSessions: 0
                 });
             }
             
@@ -324,8 +331,7 @@ class ListenerApp {
                 activeChats: 0,
                 averageRating: 0,
                 averageSessionTime: 0,
-                totalSessions: 0,
-                completedChats: 0
+                totalSessions: 0
             });
         }
     }
@@ -402,10 +408,7 @@ class ListenerApp {
         chatsList.innerHTML = chats.map(chat => `
             <div class="chat-item ${chat.unread_count > 0 ? 'unread' : ''}" data-chat-id="${chat.id}">
                 <div class="chat-avatar">
-                    ${chat.user_avatar ? 
-                        `<img src="${chat.user_avatar}" alt="${chat.user_name}" onerror="this.src='/images/default-avatar.svg'">` : 
-                        `<div class="avatar-placeholder">${(chat.user_name?.charAt(0) || 'U').toUpperCase()}</div>`
-                    }
+                    <div class="avatar-placeholder">${(chat.user_name?.charAt(0) || 'U').toUpperCase()}</div>
                 </div>
                 <div class="chat-info">
                     <div class="chat-user">
@@ -748,8 +751,7 @@ class ListenerApp {
         } catch (error) {
             console.error('❌ Ошибка изменения статуса:', error);
             this.isOnline = !online;
-            const onlineToggle = document.getElementById('onlineToggle');
-            if (onlineToggle) onlineToggle.checked = !online;
+            document.getElementById('onlineToggle').checked = !online;
             this.showNotification('Ошибка изменения статуса', 'error');
         }
     }
@@ -887,35 +889,13 @@ class ListenerApp {
     showNotification(message, type = 'info') {
         console.log(`📢 Уведомление [${type}]:`, message);
         
-        // Создаем уведомление если нет контейнера
-        let container = document.getElementById('notificationsContainer');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'notificationsContainer';
-            container.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 10000;
-                max-width: 300px;
-            `;
-            document.body.appendChild(container);
-        }
+        const container = document.getElementById('notificationsContainer');
+        if (!container) return;
 
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
-        notification.style.cssText = `
-            background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : type === 'warning' ? '#fff3cd' : '#d1ecf1'};
-            color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : type === 'warning' ? '#856404' : '#0c5460'};
-            border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'error' ? '#f5c6cb' : type === 'warning' ? '#ffeaa7' : '#bee5eb'};
-            padding: 12px 16px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        `;
-        
         notification.innerHTML = `
-            <div class="notification-content" style="display: flex; align-items: center; gap: 8px;">
+            <div class="notification-content">
                 <i class="fas fa-${this.getNotificationIcon(type)}"></i>
                 <span>${message}</span>
             </div>
